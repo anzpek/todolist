@@ -1,0 +1,216 @@
+import { CheckCircle2 } from 'lucide-react'
+import { useState } from 'react'
+import { useTodos } from '../contexts/TodoContext'
+// import { useRecurring } from '../contexts/RecurringContext' // Removed for simplified system
+import type { ViewType } from '../App'
+import TodoItem from './TodoItem'
+import type { Todo, Priority, TaskType } from '../types/todo'
+// import { convertRecurringInstancesToTodos } from '../utils/recurringHelpers' // Removed for simplified system
+
+interface TodoListProps {
+  currentView: ViewType
+  searchTerm?: string
+  priorityFilter?: Priority | 'all'
+  typeFilter?: TaskType | 'all'
+  projectFilter?: 'all' | 'longterm' | 'shortterm'
+  tagFilter?: string[]
+  completionDateFilter?: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
+  selectedDate?: Date // 오늘 할일 뷰에서 선택된 날짜
+}
+
+const TodoList = ({ 
+  currentView, 
+  searchTerm = '', 
+  priorityFilter = 'all', 
+  typeFilter = 'all', 
+  projectFilter = 'all',
+  tagFilter = [],
+  completionDateFilter = 'all',
+  selectedDate
+}: TodoListProps) => {
+  const { todos, getTodayTodos, getWeekTodos, getMonthTodos, reorderTodos } = useTodos()
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  // const { instances, templates, getInstancesForDate } = useRecurring() // Removed for simplified system
+
+  // 간소화된 시스템에서는 사용하지 않는 함수들 (주석 처리)
+
+  const getCurrentTodos = (): Todo[] => {
+    // 간소화된 시스템에서는 TodoContext에서 반복 할일을 포함한 결과를 반환
+    switch (currentView) {
+      case 'today':
+        return getTodayTodos(selectedDate)
+      case 'week': 
+        return getWeekTodos()
+      case 'month':
+        return getMonthTodos()
+      default:
+        return todos
+    }
+  }
+
+  const applyFilters = (todoList: Todo[]): Todo[] => {
+    // React key 중복 방지를 위한 강화된 중복 제거
+    const seenIds = new Set<string>()
+    const uniqueTodos = todoList.filter(todo => {
+      if (seenIds.has(todo.id)) {
+        console.warn(`⚠️ 중복 키 발견 및 제거: ${todo.id}`)
+        return false
+      }
+      seenIds.add(todo.id)
+      return true
+    })
+    
+    if (uniqueTodos.length !== todoList.length) {
+      console.warn(`⚠️ 중복 할일 제거 완료: ${todoList.length} → ${uniqueTodos.length}`)
+      const duplicateIds = todoList
+        .map(t => t.id)
+        .filter((id, index, array) => array.indexOf(id) !== index)
+      console.warn('중복된 ID들:', [...new Set(duplicateIds)])
+    }
+    
+    return uniqueTodos.filter(todo => {
+      // 검색어 필터
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const matchesTitle = todo.title.toLowerCase().includes(searchLower)
+        const matchesDescription = todo.description?.toLowerCase().includes(searchLower) || false
+        if (!matchesTitle && !matchesDescription) return false
+      }
+
+      // 우선순위 필터
+      if (priorityFilter !== 'all' && todo.priority !== priorityFilter) {
+        return false
+      }
+
+      // 타입 필터
+      if (typeFilter !== 'all' && todo.type !== typeFilter) {
+        return false
+      }
+
+      // 프로젝트 필터 (프로젝트 타입일 때만)
+      if (projectFilter !== 'all' && todo.type === 'project' && todo.project !== projectFilter) {
+        return false
+      }
+
+      return true
+    })
+  }
+
+  const filteredTodos = applyFilters(getCurrentTodos())
+  const incompleteTodos = filteredTodos.filter(todo => !todo.completed)
+  const completedTodos = filteredTodos.filter(todo => todo.completed)
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex === null) return
+    
+    // 오늘 뷰에서만 드래그 앤 드롭 허용
+    if (currentView === 'today') {
+      reorderTodos(draggedIndex, dropIndex, sortedIncompleteTodos)
+    }
+    
+    setDraggedIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+  }
+
+  // 우선순위별로 정렬 (긴급 > 높음 > 보통 > 낮음)
+  const sortByPriority = (todos: Todo[]): Todo[] => {
+    const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
+    return todos.sort((a, b) => {
+      // 오늘 뷰에서는 order 값으로 정렬 (드래그 앤 드롭 순서 유지)
+      if (currentView === 'today') {
+        const orderA = a.order ?? 999
+        const orderB = b.order ?? 999
+        if (orderA !== orderB) return orderA - orderB
+      }
+      
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
+      if (priorityDiff !== 0) return priorityDiff
+      
+      // 우선순위가 같으면 마감일 순으로 정렬
+      if (a.dueDate && b.dueDate) {
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      }
+      if (a.dueDate) return -1
+      if (b.dueDate) return 1
+      
+      // 마감일이 없으면 생성일 순으로 정렬
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    })
+  }
+
+  const sortedIncompleteTodos = sortByPriority(incompleteTodos)
+  const sortedCompletedTodos = completedTodos.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  )
+
+  if (filteredTodos.length === 0) {
+    return (
+      <div className="card p-8 text-center text-gray-500 dark:text-gray-400">
+        <p className="text-lg mb-2">할일이 없습니다</p>
+        <p>새로운 할일을 추가해보세요!</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {sortedIncompleteTodos.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            진행 중인 할일 ({sortedIncompleteTodos.length})
+          </h3>
+          <div className="space-y-2">
+            {sortedIncompleteTodos.map((todo, index) => (
+              <div
+                key={todo.id}
+                draggable={currentView === 'today'}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`
+                  ${currentView === 'today' ? 'cursor-move' : ''}
+                  ${draggedIndex === index ? 'opacity-50' : ''}
+                  transition-opacity duration-200
+                `}
+              >
+                <TodoItem todo={todo} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sortedCompletedTodos.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-4 flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5" />
+            완료된 할일 ({sortedCompletedTodos.length})
+          </h3>
+          <div className="space-y-2">
+            {sortedCompletedTodos.map(todo => (
+              <TodoItem key={todo.id} todo={todo} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default TodoList

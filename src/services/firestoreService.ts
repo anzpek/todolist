@@ -1,0 +1,479 @@
+// Firebase Firestore 서비스
+
+// 안전한 날짜 변환 함수 (공통)
+const safeToDate = (value: any): Date | undefined => {
+  if (!value) return undefined
+  if (value instanceof Date) return value
+  if (typeof value?.toDate === 'function') return value.toDate()
+  if (typeof value === 'string') return new Date(value)
+  return undefined
+}
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  getDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  writeBatch,
+  arrayUnion
+} from 'firebase/firestore'
+import { db } from '../config/firebase'
+import type { Todo, SubTask } from '../types/todo'
+
+console.log('FirestoreService: 실제 Firestore 서비스 활성화')
+
+// 실제 Firestore 서비스
+export const firestoreService = {
+  // 할일 관련
+  getTodos: async (uid: string): Promise<Todo[]> => {
+    try {
+      // 실제 Firestore 구조에 맞게 경로 수정: users/{uid}/todos
+      const todosRef = collection(db, `users/${uid}/todos`)
+      const q = query(todosRef, orderBy('createdAt', 'desc'))
+      const snapshot = await getDocs(q)
+      
+      return snapshot.docs.map(doc => {
+        const data = doc.data()
+        
+        
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: safeToDate(data.createdAt) || new Date(),
+          updatedAt: safeToDate(data.updatedAt) || new Date(),
+          dueDate: safeToDate(data.dueDate),
+          startDate: safeToDate(data.startDate),
+          completedAt: safeToDate(data.completedAt)
+        }
+      }) as Todo[]
+    } catch (error) {
+      console.error('Firestore getTodos 실패:', error)
+      throw error
+    }
+  },
+
+  addTodo: async (todo: Todo, uid: string): Promise<string> => {
+    try {
+      const todosRef = collection(db, `users/${uid}/todos`)
+      const todoData = {
+        ...todo,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+      
+      const docRef = await addDoc(todosRef, todoData)
+      console.log('Firestore addTodo 성공:', docRef.id)
+      return docRef.id
+    } catch (error) {
+      console.error('Firestore addTodo 실패:', error)
+      throw error
+    }
+  },
+
+  updateTodo: async (id: string, updates: Partial<Todo>, uid: string): Promise<void> => {
+    try {
+      const todoRef = doc(db, `users/${uid}/todos`, id)
+      
+      // 문서 존재 여부 확인
+      const docSnap = await getDoc(todoRef)
+      
+      if (!docSnap.exists()) {
+        console.warn(`할일 문서 ${id}가 존재하지 않습니다. 업데이트를 건너뜁니다.`)
+        return
+      }
+      
+      const updateData = {
+        ...updates,
+        updatedAt: serverTimestamp()
+      }
+      
+      await updateDoc(todoRef, updateData)
+      console.log('Firestore updateTodo 성공:', id)
+    } catch (error) {
+      console.error('Firestore updateTodo 실패:', error)
+      throw error
+    }
+  },
+
+  deleteTodo: async (id: string, uid: string): Promise<void> => {
+    try {
+      console.log('🗑️ Firestore deleteTodo 시작:', { id, uid })
+      console.log('📍 삭제 경로:', `users/${uid}/todos/${id}`)
+      
+      // 1. 먼저 문서 존재 여부 확인 (올바른 경로 사용)
+      const todoRef = doc(db, `users/${uid}/todos`, id)
+      console.log('🔍 문서 참조 생성 완료:', todoRef.path)
+      
+      const docSnap = await getDoc(todoRef)
+      console.log('📖 문서 존재 여부 확인:', docSnap.exists())
+      
+      if (!docSnap.exists()) {
+        console.warn(`⚠️ 삭제하려는 문서가 존재하지 않음: ${id}`)
+        console.log('🔍 전체 컬렉션에서 검색 시도...')
+        
+        // 전체 컬렉션에서 해당 ID를 가진 문서 찾기
+        const allTodosRef = collection(db, `users/${uid}/todos`)
+        const allSnapshot = await getDocs(allTodosRef)
+        console.log(`📊 사용자의 전체 할일 개수: ${allSnapshot.docs.length}`)
+        
+        const foundDoc = allSnapshot.docs.find(doc => doc.id === id)
+        if (foundDoc) {
+          console.log('🎯 다른 경로에서 문서 발견:', foundDoc.ref.path)
+          
+          // 다른 경로에서 발견된 경우 해당 문서 삭제 시도
+          console.log('🔧 다른 경로의 문서 삭제 시도...')
+          await deleteDoc(foundDoc.ref)
+          console.log('✅ 다른 경로 문서 삭제 성공')
+          return
+        } else {
+          console.log('❌ 어떤 경로에서도 문서를 찾을 수 없음')
+          
+          // 모든 문서 ID 출력 (디버깅)
+          console.log('📋 실제 Firestore 문서 ID들:', allSnapshot.docs.map(doc => ({
+            id: doc.id,
+            title: doc.data().title
+          })))
+        }
+        
+        throw new Error(`할일 문서 ${id}를 찾을 수 없습니다.`)
+      }
+      
+      const docData = docSnap.data()
+      console.log('📄 삭제 대상 문서 확인됨:', { 
+        title: docData.title, 
+        createdAt: docData.createdAt,
+        path: docSnap.ref.path
+      })
+      
+      // 2. 문서 삭제 실행
+      console.log('🗑️ deleteDoc 실행 중...')
+      await deleteDoc(todoRef)
+      console.log('✅ deleteDoc 함수 실행 완료')
+      
+      // 3. 삭제 후 확인 (디버깅용)
+      console.log('🔄 삭제 확인 중...')
+      const verifySnap = await getDoc(todoRef)
+      if (verifySnap.exists()) {
+        console.error('❌ 삭제 후에도 문서가 여전히 존재함:', id)
+        console.log('🚨 데이터:', verifySnap.data())
+        throw new Error('문서 삭제에 실패했습니다.')
+      } else {
+        console.log('✅ 삭제 확인 완료: 문서가 성공적으로 삭제됨')
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Firestore deleteTodo 실패:', error)
+      console.log('📝 오류 세부정보:', {
+        errorCode: error.code,
+        errorMessage: error.message,
+        stack: error.stack
+      })
+      throw error
+    }
+  },
+
+  subscribeTodos: (uid: string, callback: (todos: Todo[]) => void) => {
+    try {
+      console.log('🔥 Firestore subscribeTodos 시작 - UID:', uid)
+      const todosRef = collection(db, `users/${uid}/todos`)
+      const q = query(todosRef, orderBy('createdAt', 'desc'))
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        console.log('📡 Firestore snapshot 수신 - 문서 개수:', snapshot.docs.length)
+        
+        // 변경 사항 상세 로깅 (삭제 감지)
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            console.log('➕ Firestore 문서 추가:', change.doc.id, change.doc.data().title)
+          }
+          if (change.type === 'modified') {
+            console.log('✏️ Firestore 문서 수정:', change.doc.id, change.doc.data().title)
+          }
+          if (change.type === 'removed') {
+            console.log('🗑️ Firestore 문서 삭제 감지:', change.doc.id)
+          }
+        })
+        
+        // 특정 할일 ID 추적
+        const targetId = 'me8an5259ysxiop5c'
+        const targetDoc = snapshot.docs.find(doc => doc.id === targetId)
+        if (targetDoc) {
+          console.log(`🔍 추적 대상 할일 발견 - ID: ${targetId}`, {
+            title: targetDoc.data().title,
+            createdAt: targetDoc.data().createdAt,
+            path: `users/${uid}/todos/${targetId}`,
+            fullData: targetDoc.data()
+          })
+        } else {
+          console.log(`🔍 추적 대상 할일 없음 - ID: ${targetId}`)
+        }
+        
+        const todos = snapshot.docs.map(doc => {
+          try {
+            const data = doc.data()
+            console.log(`📄 문서 처리 중 - Firestore ID: ${doc.id}, title: "${data.title}", created: ${data.createdAt}`)
+            
+            // 실제 Firestore 문서 ID 사용 (중요!)
+            const processedTodo = {
+              ...data,
+              id: doc.id, // Firestore 문서 ID를 마지막에 설정하여 덮어쓰기 방지
+              createdAt: safeToDate(data.createdAt) || new Date(),
+              updatedAt: safeToDate(data.updatedAt) || new Date(),
+              dueDate: safeToDate(data.dueDate),
+              startDate: safeToDate(data.startDate),
+              completedAt: safeToDate(data.completedAt)
+            }
+            
+            // ID 일치 확인 (중요한 디버깅 정보)
+            if (processedTodo.id !== doc.id) {
+              console.error(`🚨 ID 불일치 감지! Firestore: ${doc.id} vs Processed: ${processedTodo.id}`)
+            } else {
+              console.log(`✅ ID 일치 확인 - ${processedTodo.id}, title: "${processedTodo.title}"`)
+            }
+            
+            return processedTodo
+          } catch (error) {
+            console.error(`❌ 문서 처리 실패 - ID: ${doc.id}`, error)
+            return null
+          }
+        }).filter(todo => todo !== null) as Todo[]
+        
+        console.log('📊 Firestore subscribeTodos 최종 결과:', todos.length, '개')
+        
+        // ID 목록도 로깅 (삭제 확인용)
+        const todoIds = todos.map(t => t.id)
+        console.log('📋 현재 할일 ID 목록:', todoIds)
+        
+        callback(todos)
+      }, (error) => {
+        console.error('❌ Firestore 구독 오류:', error)
+        callback([]) // 오류 시 빈 배열 전달
+      })
+      
+      return unsubscribe
+    } catch (error) {
+      console.error('❌ Firestore subscribeTodos 초기화 실패:', error)
+      callback([])
+      return () => {}
+    }
+  },
+
+  // 서브태스크 관련 (할일 문서 내부 배열 업데이트)
+  addSubTask: async (subTask: SubTask, uid: string, todoId: string): Promise<void> => {
+    try {
+      const todoRef = doc(db, `users/${uid}/todos`, todoId)
+      
+      // Firestore의 arrayUnion을 사용하여 효율적으로 추가
+      await updateDoc(todoRef, {
+        subTasks: arrayUnion(subTask),
+        updatedAt: serverTimestamp()
+      })
+      
+      console.log('Firestore addSubTask 성공:', subTask.id)
+    } catch (error) {
+      console.error('Firestore addSubTask 실패:', error)
+      throw error
+    }
+  },
+
+  updateSubTask: async (subTaskId: string, updates: Partial<SubTask>, uid: string, todoId: string): Promise<void> => {
+    try {
+      const todoRef = doc(db, `users/${uid}/todos`, todoId)
+      const todoSnapshot = await getDoc(todoRef)
+      
+      if (!todoSnapshot.exists()) {
+        throw new Error('할일을 찾을 수 없습니다.')
+      }
+      
+      const todoData = todoSnapshot.data()
+      const currentSubTasks = todoData.subTasks || []
+      
+      const updatedSubTasks = currentSubTasks.map((subTask: SubTask) =>
+        subTask.id === subTaskId
+          ? { ...subTask, ...updates, updatedAt: new Date() }
+          : subTask
+      )
+      
+      await updateDoc(todoRef, {
+        subTasks: updatedSubTasks,
+        updatedAt: serverTimestamp()
+      })
+      
+      console.log('Firestore updateSubTask 성공:', subTaskId)
+    } catch (error) {
+      console.error('Firestore updateSubTask 실패:', error)
+      throw error
+    }
+  },
+
+  deleteSubTask: async (subTaskId: string, uid: string, todoId: string): Promise<void> => {
+    try {
+      const todoRef = doc(db, `users/${uid}/todos`, todoId)
+      const todoSnapshot = await getDoc(todoRef)
+      
+      if (!todoSnapshot.exists()) {
+        throw new Error('할일을 찾을 수 없습니다.')
+      }
+      
+      const todoData = todoSnapshot.data()
+      const currentSubTasks = todoData.subTasks || []
+      
+      const filteredSubTasks = currentSubTasks.filter((subTask: SubTask) => subTask.id !== subTaskId)
+      
+      await updateDoc(todoRef, {
+        subTasks: filteredSubTasks,
+        updatedAt: serverTimestamp()
+      })
+      
+      console.log('Firestore deleteSubTask 성공:', subTaskId)
+    } catch (error) {
+      console.error('Firestore deleteSubTask 실패:', error)
+      throw error
+    }
+  },
+
+  // localStorage에서 Firestore로 마이그레이션
+  migrateLocalStorageToFirestore: async (todos: Todo[], uid: string): Promise<void> => {
+    try {
+      const batch = writeBatch(db)
+      const todosRef = collection(db, `users/${uid}/todos`)
+      
+      todos.forEach(todo => {
+        const docRef = doc(todosRef)
+        batch.set(docRef, {
+          ...todo,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })
+      })
+      
+      await batch.commit()
+      console.log('Firestore 마이그레이션 성공:', todos.length, '개')
+    } catch (error) {
+      console.error('Firestore 마이그레이션 실패:', error)
+      throw error
+    }
+  },
+
+  // 반복 템플릿 관련 함수들
+  getRecurringTemplates: async (uid: string): Promise<any[]> => {
+    try {
+      const templatesRef = collection(db, `users/${uid}/recurringTemplates`)
+      const q = query(templatesRef, orderBy('createdAt', 'desc'))
+      const snapshot = await getDocs(q)
+      
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        updatedAt: doc.data().updatedAt?.toDate() || new Date()
+      }))
+    } catch (error) {
+      console.error('Firestore getRecurringTemplates 실패:', error)
+      throw error
+    }
+  },
+
+  addRecurringTemplate: async (template: any, uid: string): Promise<string> => {
+    try {
+      const templatesRef = collection(db, `users/${uid}/recurringTemplates`)
+      
+      // undefined 값들을 제거하고 안전한 데이터로 변환
+      const cleanTemplate = Object.fromEntries(
+        Object.entries(template).filter(([_, value]) => value !== undefined)
+      )
+      
+      // 필수 필드들에 기본값 설정
+      const templateData = {
+        title: '',
+        description: '',
+        type: 'single',
+        priority: 'medium',
+        tags: [],
+        ...cleanTemplate,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+      
+      console.log('🔥 저장할 템플릿 데이터:', templateData)
+      
+      const docRef = await addDoc(templatesRef, templateData)
+      console.log('Firestore addRecurringTemplate 성공:', docRef.id)
+      return docRef.id
+    } catch (error) {
+      console.error('Firestore addRecurringTemplate 실패:', error)
+      throw error
+    }
+  },
+
+  updateRecurringTemplate: async (id: string, updates: any, uid: string): Promise<void> => {
+    try {
+      const templateRef = doc(db, `users/${uid}/recurringTemplates`, id)
+      
+      // undefined 값들을 제거하고 안전한 데이터로 변환
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, value]) => value !== undefined)
+      )
+      
+      const updateData = {
+        ...cleanUpdates,
+        updatedAt: serverTimestamp()
+      }
+      
+      console.log('🔥 업데이트할 템플릿 데이터:', updateData)
+      
+      await updateDoc(templateRef, updateData)
+      console.log('Firestore updateRecurringTemplate 성공:', id)
+    } catch (error) {
+      console.error('Firestore updateRecurringTemplate 실패:', error)
+      throw error
+    }
+  },
+
+  deleteRecurringTemplate: async (id: string, uid: string): Promise<void> => {
+    try {
+      const templateRef = doc(db, `users/${uid}/recurringTemplates`, id)
+      await deleteDoc(templateRef)
+      console.log('Firestore deleteRecurringTemplate 성공:', id)
+    } catch (error) {
+      console.error('Firestore deleteRecurringTemplate 실패:', error)
+      throw error
+    }
+  },
+
+  subscribeRecurringTemplates: (uid: string, callback: (templates: any[]) => void) => {
+    try {
+      const templatesRef = collection(db, `users/${uid}/recurringTemplates`)
+      const q = query(templatesRef, orderBy('createdAt', 'desc'))
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const templates = snapshot.docs.map(doc => {
+          const data = doc.data()
+          
+          
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date()
+          }
+        })
+        
+        console.log('Firestore subscribeRecurringTemplates 업데이트:', templates.length, '개')
+        callback(templates)
+      })
+      
+      return unsubscribe
+    } catch (error) {
+      console.error('Firestore subscribeRecurringTemplates 실패:', error)
+      callback([])
+      return () => {}
+    }
+  }
+}
