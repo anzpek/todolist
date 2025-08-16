@@ -287,56 +287,54 @@ const VacationDashboard: React.FC = () => {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="flex flex-wrap gap-4">
             {/* 직원 필터 */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="flex-1 min-w-[300px]">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   직원 필터
                 </label>
                 <button
                   onClick={toggleAllEmployees}
-                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   {filters.selectedEmployees.length === employees.length ? '전체 해제' : '전체 선택'}
                 </button>
               </div>
-              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+              <div className="flex flex-wrap gap-2 p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
                 {employees.map(employee => (
-                  <label key={employee.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
+                  <label key={employee.id} className="flex items-center space-x-1.5 cursor-pointer hover:bg-white dark:hover:bg-gray-600 p-1.5 rounded text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
                     <input
                       type="checkbox"
                       checked={filters.selectedEmployees.includes(employee.id)}
                       onChange={() => toggleEmployee(employee.id)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      className="w-3 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                     />
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: employee.color }}
-                      />
-                      <span className="text-sm text-gray-900 dark:text-gray-100">{employee.name}</span>
-                    </div>
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: employee.color }}
+                    />
+                    <span className="text-gray-900 dark:text-gray-100">{employee.name}</span>
                   </label>
                 ))}
               </div>
             </div>
 
             {/* 휴가 유형 필터 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                휴가 유형 필터
+            <div className="flex-shrink-0">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                휴가 유형
               </label>
-              <div className="space-y-2">
+              <div className="flex flex-wrap gap-2 p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
                 {Object.entries(filters.vacationTypes).map(([type, checked]) => (
-                  <label key={type} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
+                  <label key={type} className="flex items-center space-x-1.5 cursor-pointer hover:bg-white dark:hover:bg-gray-600 p-1.5 rounded text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleVacationType(type as keyof typeof filters.vacationTypes)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      className="w-3 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                     />
-                    <span className="text-sm text-gray-900 dark:text-gray-100">{type}</span>
+                    <span className="text-gray-900 dark:text-gray-100">{type}</span>
                   </label>
                 ))}
               </div>

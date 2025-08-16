@@ -200,7 +200,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
           
           <div className="flex items-center gap-2">
             {/* 할일 추가 버튼 - 모든 뷰에서 표시 */}
-            {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && (
+            {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && activeView !== 'vacation' && (
               <button 
                 onClick={() => setIsAddModalOpen(true)}
                 className={`${isMobile ? 'p-1 min-w-[28px] min-h-[28px]' : 'btn-primary'} flex items-center gap-2`}
@@ -257,7 +257,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
       >
         <div className={`${isMobile ? 'w-full' : 'max-w-7xl'} mx-auto`}>
           
-          {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && (
+          {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && activeView !== 'vacation' && (
             <SearchFilter
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
