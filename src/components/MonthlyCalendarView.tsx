@@ -381,10 +381,10 @@ const MonthlyCalendarView = ({
                                 e.stopPropagation()
                                 toggleTodo(todo.id)
                               }}
-                              className="p-0.5 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                              className="p-1 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                               title={todo.completed ? '완료 취소' : '완료 처리'}
                             >
-                              <div className={`w-1.5 h-1.5 rounded-full ${
+                              <div className={`w-2.5 h-2.5 rounded-full ${
                                 todo.completed ? 'bg-green-600' : 'border border-gray-400'
                               }`} />
                             </button>
@@ -395,10 +395,10 @@ const MonthlyCalendarView = ({
                                   deleteTodo(todo.id)
                                 }
                               }}
-                              className="p-0.5 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-900/30"
+                              className="p-1 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-900/30"
                               title="삭제"
                             >
-                              <Trash2 className="w-1.5 h-1.5 text-red-600" />
+                              <Trash2 className="w-2.5 h-2.5 text-red-600" />
                             </button>
                           </div>
                         </div>
@@ -520,7 +520,7 @@ const MonthlyCalendarView = ({
                     return (
                       <div
                         key={`vacation-${vacation.id}`}
-                        className={`p-3 rounded-lg border ${
+                        className={`p-2 rounded border ${
                           vacation.type === '연차' 
                             ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                             : vacation.type === '오전' || vacation.type === '오후'
@@ -535,7 +535,7 @@ const MonthlyCalendarView = ({
                         <div className="flex items-center gap-3">
                           {employee && (
                             <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-semibold"
                               style={{ backgroundColor: employee.color }}
                             >
                               {employee.name.charAt(0)}
@@ -544,9 +544,6 @@ const MonthlyCalendarView = ({
                           <div className="flex-1">
                             <div className="font-medium text-gray-900 dark:text-white">
                               {employee ? employee.name : `직원 ${vacation.employeeId}`}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {vacation.type} • {employee?.team || '보상지원부'}
                             </div>
                           </div>
                           <div className={`px-2 py-1 text-xs font-medium rounded ${
@@ -571,7 +568,7 @@ const MonthlyCalendarView = ({
                   {selectedDateTodos.map(todo => (
                     <div
                       key={todo.id}
-                      className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all ${
+                      className={`p-2 rounded border cursor-pointer hover:shadow-md transition-all ${
                         todo.completed
                           ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 opacity-60'
                           : todo.priority === 'urgent'
@@ -586,33 +583,64 @@ const MonthlyCalendarView = ({
                         setIsDateModalOpen(false)
                       }}
                     >
-                      <div className={`font-medium ${todo.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                        {todo.title}
-                      </div>
-                      {todo.description && (
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {todo.description}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-medium truncate ${todo.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
+                            {todo.title}
+                          </div>
                         </div>
-                      )}
-                      {todo.dueTime && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {todo.dueTime}
-                        </div>
-                      )}
-                      {todo.type === 'project' && (
-                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                          {todo.project === 'longterm' ? '롱텀' : '숏텀'} 프로젝트
-                        </div>
-                      )}
-                      {todo.tags && todo.tags.length > 0 && (
-                        <div className="flex gap-1 mt-2">
-                          {todo.tags.map(tag => (
-                            <span key={tag} className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">
-                              {tag}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {todo.type === 'project' && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              todo.project === 'longterm' 
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                            }`}>
+                              {todo.project === 'longterm' ? '롱텀' : '숏텀'}
                             </span>
-                          ))}
+                          )}
+                          {todo.priority && todo.priority !== 'medium' && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              todo.priority === 'urgent' 
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                : todo.priority === 'high'
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                            }`}>
+                              {todo.priority === 'urgent' ? '긴급' : todo.priority === 'high' ? '높음' : '낮음'}
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleTodo(todo.id)
+                            }}
+                            className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+                            title={todo.completed ? '완료 취소' : '완료 처리'}
+                          >
+                            <div className={`w-3 h-3 rounded-full ${
+                              todo.completed ? 'bg-green-600' : 'border border-gray-400'
+                            }`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm(`"${todo.title}" 할일을 삭제하시겠습니까?`)) {
+                                deleteTodo(todo.id)
+                                // 모달에서 삭제된 할일 제거
+                                const updatedTodos = selectedDateTodos.filter(t => t.id !== todo.id)
+                                if (updatedTodos.length === 0 && selectedDateVacations.length === 0) {
+                                  setIsDateModalOpen(false)
+                                }
+                              }
+                            }}
+                            className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-800 border border-gray-200 dark:border-gray-600"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-3 h-3 text-red-600" />
+                          </button>
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>

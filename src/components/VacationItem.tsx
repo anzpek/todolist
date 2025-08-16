@@ -46,7 +46,7 @@ const VacationItem: React.FC<VacationItemProps> = ({ vacation, employee, compact
 
   if (compact) {
     return (
-      <div className={`p-2 rounded border ${getTypeColor(vacation.type)}`}>
+      <div className={`p-2 mb-1.5 rounded border ${getTypeColor(vacation.type)}`}>
         <div className="flex items-center gap-2">
           {employee && (
             <>
@@ -56,10 +56,10 @@ const VacationItem: React.FC<VacationItemProps> = ({ vacation, employee, compact
               >
                 {employee.name.charAt(0)}
               </div>
-              <span className="text-sm font-medium truncate">{employee.name}</span>
+              <span className="text-xs font-medium truncate">{employee.name}</span>
             </>
           )}
-          <span className="text-xs font-medium px-1.5 py-0.5 rounded">
+          <span className="text-[8px] font-medium px-1 py-0.5 rounded">
             {vacation.type}
           </span>
         </div>

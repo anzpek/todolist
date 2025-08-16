@@ -263,16 +263,16 @@ const WeeklyCalendarView = ({
                   return (
                     <div
                       key={`vacation-${vacation.id}`}
-                      className={`${isMobile ? 'p-1 text-[9px]' : 'p-1.5 text-xs'} rounded font-medium ${
+                      className={`${isMobile ? 'p-1 text-[9px]' : 'p-2 text-xs'} rounded border cursor-pointer hover:shadow-md transition-all ${
                         vacation.type === '연차' 
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30'
                           : vacation.type === '오전' || vacation.type === '오후'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30'
                           : vacation.type === '특별'
-                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800'
+                          ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30'
                           : vacation.type === '병가'
-                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
-                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800'
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'
+                          : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
                       }`}
                       title={employee ? `${employee.name} - ${vacation.type}` : `직원 ${vacation.employeeId} - ${vacation.type}`}
                     >
@@ -328,10 +328,10 @@ const WeeklyCalendarView = ({
                           e.stopPropagation()
                           toggleTodo(todo.id)
                         }}
-                        className="p-1 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="p-1.5 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                         title={todo.completed ? '완료 취소' : '완료 처리'}
                       >
-                        <div className={`w-2 h-2 rounded-full ${
+                        <div className={`w-3 h-3 rounded-full ${
                           todo.completed ? 'bg-green-600' : 'border border-gray-400'
                         }`} />
                       </button>
@@ -342,10 +342,10 @@ const WeeklyCalendarView = ({
                             deleteTodo(todo.id)
                           }
                         }}
-                        className="p-1 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-900/30"
+                        className="p-1.5 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-900/30"
                         title="삭제"
                       >
-                        <Trash2 className="w-2 h-2 text-red-600" />
+                        <Trash2 className="w-3 h-3 text-red-600" />
                       </button>
                     </div>
                   </div>
@@ -423,7 +423,7 @@ const WeeklyCalendarView = ({
                       return (
                         <div
                           key={`vacation-${vacation.id}`}
-                          className={`p-3 rounded-lg border ${
+                          className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all ${
                             vacation.type === '연차' 
                               ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                               : vacation.type === '오전' || vacation.type === '오후'
@@ -444,12 +444,9 @@ const WeeklyCalendarView = ({
                                 {employee.name.charAt(0)}
                               </div>
                             )}
-                            <div className="flex-1">
-                              <div className="font-medium text-gray-900 dark:text-white">
+                            <div className="flex-1 truncate">
+                              <div className={`font-medium text-gray-900 dark:text-white truncate ${isMobile ? 'text-sm' : 'text-base'}`}>
                                 {employee ? employee.name : `직원 ${vacation.employeeId}`}
-                              </div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
-                                {vacation.type} • {employee?.team || '보상지원부'}
                               </div>
                             </div>
                             <div className={`px-2 py-1 text-xs font-medium rounded ${
@@ -529,7 +526,7 @@ const WeeklyCalendarView = ({
                     return (
                       <div
                         key={`vacation-${vacation.id}`}
-                        className={`p-3 rounded-lg border ${
+                        className={`p-2 rounded border ${
                           vacation.type === '연차' 
                             ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                             : vacation.type === '오전' || vacation.type === '오후'
@@ -554,9 +551,6 @@ const WeeklyCalendarView = ({
                             <div className="font-medium text-gray-900 dark:text-white">
                               {employee ? employee.name : `직원 ${vacation.employeeId}`}
                             </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {vacation.type} • {employee?.team || '보상지원부'}
-                            </div>
                           </div>
                           <div className={`px-2 py-1 text-xs font-medium rounded ${
                             vacation.type === '연차' 
@@ -580,7 +574,7 @@ const WeeklyCalendarView = ({
                   {selectedDateTodos.map(todo => (
                     <div
                       key={todo.id}
-                      className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all ${
+                      className={`p-2 rounded border cursor-pointer hover:shadow-md transition-all ${
                         todo.completed
                           ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 opacity-60'
                           : todo.priority === 'urgent'
@@ -595,44 +589,62 @@ const WeeklyCalendarView = ({
                         setIsDateModalOpen(false)
                       }}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className={`font-medium ${todo.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-medium truncate ${todo.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
                             {todo.title}
                           </div>
-                          {todo.description && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                              {todo.description}
-                            </div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {todo.type === 'project' && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              todo.project === 'longterm' 
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                            }`}>
+                              {todo.project === 'longterm' ? '롱텀' : '숏텀'}
+                            </span>
                           )}
-                          <div className="flex items-center gap-2 mt-2">
-                            {todo.type === 'project' && (
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                todo.project === 'longterm' 
-                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
-                                  : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                              }`}>
-                                {todo.project === 'longterm' ? '롱텀' : '숏텀'}
-                              </span>
-                            )}
-                            {todo.priority && todo.priority !== 'medium' && (
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                todo.priority === 'urgent' 
-                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                                  : todo.priority === 'high'
-                                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                                  : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
-                              }`}>
-                                {todo.priority === 'urgent' ? '긴급' : todo.priority === 'high' ? '높음' : '낮음'}
-                              </span>
-                            )}
-                            {todo.dueTime && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                <Timer className="w-3 h-3" />
-                                {todo.dueTime}
-                              </span>
-                            )}
-                          </div>
+                          {todo.priority && todo.priority !== 'medium' && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              todo.priority === 'urgent' 
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                : todo.priority === 'high'
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                            }`}>
+                              {todo.priority === 'urgent' ? '긴급' : todo.priority === 'high' ? '높음' : '낮음'}
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleTodo(todo.id)
+                            }}
+                            className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+                            title={todo.completed ? '완료 취소' : '완료 처리'}
+                          >
+                            <div className={`w-3 h-3 rounded-full ${
+                              todo.completed ? 'bg-green-600' : 'border border-gray-400'
+                            }`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm(`"${todo.title}" 할일을 삭제하시겠습니까?`)) {
+                                deleteTodo(todo.id)
+                                // 모달에서 삭제된 할일 제거
+                                const updatedTodos = selectedDateTodos.filter(t => t.id !== todo.id)
+                                if (updatedTodos.length === 0 && selectedDateVacations.length === 0) {
+                                  setIsDateModalOpen(false)
+                                }
+                              }
+                            }}
+                            className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-800 border border-gray-200 dark:border-gray-600"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-3 h-3 text-red-600" />
+                          </button>
                         </div>
                       </div>
                     </div>

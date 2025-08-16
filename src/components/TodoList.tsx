@@ -236,7 +236,7 @@ const TodoList = ({
         </div>
       )}
 
-      {sortedCompletedTodos.length > 0 && (
+      {sortedCompletedTodos.length > 0 && (currentView === 'today' || currentView === 'week' || currentView === 'month') && (
         <div>
           <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-4 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5" />

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, Clock, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react'
+import { Calendar, Clock, ChevronDown, ChevronRight, CheckCircle, RotateCcw } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import { formatDateTime } from '../utils/helpers'
 import type { Todo } from '../types/todo'
@@ -19,7 +19,7 @@ const CompletedHistoryView = ({
   projectFilter = 'all',
   tagFilter = []
 }: CompletedHistoryViewProps) => {
-  const { todos } = useTodos()
+  const { todos, toggleTodo } = useTodos()
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['today']))
 
   // 완료된 할일만 필터링
@@ -123,6 +123,10 @@ const CompletedHistoryView = ({
       urgent: 'text-red-700 bg-red-100 dark:bg-red-900/30'
     }
 
+    const handleUncomplete = () => {
+      toggleTodo(todo.id)
+    }
+
     return (
       <div key={todo.id} className="border-l-4 border-green-500 bg-green-50 dark:bg-green-900/10 p-4 rounded-r-lg">
         <div className="flex items-start justify-between">
@@ -170,6 +174,15 @@ const CompletedHistoryView = ({
                 </div>
               )}
             </div>
+          </div>
+          <div className="flex-shrink-0 ml-4">
+            <button
+              onClick={handleUncomplete}
+              className="p-2 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors"
+              title="할일 목록으로 되돌리기"
+            >
+              <RotateCcw className="w-4 h-4 text-green-600 dark:text-green-400" />
+            </button>
           </div>
         </div>
       </div>
