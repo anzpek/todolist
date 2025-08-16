@@ -3,8 +3,12 @@ import { ChevronLeft, ChevronRight, Calendar, Plus, Edit, Trash2, Timer, X } fro
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, isToday, getWeekOfMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useTodos } from '../contexts/TodoContext'
+import { useVacation } from '../contexts/VacationContext'
+import { useAuth } from '../contexts/AuthContext'
+import { isAdmin } from '../constants/admin'
 import { useSwipe } from '../hooks/useSwipe'
 import TodoItem from './TodoItem'
+import VacationItem from './VacationItem'
 import EditTodoModal from './EditTodoModal'
 import { getHolidayInfoSync, isWeekend, type HolidayInfo } from '../utils/holidays'
 import type { Priority, TaskType, Todo } from '../types/todo'
@@ -36,7 +40,10 @@ const WeeklyCalendarView = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [selectedDateTodos, setSelectedDateTodos] = useState<Todo[]>([])
+  const [selectedDateVacations, setSelectedDateVacations] = useState<any[]>([])
   const { getFilteredTodos, toggleTodo, deleteTodo } = useTodos()
+  const { currentUser } = useAuth()
+  const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
 
   const weekDays = useMemo(() => {
     const start = startOfWeek(currentWeek, { weekStartsOn: 0 }) // 일요일 시작
@@ -199,6 +206,10 @@ const WeeklyCalendarView = ({
           const isWeekendDay = isWeekend(day)
           const isTodayDay = isToday(day)
           
+          // 휴가 정보 가져오기
+          const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
+          const dayVacations = shouldShowVacations ? getVacationsForDate(day) : []
+          
           return (
             <div key={index} className="border-r border-gray-200 dark:border-gray-700 last:border-r-0 relative flex flex-col">
               {/* 날짜 헤더 */}
@@ -211,8 +222,9 @@ const WeeklyCalendarView = ({
                     : 'bg-gray-50 dark:bg-gray-700/50'
                 }`}
                 onClick={() => {
-                  if (dayTodos.length > 0) {
+                  if (dayTodos.length > 0 || dayVacations.length > 0) {
                     setSelectedDateTodos(dayTodos)
+                    setSelectedDateVacations(dayVacations)
                     setIsDateModalOpen(true)
                   }
                 }}
@@ -243,9 +255,40 @@ const WeeklyCalendarView = ({
                 </div>
               </div>
 
-              {/* 할일 목록 */}
+              {/* 휴가 및 할일 목록 */}
               <div className={`${isMobile ? 'px-0.5 py-1 min-h-[150px] space-y-0.5' : 'p-2 min-h-[200px] space-y-1'} flex-1`}>
-                {dayTodos.slice(0, isMobile ? 2 : 3).map(todo => (
+                {/* 휴가 정보 먼저 표시 */}
+                {dayVacations.slice(0, Math.max(0, 8 - dayTodos.length)).map(vacation => {
+                  const employee = employees.find(emp => emp.id === vacation.employeeId)
+                  return (
+                    <div
+                      key={`vacation-${vacation.id}`}
+                      className={`${isMobile ? 'p-1 text-[9px]' : 'p-1.5 text-xs'} rounded font-medium ${
+                        vacation.type === '연차' 
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
+                          : vacation.type === '오전' || vacation.type === '오후'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+                          : vacation.type === '특별'
+                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800'
+                          : vacation.type === '병가'
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
+                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800'
+                      }`}
+                      title={employee ? `${employee.name} - ${vacation.type}` : `직원 ${vacation.employeeId} - ${vacation.type}`}
+                    >
+                      <div className="truncate">
+                        {isMobile 
+                          ? `${vacation.type}` 
+                          : employee 
+                          ? `${employee.name} ${vacation.type}`
+                          : `직원${vacation.employeeId} ${vacation.type}`
+                        }
+                      </div>
+                    </div>
+                  )
+                })}
+                
+                {dayTodos.slice(0, Math.max(0, 8 - dayVacations.length)).map(todo => (
                   <div
                     key={todo.id}
                     className={`group relative ${isMobile ? 'p-1' : 'p-2'} rounded ${isMobile ? 'text-[10px]' : 'text-xs'} border cursor-pointer hover:shadow-md transition-all ${
@@ -308,9 +351,16 @@ const WeeklyCalendarView = ({
                   </div>
                 ))}
                 
-                {dayTodos.length > (isMobile ? 2 : 3) && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-1">
-                    +{dayTodos.length - (isMobile ? 2 : 3)}개 더
+                {(dayTodos.length + dayVacations.length) > 8 && (
+                  <div 
+                    className="text-xs text-gray-500 dark:text-gray-400 text-center py-1 cursor-pointer hover:text-blue-600"
+                    onClick={() => {
+                      setSelectedDateTodos(dayTodos)
+                      setSelectedDateVacations(dayVacations)
+                      setIsDateModalOpen(true)
+                    }}
+                  >
+                    +{(dayTodos.length + dayVacations.length) - 8}개 더
                   </div>
                 )}
                 
@@ -337,16 +387,23 @@ const WeeklyCalendarView = ({
         })}
       </div>
 
-      {/* 선택된 날짜의 상세 할일 목록 (옵션) */}
-      {weekDays.some(day => getTodosForDate(day).length > 0) && (
+      {/* 선택된 날짜의 상세 할일 및 휴가 목록 (옵션) */}
+      {weekDays.some(day => {
+        const dayTodos = getTodosForDate(day)
+        const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
+        const dayVacations = shouldShowVacations ? getVacationsForDate(day) : []
+        return dayTodos.length > 0 || dayVacations.length > 0
+      }) && (
         <div className="mt-8">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            이번 주 상세 할일
+            이번 주 상세 정보
           </h3>
           <div className="space-y-2">
             {weekDays.map(day => {
               const dayTodos = getTodosForDate(day)
-              if (dayTodos.length === 0) return null
+              const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
+              const dayVacations = shouldShowVacations ? getVacationsForDate(day) : []
+              if (dayTodos.length === 0 && dayVacations.length === 0) return null
               
               return (
                 <div key={day.toISOString()}>
@@ -360,6 +417,60 @@ const WeeklyCalendarView = ({
                     )}
                   </h4>
                   <div className="space-y-2">
+                    {/* 휴가 정보 먼저 표시 */}
+                    {dayVacations.map(vacation => {
+                      const employee = employees.find(emp => emp.id === vacation.employeeId)
+                      return (
+                        <div
+                          key={`vacation-${vacation.id}`}
+                          className={`p-3 rounded-lg border ${
+                            vacation.type === '연차' 
+                              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                              : vacation.type === '오전' || vacation.type === '오후'
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                              : vacation.type === '특별'
+                              ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'
+                              : vacation.type === '병가'
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                              : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {employee && (
+                              <div
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                                style={{ backgroundColor: employee.color }}
+                              >
+                                {employee.name.charAt(0)}
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900 dark:text-white">
+                                {employee ? employee.name : `직원 ${vacation.employeeId}`}
+                              </div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                {vacation.type} • {employee?.team || '보상지원부'}
+                              </div>
+                            </div>
+                            <div className={`px-2 py-1 text-xs font-medium rounded ${
+                              vacation.type === '연차' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                                : vacation.type === '오전' || vacation.type === '오후'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                                : vacation.type === '특별'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+                                : vacation.type === '병가'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                            }`}>
+                              {vacation.type}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    
+                    {/* 할일 목록 */}
                     {dayTodos.map(todo => (
                       <TodoItem key={todo.id} todo={todo} />
                     ))}
@@ -397,8 +508,8 @@ const WeeklyCalendarView = ({
                 <Calendar className="w-5 h-5" />
                 {selectedDateTodos.length > 0 && selectedDateTodos[0].dueDate ? 
                   format(selectedDateTodos[0].dueDate, 'M월 d일 (E)', { locale: ko }) : 
-                  '할일 목록'
-                } ({selectedDateTodos.length}개)
+                  '할일 및 휴가'
+                } ({selectedDateTodos.length + selectedDateVacations.length}개)
               </h3>
               <button
                 onClick={() => setIsDateModalOpen(false)}
@@ -410,8 +521,62 @@ const WeeklyCalendarView = ({
             
             {/* 모달 내용 */}
             <div className="p-4 overflow-y-auto max-h-[500px]">
-              {selectedDateTodos.length > 0 ? (
+              {(selectedDateTodos.length > 0 || selectedDateVacations.length > 0) ? (
                 <div className="space-y-3">
+                  {/* 휴가 정보 먼저 표시 */}
+                  {selectedDateVacations.map(vacation => {
+                    const employee = employees.find(emp => emp.id === vacation.employeeId)
+                    return (
+                      <div
+                        key={`vacation-${vacation.id}`}
+                        className={`p-3 rounded-lg border ${
+                          vacation.type === '연차' 
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                            : vacation.type === '오전' || vacation.type === '오후'
+                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                            : vacation.type === '특별'
+                            ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'
+                            : vacation.type === '병가'
+                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                            : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {employee && (
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                              style={{ backgroundColor: employee.color }}
+                            >
+                              {employee.name.charAt(0)}
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900 dark:text-white">
+                              {employee ? employee.name : `직원 ${vacation.employeeId}`}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {vacation.type} • {employee?.team || '보상지원부'}
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 text-xs font-medium rounded ${
+                            vacation.type === '연차' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                              : vacation.type === '오전' || vacation.type === '오후'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                              : vacation.type === '특별'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+                              : vacation.type === '병가'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                          }`}>
+                            {vacation.type}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  
+                  {/* 할일 목록 */}
                   {selectedDateTodos.map(todo => (
                     <div
                       key={todo.id}

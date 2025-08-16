@@ -15,8 +15,12 @@ import {
 } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useTodos } from '../contexts/TodoContext'
+import { useVacation } from '../contexts/VacationContext'
+import { useAuth } from '../contexts/AuthContext'
+import { isAdmin } from '../constants/admin'
 import { useSwipe } from '../hooks/useSwipe'
 import TodoItem from './TodoItem'
+import VacationItem from './VacationItem'
 import EditTodoModal from './EditTodoModal'
 import { getHolidayInfoSync, isWeekend, type HolidayInfo } from '../utils/holidays'
 import type { Priority, TaskType, Todo } from '../types/todo'
@@ -48,7 +52,11 @@ const MonthlyCalendarView = ({
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
+  
+  const { currentUser } = useAuth()
+  const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
   const [selectedDateTodos, setSelectedDateTodos] = useState<Todo[]>([])
+  const [selectedDateVacations, setSelectedDateVacations] = useState<any[]>([])
   const { getFilteredTodos, toggleTodo, deleteTodo } = useTodos()
 
   const monthDays = useMemo(() => {
@@ -224,6 +232,10 @@ const MonthlyCalendarView = ({
             const holidayInfo = holidayInfos[dateStr]
             const isWeekendDay = isWeekend(day)
             
+            // 휴가 정보 가져오기
+            const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
+            const dayVacations = shouldShowVacations ? getVacationsForDate(day) : []
+            
             return (
               <div 
                 key={index} 
@@ -241,12 +253,13 @@ const MonthlyCalendarView = ({
                       : ''
                   }`}
                   onClick={() => {
-                    // 날짜 클릭 시 모달 열기 (모바일에서는 항상, 데스크톱에서는 할일이 있을 때만)
-                    if (isMobile || dayTodos.length > 0) {
+                    // 날짜 클릭 시 모달 열기 (모바일에서는 항상, 데스크톱에서는 할일이나 휴가가 있을 때만)
+                    if (isMobile || dayTodos.length > 0 || dayVacations.length > 0) {
                       setSelectedDateTodos(dayTodos)
+                      setSelectedDateVacations(dayVacations)
                       setIsDateModalOpen(true)
                     } else {
-                      // 데스크톱에서 할일이 없으면 기존 동작 (하단에 상세 정보 표시)
+                      // 데스크톱에서 할일과 휴가가 없으면 기존 동작 (하단에 상세 정보 표시)
                       setSelectedDate(isSelected ? null : day)
                     }
                   }}
@@ -273,11 +286,40 @@ const MonthlyCalendarView = ({
                   </div>
                 </div>
 
-                {/* 할일 목록 - 개선된 모바일 스타일 */}
+                {/* 휴가 및 할일 목록 - 개선된 모바일 스타일 */}
                 <div className={`${isMobile ? 'px-1 pb-1 space-y-0.5' : 'px-2 pb-2 space-y-1'}`}>
+                  {/* 휴가 정보 먼저 표시 */}
+                  {dayVacations.map(vacation => {
+                    const employee = employees.find(emp => emp.id === vacation.employeeId)
+                    return (
+                      <div
+                        key={`vacation-${vacation.id}`}
+                        className={`px-1.5 py-0.5 rounded text-[10px] ${isMobile ? 'text-[9px]' : 'text-xs'} font-medium ${
+                          vacation.type === '연차' 
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                            : vacation.type === '오전' || vacation.type === '오후'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
+                            : vacation.type === '특별'
+                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200'
+                            : vacation.type === '병가'
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+                            : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
+                        }`}
+                        title={employee ? `${employee.name} - ${vacation.type}` : `직원 ${vacation.employeeId} - ${vacation.type}`}
+                      >
+                        {isMobile 
+                          ? `${vacation.type}` 
+                          : employee 
+                          ? `${employee.name} ${vacation.type}`
+                          : `직원${vacation.employeeId} ${vacation.type}`
+                        }
+                      </div>
+                    )
+                  })}
+                  
                   {isMobile 
                     ? // 모바일: 할일 제목이 보이는 스타일
-                      dayTodos.slice(0, 2).map(todo => (
+                      dayTodos.slice(0, Math.max(0, 8 - dayVacations.length)).map(todo => (
                         <div
                           key={todo.id}
                           className={`px-1.5 py-0.5 rounded text-[10px] cursor-pointer truncate ${
@@ -299,7 +341,7 @@ const MonthlyCalendarView = ({
                         </div>
                       ))
                     : // 데스크톱: 기존 박스 스타일 유지
-                      dayTodos.slice(0, 2).map(todo => (
+                      dayTodos.slice(0, Math.max(0, 8 - dayVacations.length)).map(todo => (
                         <div
                           key={todo.id}
                           className={`group relative p-1 rounded text-xs border cursor-pointer hover:shadow-md transition-all ${
@@ -363,15 +405,16 @@ const MonthlyCalendarView = ({
                       ))
                   }
                   
-                  {dayTodos.length > (isMobile ? 2 : 2) && (
+                  {(dayTodos.length + dayVacations.length) > 8 && (
                     <div 
                       className="text-xs text-gray-500 dark:text-gray-400 text-center py-1 cursor-pointer hover:text-blue-600"
                       onClick={() => {
                         setSelectedDateTodos(dayTodos)
+                        setSelectedDateVacations(dayVacations)
                         setIsDateModalOpen(true)
                       }}
                     >
-                      +{dayTodos.length - (isMobile ? 2 : 2)}개 더
+                      +{(dayTodos.length + dayVacations.length) - 8}개 더
                     </div>
                   )}
                   
@@ -456,8 +499,8 @@ const MonthlyCalendarView = ({
                 <Calendar className="w-5 h-5" />
                 {selectedDateTodos.length > 0 && selectedDateTodos[0].dueDate ? 
                   format(selectedDateTodos[0].dueDate, 'M월 d일 (E)', { locale: ko }) : 
-                  '할일 목록'
-                } ({selectedDateTodos.length}개)
+                  '할일 및 휴가'
+                } ({selectedDateTodos.length + selectedDateVacations.length}개)
               </h3>
               <button
                 onClick={() => setIsDateModalOpen(false)}
@@ -469,8 +512,62 @@ const MonthlyCalendarView = ({
             
             {/* 모달 내용 */}
             <div className="p-4 overflow-y-auto max-h-[500px]">
-              {selectedDateTodos.length > 0 ? (
+              {(selectedDateTodos.length > 0 || selectedDateVacations.length > 0) ? (
                 <div className="space-y-3">
+                  {/* 휴가 정보 먼저 표시 */}
+                  {selectedDateVacations.map(vacation => {
+                    const employee = employees.find(emp => emp.id === vacation.employeeId)
+                    return (
+                      <div
+                        key={`vacation-${vacation.id}`}
+                        className={`p-3 rounded-lg border ${
+                          vacation.type === '연차' 
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                            : vacation.type === '오전' || vacation.type === '오후'
+                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                            : vacation.type === '특별'
+                            ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'
+                            : vacation.type === '병가'
+                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                            : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {employee && (
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                              style={{ backgroundColor: employee.color }}
+                            >
+                              {employee.name.charAt(0)}
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900 dark:text-white">
+                              {employee ? employee.name : `직원 ${vacation.employeeId}`}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {vacation.type} • {employee?.team || '보상지원부'}
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 text-xs font-medium rounded ${
+                            vacation.type === '연차' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                              : vacation.type === '오전' || vacation.type === '오후'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                              : vacation.type === '특별'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+                              : vacation.type === '병가'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                          }`}>
+                            {vacation.type}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  
+                  {/* 할일 목록 */}
                   {selectedDateTodos.map(todo => (
                     <div
                       key={todo.id}
@@ -522,7 +619,7 @@ const MonthlyCalendarView = ({
               ) : (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>이 날짜에 할일이 없습니다.</p>
+                  <p>이 날짜에 할일과 휴가가 없습니다.</p>
                   <button
                     onClick={() => {
                       setIsDateModalOpen(false)

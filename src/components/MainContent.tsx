@@ -159,7 +159,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     setCompletionDateFilter('all')
   }
 
-  const getViewTitle = (view: ViewType | 'recurring' | 'history' | 'analytics') => {
+  const getViewTitle = (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation') => {
     switch (view) {
       case 'today':
         return '오늘 할일'
@@ -173,6 +173,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
         return '완료 히스토리'
       case 'analytics':
         return '통계 및 데이터'
+      case 'vacation':
+        return '휴가 관리'
       default:
         return '할일'
     }

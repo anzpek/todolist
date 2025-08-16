@@ -6,6 +6,7 @@ import OfflineNotification from './components/OfflineNotification'
 import { TodoProvider } from './contexts/TodoContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
+import { VacationProvider } from './contexts/VacationContext'
 import { KeyboardProvider } from './contexts/KeyboardContext'
 import { useGlobalKeyboard } from './hooks/useGlobalKeyboard'
 import './index.css'
@@ -238,9 +239,11 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <TodoProvider>
-            <AppContent />
-          </TodoProvider>
+          <VacationProvider>
+            <TodoProvider>
+              <AppContent />
+            </TodoProvider>
+          </VacationProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

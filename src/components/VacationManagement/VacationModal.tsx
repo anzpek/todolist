@@ -49,9 +49,11 @@ const VacationModal: React.FC<Props> = ({
       });
     } else {
       // 새로 추가할 때는 초기값으로 리셋
+      const today = new Date();
+      const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000);
       setFormData({
         employeeId: '',
-        date: new Date().toISOString().split('T')[0], // 오늘 날짜
+        date: localDate.toISOString().split('T')[0], // 로컬 시간대 기준 오늘 날짜
         type: '연차'
       });
     }

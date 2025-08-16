@@ -32,7 +32,7 @@ interface VacationStats {
 }
 
 const VacationDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [vacations, setVacations] = useState<Vacation[]>([]);
   const [stats, setStats] = useState<VacationStats>({
@@ -47,7 +47,7 @@ const VacationDashboard: React.FC = () => {
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
 
   // 관리자 권한 확인
-  if (!isAdmin(user?.email)) {
+  if (!isAdmin(currentUser?.email)) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">

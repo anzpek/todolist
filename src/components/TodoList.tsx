@@ -1,9 +1,13 @@
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Calendar } from 'lucide-react'
 import { useState } from 'react'
 import { useTodos } from '../contexts/TodoContext'
+import { useVacation } from '../contexts/VacationContext'
+import { useAuth } from '../contexts/AuthContext'
+import { isAdmin } from '../constants/admin'
 // import { useRecurring } from '../contexts/RecurringContext' // Removed for simplified system
 import type { ViewType } from '../App'
 import TodoItem from './TodoItem'
+import VacationItem from './VacationItem'
 import type { Todo, Priority, TaskType } from '../types/todo'
 // import { convertRecurringInstancesToTodos } from '../utils/recurringHelpers' // Removed for simplified system
 
@@ -29,6 +33,8 @@ const TodoList = ({
   selectedDate
 }: TodoListProps) => {
   const { todos, getTodayTodos, getWeekTodos, getMonthTodos, reorderTodos } = useTodos()
+  const { currentUser } = useAuth()
+  const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   // const { instances, templates, getInstancesForDate } = useRecurring() // Removed for simplified system
 
@@ -100,6 +106,17 @@ const TodoList = ({
   const incompleteTodos = filteredTodos.filter(todo => !todo.completed)
   const completedTodos = filteredTodos.filter(todo => todo.completed)
 
+  // 휴가 데이터 가져오기 (관리자이고 휴가 표시가 활성화된 경우)
+  const getDisplayDate = () => {
+    if (currentView === 'today' && selectedDate) {
+      return selectedDate
+    }
+    return new Date() // 기본적으로 오늘 날짜
+  }
+
+  const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
+  const vacationsForDate = shouldShowVacations ? getVacationsForDate(getDisplayDate()) : []
+
   // 드래그 앤 드롭 핸들러
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index)
@@ -158,7 +175,7 @@ const TodoList = ({
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   )
 
-  if (filteredTodos.length === 0) {
+  if (filteredTodos.length === 0 && vacationsForDate.length === 0) {
     return (
       <div className="card p-8 text-center text-gray-500 dark:text-gray-400">
         <p className="text-lg mb-2">할일이 없습니다</p>
@@ -169,6 +186,29 @@ const TodoList = ({
 
   return (
     <div className="space-y-6">
+      {/* 휴가 정보 섹션 */}
+      {vacationsForDate.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-300 mb-4 flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            오늘의 휴가 ({vacationsForDate.length})
+          </h3>
+          <div className="space-y-2">
+            {vacationsForDate.map(vacation => {
+              const employee = employees.find(emp => emp.id === vacation.employeeId)
+              return (
+                <VacationItem
+                  key={vacation.id}
+                  vacation={vacation}
+                  employee={employee}
+                  compact={true}
+                />
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {sortedIncompleteTodos.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

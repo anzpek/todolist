@@ -54,7 +54,9 @@ const VacationCalendar: React.FC<Props> = ({
 
   // 특정 날짜의 휴가 목록 가져오기
   const getVacationsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    // 로컬 시간대를 고려한 날짜 문자열 생성
+    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    const dateStr = localDate.toISOString().split('T')[0];
     return vacations.filter(v => v.date === dateStr);
   };
 

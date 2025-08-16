@@ -1,7 +1,8 @@
-import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users } from 'lucide-react'
+import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff } from 'lucide-react'
 import type { ViewType } from '../App'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useVacation } from '../contexts/VacationContext'
 import { isAdmin } from '../constants/admin'
 import ThemeToggle from './ThemeToggle'
 import DataBackup from './DataBackup'
@@ -20,7 +21,13 @@ interface SidebarProps {
 
 const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false, forceMobile = null, onToggleForceMobile }: SidebarProps) => {
   const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, recurringInstances } = useTodos()
-  const { user } = useAuth()
+  const { currentUser } = useAuth()
+  const { showVacationsInTodos, toggleVacationDisplay } = useVacation()
+  
+  // 디버깅: 사용자 정보 확인
+  console.log('🔍 Sidebar - currentUser:', currentUser)
+  console.log('🔍 Sidebar - currentUser?.email:', currentUser?.email)
+  console.log('🔍 Sidebar - isAdmin:', isAdmin(currentUser?.email))
   
   const overdueTodos = getOverdueTodos()
   const tomorrowTodos = getTomorrowTodos()
@@ -48,7 +55,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
   ]
 
   // 관리자 권한에 따라 필터링
-  const navItems = baseNavItems.filter(item => !item.adminOnly || isAdmin(user?.email))
+  const navItems = baseNavItems.filter(item => !item.adminOnly || isAdmin(currentUser?.email))
 
   if (!isOpen) {
     return null
@@ -223,6 +230,32 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
         </nav>
         
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+          {/* 휴가 표시 토글 (관리자만) */}
+          {isAdmin(currentUser?.email) && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                휴가 표시
+              </label>
+              <button
+                onClick={toggleVacationDisplay}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
+                  showVacationsInTodos
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                <div className="flex items-center">
+                  {showVacationsInTodos ? (
+                    <Eye className="w-4 h-4 mr-2" />
+                  ) : (
+                    <EyeOff className="w-4 h-4 mr-2" />
+                  )}
+                  <span>{showVacationsInTodos ? '휴가 표시됨' : '휴가 숨김'}</span>
+                </div>
+              </button>
+            </div>
+          )}
+          
           {/* 모바일/데스크톱 전환 */}
           {onToggleForceMobile && (
             <div>
