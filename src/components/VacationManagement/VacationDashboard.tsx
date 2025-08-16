@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, BarChart3, Clock, Plus, RefreshCw } from 'lucide-react';
+import { Plus, Filter, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { isAdmin } from '../../constants/admin';
 import vacationFirebaseService from '../../services/vacationFirebaseService';
 import VacationCalendar from './VacationCalendar';
-import VacationList from './VacationList';
 import VacationModal from './VacationModal';
 
 interface Employee {
@@ -24,27 +23,30 @@ interface Vacation {
   updatedAt: number;
 }
 
-interface VacationStats {
-  totalVacations: number;
-  totalEmployees: number;
-  vacationsByType: Record<string, number>;
-  monthlyTrend: Record<string, number>;
-}
 
 const VacationDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [vacations, setVacations] = useState<Vacation[]>([]);
-  const [stats, setStats] = useState<VacationStats>({
-    totalVacations: 0,
-    totalEmployees: 0,
-    vacationsByType: {},
-    monthlyTrend: {}
-  });
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVacation, setSelectedVacation] = useState<Vacation | null>(null);
-  const [view, setView] = useState<'calendar' | 'list'>('calendar');
+  
+  // 체크박스 필터 상태
+  const [filters, setFilters] = useState({
+    selectedEmployees: [] as number[], // 선택된 직원 ID 배열
+    vacationTypes: {
+      연차: true,
+      오전: true,
+      오후: true,
+      특별: true,
+      병가: true
+    },
+    dateRange: 'all' as 'all' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom',
+    startDate: '',
+    endDate: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
 
   // 관리자 권한 확인
   if (!isAdmin(currentUser?.email)) {
@@ -74,9 +76,6 @@ const VacationDashboard: React.FC = () => {
 
       setEmployees(employeesData);
       setVacations(vacationsData);
-      
-      // 통계 계산
-      calculateStats(employeesData, vacationsData);
     } catch (error) {
       console.error('데이터 로드 실패:', error);
     } finally {
@@ -84,26 +83,102 @@ const VacationDashboard: React.FC = () => {
     }
   };
 
-  // 통계 계산
-  const calculateStats = (employeesData: Employee[], vacationsData: Vacation[]) => {
-    const vacationsByType: Record<string, number> = {};
-    const monthlyTrend: Record<string, number> = {};
-
-    vacationsData.forEach(vacation => {
-      // 타입별 통계
-      vacationsByType[vacation.type] = (vacationsByType[vacation.type] || 0) + 1;
+  // 필터링된 휴가 데이터 계산
+  const getFilteredVacations = (vacationsData: Vacation[]) => {
+    return vacationsData.filter(vacation => {
+      // 직원 필터 - 선택된 직원이 있으면 해당 직원만, 없으면 모든 직원
+      if (filters.selectedEmployees.length > 0 && !filters.selectedEmployees.includes(vacation.employeeId)) {
+        return false;
+      }
       
-      // 월별 트렌드
-      const month = vacation.date.substring(0, 7); // YYYY-MM
-      monthlyTrend[month] = (monthlyTrend[month] || 0) + 1;
+      // 휴가 유형 필터 - 체크된 유형만 표시
+      if (!filters.vacationTypes[vacation.type as keyof typeof filters.vacationTypes]) {
+        return false;
+      }
+      
+      // 날짜 범위 필터
+      const vacationDate = new Date(vacation.date);
+      const now = new Date();
+      
+      if (filters.dateRange !== 'all') {
+        switch (filters.dateRange) {
+          case 'thisMonth':
+            if (vacationDate.getMonth() !== now.getMonth() || vacationDate.getFullYear() !== now.getFullYear()) {
+              return false;
+            }
+            break;
+          case 'lastMonth':
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1);
+            if (vacationDate.getMonth() !== lastMonth.getMonth() || vacationDate.getFullYear() !== lastMonth.getFullYear()) {
+              return false;
+            }
+            break;
+          case 'thisYear':
+            if (vacationDate.getFullYear() !== now.getFullYear()) {
+              return false;
+            }
+            break;
+          case 'custom':
+            if (filters.startDate && vacationDate < new Date(filters.startDate)) {
+              return false;
+            }
+            if (filters.endDate && vacationDate > new Date(filters.endDate)) {
+              return false;
+            }
+            break;
+        }
+      }
+      
+      return true;
     });
+  };
 
-    setStats({
-      totalVacations: vacationsData.length,
-      totalEmployees: employeesData.length,
-      vacationsByType,
-      monthlyTrend
+  // 필터 초기화
+  const resetFilters = () => {
+    setFilters({
+      selectedEmployees: [],
+      vacationTypes: {
+        연차: true,
+        오전: true,
+        오후: true,
+        특별: true,
+        병가: true
+      },
+      dateRange: 'all',
+      startDate: '',
+      endDate: ''
     });
+  };
+
+  // 직원 선택/해제
+  const toggleEmployee = (employeeId: number) => {
+    setFilters(prev => ({
+      ...prev,
+      selectedEmployees: prev.selectedEmployees.includes(employeeId)
+        ? prev.selectedEmployees.filter(id => id !== employeeId)
+        : [...prev.selectedEmployees, employeeId]
+    }));
+  };
+
+  // 모든 직원 선택/해제
+  const toggleAllEmployees = () => {
+    setFilters(prev => ({
+      ...prev,
+      selectedEmployees: prev.selectedEmployees.length === employees.length 
+        ? [] 
+        : employees.map(emp => emp.id)
+    }));
+  };
+
+  // 휴가 유형 토글
+  const toggleVacationType = (type: keyof typeof filters.vacationTypes) => {
+    setFilters(prev => ({
+      ...prev,
+      vacationTypes: {
+        ...prev.vacationTypes,
+        [type]: !prev.vacationTypes[type]
+      }
+    }));
   };
 
   // 휴가 추가
@@ -155,6 +230,7 @@ const VacationDashboard: React.FC = () => {
     loadData();
   }, []);
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -176,123 +252,106 @@ const VacationDashboard: React.FC = () => {
             보상지원부 휴가 현황을 관리합니다
           </p>
         </div>
-        <div className="flex space-x-2">
-          <button
-            onClick={loadData}
-            className="flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            새로고침
-          </button>
-          <button
-            onClick={handleAddVacation}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            휴가 추가
-          </button>
-        </div>
-      </div>
-
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">총 휴가</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                {stats.totalVacations}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-              <Users className="h-6 w-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">총 직원</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                {stats.totalEmployees}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <BarChart3 className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">연차</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                {stats.vacationsByType['연차'] || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-              <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">반차</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                {(stats.vacationsByType['오전'] || 0) + (stats.vacationsByType['오후'] || 0)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 뷰 전환 버튼 */}
-      <div className="flex space-x-2">
         <button
-          onClick={() => setView('calendar')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            view === 'calendar'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-          }`}
+          onClick={handleAddVacation}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          캘린더 뷰
-        </button>
-        <button
-          onClick={() => setView('list')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            view === 'list'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-          }`}
-        >
-          목록 뷰
+          <Plus className="h-4 w-4 mr-2" />
+          휴가 추가
         </button>
       </div>
 
-      {/* 뷰 컨텐츠 */}
-      {view === 'calendar' ? (
-        <VacationCalendar
-          employees={employees}
-          vacations={vacations}
-          onEditVacation={handleEditVacation}
-          onDeleteVacation={handleDeleteVacation}
-        />
-      ) : (
-        <VacationList
-          employees={employees}
-          vacations={vacations}
-          onEditVacation={handleEditVacation}
-          onDeleteVacation={handleDeleteVacation}
-        />
-      )}
+
+      {/* 필터 섹션 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">필터</h3>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              {showFilters ? '숨기기' : '표시'}
+            </button>
+          </div>
+          {(filters.selectedEmployees.length > 0 || !Object.values(filters.vacationTypes).every(v => v)) && (
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <X className="h-4 w-4" />
+              초기화
+            </button>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 직원 필터 */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  직원 필터
+                </label>
+                <button
+                  onClick={toggleAllEmployees}
+                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  {filters.selectedEmployees.length === employees.length ? '전체 해제' : '전체 선택'}
+                </button>
+              </div>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                {employees.map(employee => (
+                  <label key={employee.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={filters.selectedEmployees.includes(employee.id)}
+                      onChange={() => toggleEmployee(employee.id)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: employee.color }}
+                      />
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{employee.name}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 휴가 유형 필터 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                휴가 유형 필터
+              </label>
+              <div className="space-y-2">
+                {Object.entries(filters.vacationTypes).map(([type, checked]) => (
+                  <label key={type} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleVacationType(type as keyof typeof filters.vacationTypes)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <span className="text-sm text-gray-900 dark:text-gray-100">{type}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 캘린더 뷰 */}
+      <VacationCalendar
+        employees={employees}
+        vacations={getFilteredVacations(vacations)}
+        onEditVacation={handleEditVacation}
+        onDeleteVacation={handleDeleteVacation}
+      />
 
       {/* 휴가 추가/수정 모달 */}
       {isModalOpen && (
