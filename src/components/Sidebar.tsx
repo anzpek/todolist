@@ -1,14 +1,16 @@
-import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History } from 'lucide-react'
+import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users } from 'lucide-react'
 import type { ViewType } from '../App'
 import { useTodos } from '../contexts/TodoContext'
+import { useAuth } from '../contexts/AuthContext'
+import { isAdmin } from '../constants/admin'
 import ThemeToggle from './ThemeToggle'
 import DataBackup from './DataBackup'
 import StatsCard from './StatsCard'
 import ProjectAnalysis from './ProjectAnalysis'
 
 interface SidebarProps {
-  currentView: ViewType | 'recurring' | 'history' | 'analytics'
-  onViewChange: (view: ViewType | 'recurring' | 'history' | 'analytics') => void
+  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation'
+  onViewChange: (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation') => void
   isOpen: boolean
   onToggle: () => void
   isMobile?: boolean
@@ -18,6 +20,7 @@ interface SidebarProps {
 
 const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false, forceMobile = null, onToggleForceMobile }: SidebarProps) => {
   const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, recurringInstances } = useTodos()
+  const { user } = useAuth()
   
   const overdueTodos = getOverdueTodos()
   const tomorrowTodos = getTomorrowTodos()
@@ -33,14 +36,19 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
     return instanceDate.toDateString() === today.toDateString()
   })
   
-  const navItems: Array<{ id: ViewType | 'recurring' | 'history' | 'analytics', label: string, icon: any }> = [
+  // 기본 네비게이션 아이템
+  const baseNavItems: Array<{ id: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation', label: string, icon: any, adminOnly?: boolean }> = [
     { id: 'today', label: '오늘 할일', icon: Clock },
     { id: 'week', label: '이번 주 할일', icon: Calendar },
     { id: 'month', label: '이번 달 할일', icon: CalendarDays },
     { id: 'recurring', label: '반복 관리', icon: Repeat },
     { id: 'history', label: '완료 히스토리', icon: History },
     { id: 'analytics', label: '통계 및 데이터', icon: ChevronRight },
+    { id: 'vacation', label: '휴가 관리', icon: Users, adminOnly: true },
   ]
+
+  // 관리자 권한에 따라 필터링
+  const navItems = baseNavItems.filter(item => !item.adminOnly || isAdmin(user?.email))
 
   if (!isOpen) {
     return null

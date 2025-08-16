@@ -14,8 +14,8 @@ import './index.css'
 export type ViewType = 'today' | 'week' | 'month'
 
 interface AppInnerProps {
-  currentView: ViewType | 'recurring' | 'history' | 'analytics'
-  setCurrentView: (view: ViewType | 'recurring' | 'history' | 'analytics') => void
+  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation'
+  setCurrentView: (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation') => void
   isSidebarOpen: boolean
   setIsSidebarOpen: (open: boolean) => void
   searchInputRef: React.RefObject<HTMLInputElement | null>
@@ -77,7 +77,7 @@ function AppInner({
 }
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState<ViewType | 'recurring' | 'history' | 'analytics'>('today')
+  const [currentView, setCurrentView] = useState<ViewType | 'recurring' | 'history' | 'analytics' | 'vacation'>('today')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [forceMobile, setForceMobile] = useState<boolean | null>(null) // null = 자동감지, true = 강제모바일, false = 강제데스크톱

@@ -13,6 +13,7 @@ import MonthlyCalendarView from './MonthlyCalendarView'
 import RecurringManagement from './RecurringManagement'
 import CompletedHistoryView from './CompletedHistoryView'
 import AuthModal from './AuthModal'
+import VacationDashboard from './VacationManagement/VacationDashboard'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
 import { format, addDays, subDays, isToday } from 'date-fns'
@@ -20,7 +21,7 @@ import { ko } from 'date-fns/locale'
 import type { Priority, TaskType } from '../types/todo'
 
 interface MainContentProps {
-  currentView: ViewType | 'recurring' | 'history' | 'analytics'
+  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation'
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   searchInputRef: React.RefObject<HTMLInputElement | null>
@@ -451,6 +452,10 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">데이터 관리</h3>
                 <DataBackup />
               </div>
+            </div>
+          ) : activeView === 'vacation' ? (
+            <div className="max-w-7xl mx-auto">
+              <VacationDashboard />
             </div>
           ) : (
             <div className="max-w-4xl mx-auto">
