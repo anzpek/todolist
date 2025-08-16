@@ -242,106 +242,127 @@ const VacationDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* 헤더 */}
+      {/* 헤더 - 모바일 친화적 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            휴가 관리
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            보상지원부 휴가 현황을 관리합니다
-          </p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">
+          휴가 관리
+        </h1>
+        
+        {/* 모바일 헤더 액션 버튼들 */}
+        <div className="flex items-center gap-2">
+          {/* 필터 버튼 */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center px-2 py-1.5 md:px-3 md:py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Filter className="h-4 w-4" />
+            <span className="hidden md:inline ml-1">필터</span>
+          </button>
+          
+          {/* 휴가 추가 버튼 */}
+          <button
+            onClick={handleAddVacation}
+            className="flex items-center px-2 py-1.5 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden md:inline ml-1">휴가 추가</span>
+          </button>
         </div>
-        <button
-          onClick={handleAddVacation}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          휴가 추가
-        </button>
       </div>
 
 
-      {/* 필터 섹션 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">필터</h3>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            >
-              {showFilters ? '숨기기' : '표시'}
-            </button>
+      {/* 필터 모달 */}
+      {showFilters && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowFilters(false)}>
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden w-full max-w-md max-h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                직원 필터
+              </h3>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* 모달 내용 */}
+            <div className="p-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4">
+                {/* 전체 선택/해제 */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">직원 선택</span>
+                  <button
+                    onClick={toggleAllEmployees}
+                    className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    {filters.selectedEmployees.length === employees.length ? '전체 해제' : '전체 선택'}
+                  </button>
+                </div>
+
+                {/* 직원 목록 */}
+                <div className="space-y-2">
+                  {employees.map(employee => (
+                    <label key={employee.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={filters.selectedEmployees.includes(employee.id)}
+                        onChange={() => toggleEmployee(employee.id)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: employee.color }}
+                      />
+                      <span className="text-gray-900 dark:text-gray-100">{employee.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">({employee.position})</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* 휴가 유형 필터 */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-3">휴가 유형</span>
+                  <div className="space-y-2">
+                    {Object.entries(filters.vacationTypes).map(([type, checked]) => (
+                      <label key={type} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleVacationType(type as keyof typeof filters.vacationTypes)}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <span className="text-gray-900 dark:text-gray-100">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 모달 푸터 */}
+            <div className="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={resetFilters}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                초기화
+              </button>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                적용
+              </button>
+            </div>
           </div>
-          {(filters.selectedEmployees.length > 0 || !Object.values(filters.vacationTypes).every(v => v)) && (
-            <button
-              onClick={resetFilters}
-              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              <X className="h-4 w-4" />
-              초기화
-            </button>
-          )}
         </div>
-
-        {showFilters && (
-          <div className="flex flex-wrap gap-4">
-            {/* 직원 필터 */}
-            <div className="flex-1 min-w-[300px]">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  직원 필터
-                </label>
-                <button
-                  onClick={toggleAllEmployees}
-                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  {filters.selectedEmployees.length === employees.length ? '전체 해제' : '전체 선택'}
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-                {employees.map(employee => (
-                  <label key={employee.id} className="flex items-center space-x-1.5 cursor-pointer hover:bg-white dark:hover:bg-gray-600 p-1.5 rounded text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
-                    <input
-                      type="checkbox"
-                      checked={filters.selectedEmployees.includes(employee.id)}
-                      onChange={() => toggleEmployee(employee.id)}
-                      className="w-3 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                    />
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: employee.color }}
-                    />
-                    <span className="text-gray-900 dark:text-gray-100">{employee.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* 휴가 유형 필터 */}
-            <div className="flex-shrink-0">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                휴가 유형
-              </label>
-              <div className="flex flex-wrap gap-2 p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-                {Object.entries(filters.vacationTypes).map(([type, checked]) => (
-                  <label key={type} className="flex items-center space-x-1.5 cursor-pointer hover:bg-white dark:hover:bg-gray-600 p-1.5 rounded text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleVacationType(type as keyof typeof filters.vacationTypes)}
-                      className="w-3 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                    />
-                    <span className="text-gray-900 dark:text-gray-100">{type}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* 캘린더 뷰 */}
       <VacationCalendar

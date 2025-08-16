@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Edit, Trash2, X } from 'lucide-react';
 
 interface Employee {
   id: number;
@@ -30,6 +30,13 @@ const VacationCalendar: React.FC<Props> = ({
   onDeleteVacation
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // 스와이프 관련 상태
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   // 현재 월의 첫째 날과 마지막 날
   const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -75,6 +82,33 @@ const VacationCalendar: React.FC<Props> = ({
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
+  // 스와이프 이벤트 처리
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return;
+    
+    const distance = touchStartX - touchEndX;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      // 왼쪽 스와이프 - 다음 달
+      goToNextMonth();
+    }
+    if (isRightSwipe) {
+      // 오른쪽 스와이프 - 이전 달
+      goToPreviousMonth();
+    }
+  };
+
   // 휴가 타입별 색상
   const getVacationTypeColor = (type: string) => {
     switch (type) {
@@ -112,11 +146,15 @@ const VacationCalendar: React.FC<Props> = ({
       </div>
 
       {/* 요일 헤더 */}
-      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-        {['일', '월', '화', '수', '목', '금', '토'].map(day => (
+      <div className="grid border-b border-gray-200 dark:border-gray-700" style={{ gridTemplateColumns: '0.7fr 1fr 1fr 1fr 1fr 1fr 0.7fr' }}>
+        {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
           <div
             key={day}
-            className="p-3 text-sm font-medium text-gray-500 dark:text-gray-400 text-center"
+            className={`p-3 text-sm font-medium text-center ${
+              index === 0 || index === 6 
+                ? 'text-gray-400 dark:text-gray-500' 
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
           >
             {day}
           </div>
@@ -124,18 +162,36 @@ const VacationCalendar: React.FC<Props> = ({
       </div>
 
       {/* 달력 그리드 */}
-      <div className="grid grid-cols-7">
+      <div 
+        ref={calendarRef}
+        className="grid"
+        style={{ gridTemplateColumns: '0.7fr 1fr 1fr 1fr 1fr 1fr 0.7fr' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {calendarDays.map(date => {
           const dayVacations = getVacationsForDate(date);
           const isCurrentMonth = date.getMonth() === currentDate.getMonth();
           const isToday = date.toDateString() === new Date().toDateString();
+          const isWeekend = date.getDay() === 0 || date.getDay() === 6; // 일요일(0) 또는 토요일(6)
 
           return (
             <div
               key={date.toISOString()}
-              className={`min-h-[120px] p-2 border-b border-r border-gray-100 dark:border-gray-700 ${
+              className={`min-h-[120px] border-b border-r border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                isWeekend ? 'p-1' : 'p-2'
+              } ${
                 !isCurrentMonth ? 'bg-gray-50 dark:bg-gray-900' : ''
-              } ${isToday ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+              } ${isToday ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${
+                isWeekend ? 'bg-gray-25 dark:bg-gray-850' : ''
+              }`}
+              onClick={() => {
+                if (dayVacations.length > 0) {
+                  setSelectedDate(date);
+                  setIsModalOpen(true);
+                }
+              }}
             >
               {/* 날짜 */}
               <div className={`text-sm font-medium mb-1 ${
@@ -148,15 +204,20 @@ const VacationCalendar: React.FC<Props> = ({
                 {date.getDate()}
               </div>
 
-              {/* 휴가 목록 */}
+              {/* 휴가 목록 (주말은 최대 3개, 평일은 최대 6개까지 표시) */}
               <div className="space-y-1">
-                {dayVacations.slice(0, 3).map(vacation => {
+                {dayVacations.slice(0, isWeekend ? 3 : 6).map(vacation => {
                   const employee = getEmployee(vacation.employeeId);
                   return (
                     <div
                       key={vacation.id}
-                      className={`text-xs px-2 py-1 rounded border cursor-pointer group ${getVacationTypeColor(vacation.type)}`}
-                      onClick={() => onEditVacation(vacation)}
+                      className={`text-xs rounded border cursor-pointer group ${getVacationTypeColor(vacation.type)} ${
+                        isWeekend ? 'px-1 py-0.5' : 'px-2 py-1'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditVacation(vacation);
+                      }}
                     >
                       <div className="flex items-center justify-between">
                         <span className="truncate">
@@ -188,9 +249,11 @@ const VacationCalendar: React.FC<Props> = ({
                 })}
                 
                 {/* 더 많은 휴가가 있을 때 */}
-                {dayVacations.length > 3 && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 px-2">
-                    +{dayVacations.length - 3}개 더
+                {dayVacations.length > (isWeekend ? 3 : 6) && (
+                  <div className={`text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 ${
+                    isWeekend ? 'px-1 py-0.5' : 'px-2 py-1'
+                  }`}>
+                    +{dayVacations.length - (isWeekend ? 3 : 6)}개 더
                   </div>
                 )}
               </div>
@@ -198,6 +261,95 @@ const VacationCalendar: React.FC<Props> = ({
           );
         })}
       </div>
+
+      {/* 날짜별 휴가 상세 모달 */}
+      {isModalOpen && selectedDate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setIsModalOpen(false)}>
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden w-full max-w-md max-h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {selectedDate.getFullYear()}년 {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일 휴가
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* 모달 내용 */}
+            <div className="p-4 max-h-96 overflow-y-auto">
+              <div className="space-y-3">
+                {getVacationsForDate(selectedDate).map(vacation => {
+                  const employee = getEmployee(vacation.employeeId);
+                  return (
+                    <div
+                      key={vacation.id}
+                      className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${getVacationTypeColor(vacation.type)}`}
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        onEditVacation(vacation);
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-sm">
+                            {employee?.name || '알 수 없는 직원'}
+                          </div>
+                          <div className="text-xs opacity-75">
+                            {employee?.team} • {vacation.type}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsModalOpen(false);
+                              onEditVacation(vacation);
+                            }}
+                            className="p-1 hover:bg-white/50 rounded"
+                            title="수정"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('정말로 이 휴가를 삭제하시겠습니까?')) {
+                                onDeleteVacation(vacation.id);
+                                setIsModalOpen(false);
+                              }
+                            }}
+                            className="p-1 hover:bg-white/50 rounded text-red-600"
+                            title="삭제"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 모달 푸터 */}
+            <div className="flex justify-end p-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
