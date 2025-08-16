@@ -252,7 +252,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
           onTouchEnd: swipeHandlers.onTouchEnd
         } : {})}
       >
-        <div className="max-w-7xl mx-auto">
+        <div className={`${isMobile ? 'w-full' : 'max-w-7xl'} mx-auto`}>
           
           {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && (
             <SearchFilter
@@ -288,8 +288,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             <div className={`${isMobile ? 'space-y-6' : 'grid grid-cols-1 lg:grid-cols-12 gap-6'}`}>
               {/* 모바일에서 먼저 보여줄 통계 - 더 콤팩트하게 */}
               {isMobile && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-700 mb-2">
-                  <div className="flex justify-center items-center gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-700 mb-2 overflow-x-auto">
+                  <div className="flex justify-center items-center gap-4 min-w-[280px]">
                     <StatsCard layout="compact" />
                     <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
                     <ProjectAnalysis layout="compact" />
@@ -334,11 +334,11 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
 
               {/* 오늘 할일 - 메인 */}
               <div className={`${isMobile ? '' : 'lg:col-span-6'}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <div className={`flex items-center justify-between mb-4 ${isMobile ? 'overflow-x-auto' : ''}`}>
+                  <h3 className={`${isMobile ? 'text-base flex-shrink-0' : 'text-lg'} font-semibold text-gray-900 dark:text-white ${isMobile ? 'min-w-[120px]' : ''}`}>
                     {isToday(selectedDate) ? '오늘 할일' : `${format(selectedDate, 'M월 d일 (E)', { locale: ko })} 할일`}
                   </h3>
-                  <div className="flex items-center gap-1">
+                  <div className={`flex items-center gap-1 ${isMobile ? 'flex-shrink-0' : ''}`}>
                     <button
                       onClick={goToPreviousDay}
                       className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"

@@ -337,70 +337,69 @@ class SimpleRecurringSystem {
     
     const instances: SimpleRecurringInstance[] = []
     const today = new Date()
+    const startDate = new Date(template.createdAt) // 템플릿 생성일을 시작일로 사용
     const endOfYear = new Date(today.getFullYear(), 11, 31) // 올해 12월 31일
     
-    // 오늘부터 연말까지의 주 수 계산
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000
-    const weeksUntilEndOfYear = Math.ceil((endOfYear.getTime() - today.getTime()) / msPerWeek)
+    // 시작일부터 템플릿의 해당 요일 첫 번째 발생일 찾기
+    const startWeekday = template.weekday
+    let firstOccurrence = new Date(startDate)
     
-    // 오늘부터 연말까지의 해당 요일 찾기
-    for (let week = 0; week <= weeksUntilEndOfYear; week++) {
-      const targetDate = new Date(today)
+    // 시작일이 해당 요일이 아니면 다음 해당 요일로 이동
+    const daysToAdd = (startWeekday - startDate.getDay() + 7) % 7
+    if (daysToAdd > 0) {
+      firstOccurrence.setDate(startDate.getDate() + daysToAdd)
+    }
+    
+    // 첫 번째 발생일부터 연말까지 주간 간격으로 인스턴스 생성
+    let currentDate = new Date(firstOccurrence)
+    
+    while (currentDate <= endOfYear) {
+      // 현재 날짜가 오늘 이후인 경우만 인스턴스 생성 (과거 할일은 제외)
+      // 날짜만 비교 (시간 제외)
+      const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())
       
-      // 이번 주 해당 요일 찾기
-      let daysUntilTarget = (template.weekday - today.getDay() + 7) % 7
-      
-      // 첫 번째 주차(week=0)에서 오늘이 해당 요일이면 오늘 포함
-      if (week === 0 && daysUntilTarget === 0) {
-        daysUntilTarget = 0  // 오늘이 해당 요일
-      } else if (week === 0 && daysUntilTarget === 0) {
-        daysUntilTarget = 7  // 다음 주 같은 요일
-      }
-      
-      targetDate.setDate(today.getDate() + daysUntilTarget + (week * 7))
-      
-      // 연말을 넘어가면 중단
-      if (targetDate > endOfYear) {
-        break
-      }
-      
-      // 예외 조건 확인
-      if (!this.isExceptionDate(targetDate, template.exceptions, template.id)) {
-        // 공휴일 처리 적용
-        const holidayHandling = template.holidayHandling || 'before' // 기본값 설정
-        console.log(`[${template.title}] 원본 날짜: ${targetDate.toDateString()}, 공휴일 처리: ${holidayHandling}`)
-        console.log(`[${template.title}] 템플릿 전체 데이터:`, template)
-        
-        // 공휴일인지 확인
-        const isHoliday = getHolidayInfoSync(targetDate) !== null
-        const isWeekendDay = isWeekend(targetDate)
-        console.log(`[${template.title}] 공휴일 여부: ${isHoliday}, 주말 여부: ${isWeekendDay}`)
-        
-        // 수정된 로직: adjustForHolidays 함수가 내부적으로 공휴일/주말 확인을 하므로 무조건 호출
-        const finalDate = this.adjustForHolidays(targetDate, holidayHandling)
-        
-        if (finalDate.getTime() !== targetDate.getTime()) {
-          console.log(`[${template.title}] 공휴일 조정: ${targetDate.toDateString()} → ${finalDate.toDateString()}`)
+      if (currentDateOnly >= todayDateOnly) {
+        // 예외 조건 확인
+        if (!this.isExceptionDate(currentDate, template.exceptions, template.id)) {
+          // 공휴일 처리 적용
+          const holidayHandling = template.holidayHandling || 'before' // 기본값 설정
+          console.log(`[${template.title}] 원본 날짜: ${currentDate.toDateString()}, 공휴일 처리: ${holidayHandling}`)
+          console.log(`[${template.title}] 템플릿 전체 데이터:`, template)
+          
+          // 공휴일인지 확인
+          const isHoliday = getHolidayInfoSync(currentDate) !== null
+          const isWeekendDay = isWeekend(currentDate)
+          console.log(`[${template.title}] 공휴일 여부: ${isHoliday}, 주말 여부: ${isWeekendDay}`)
+          
+          // 수정된 로직: adjustForHolidays 함수가 내부적으로 공휴일/주말 확인을 하므로 무조건 호출
+          const finalDate = this.adjustForHolidays(currentDate, holidayHandling)
+          
+          if (finalDate.getTime() !== currentDate.getTime()) {
+            console.log(`[${template.title}] 공휴일 조정: ${currentDate.toDateString()} → ${finalDate.toDateString()}`)
+          }
+          
+          // 중복 검사: 같은 제목의 할일이 이미 해당 날짜에 있으면 생성하지 않음
+          if (this.hasDuplicateOnDate(finalDate, template.id, template.title)) {
+            console.log(`🚫 중복 할일 발견으로 생성 제외: "${template.title}" - ${finalDate.toDateString()}`)
+          } else {
+            // 결정적 ID 생성: 템플릿ID + 날짜 (타임스탬프 제거로 일관성 보장)
+            const uniqueId = `${template.id}_${finalDate.toISOString().split('T')[0]}`
+            
+            instances.push({
+              id: uniqueId,
+              templateId: template.id,
+              date: finalDate,
+              completed: false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+          }
         }
-        
-        // 중복 검사: 같은 제목의 할일이 이미 해당 날짜에 있으면 생성하지 않음
-        if (this.hasDuplicateOnDate(finalDate, template.id, template.title)) {
-          console.log(`🚫 중복 할일 발견으로 생성 제외: "${template.title}" - ${finalDate.toDateString()}`)
-          continue // 이 인스턴스는 생성하지 않고 다음으로 넘어감
-        }
-        
-        // 결정적 ID 생성: 템플릿ID + 날짜 (타임스탬프 제거로 일관성 보장)
-        const uniqueId = `${template.id}_${finalDate.toISOString().split('T')[0]}`
-        
-        instances.push({
-          id: uniqueId,
-          templateId: template.id,
-          date: finalDate,
-          completed: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
       }
+      
+      // 다음 주로 이동 (7일 추가)
+      currentDate.setDate(currentDate.getDate() + 7)
     }
     
     return instances
@@ -414,39 +413,50 @@ class SimpleRecurringSystem {
     
     const instances: SimpleRecurringInstance[] = []
     const today = new Date()
-    const currentMonth = today.getMonth()
-    // const currentYear = today.getFullYear()
+    const startDate = new Date(template.createdAt) // 템플릿 생성일을 시작일로 사용
+    const endOfYear = new Date(today.getFullYear(), 11, 31) // 올해 12월 31일
     
-    // 현재 월부터 연말까지
-    const monthsUntilEndOfYear = 12 - currentMonth
-    for (let month = 0; month < monthsUntilEndOfYear; month++) {
-      const targetYear = today.getFullYear()
-      const targetMonth = (today.getMonth() + month) % 12
-      const adjustedYear = targetMonth < today.getMonth() ? targetYear + 1 : targetYear
+    // 시작 월부터 연말까지 월간 반복 인스턴스 생성
+    let currentYear = startDate.getFullYear()
+    let currentMonth = startDate.getMonth()
+    
+    while (currentYear <= endOfYear.getFullYear() && 
+           (currentYear < endOfYear.getFullYear() || currentMonth <= endOfYear.getMonth())) {
       
       let targetDate: Date | null = null
       
       // 패턴에 따라 날짜 계산
       if (template.monthlyPattern === 'weekday' && template.monthlyWeek && template.monthlyWeekday !== undefined) {
         // 특정 주의 요일 (예: 매월 마지막 주 수요일)
-        targetDate = this.calculateMonthlyWeekday(adjustedYear, targetMonth, template.monthlyWeek, template.monthlyWeekday)
+        targetDate = this.calculateMonthlyWeekday(currentYear, currentMonth, template.monthlyWeek, template.monthlyWeekday)
       } else if (template.monthlyDate !== undefined) {
         // 특정 날짜 (예: 매월 15일)
         if (template.monthlyDate === -1) {
           // 말일
-          targetDate = new Date(adjustedYear, targetMonth + 1, 0)
+          targetDate = new Date(currentYear, currentMonth + 1, 0)
         } else {
           // 특정 날짜
-          targetDate = new Date(adjustedYear, targetMonth, template.monthlyDate)
+          targetDate = new Date(currentYear, currentMonth, template.monthlyDate)
           
           // 해당 월에 그 날짜가 있는지 확인 (예: 2월 30일 같은 경우)
-          if (targetDate.getMonth() !== targetMonth) {
+          if (targetDate.getMonth() !== currentMonth) {
+            // 다음 달로 이동
+            currentMonth++
+            if (currentMonth >= 12) {
+              currentMonth = 0
+              currentYear++
+            }
             continue // 해당 월에 없는 날짜는 건너뛰기
           }
         }
       }
       
-      if (targetDate && targetDate >= today) {
+      if (targetDate) {
+        // 날짜만 비교 (시간 제외)
+        const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate())
+        
+        if (targetDateOnly >= todayDateOnly) {
         // 예외 조건 확인
         if (!this.isExceptionDate(targetDate, template.exceptions, template.id)) {
           // 공휴일 처리 적용
@@ -469,21 +479,28 @@ class SimpleRecurringSystem {
           // 중복 검사: 같은 제목의 할일이 이미 해당 날짜에 있으면 생성하지 않음
           if (this.hasDuplicateOnDate(finalDate, template.id, template.title)) {
             console.log(`🚫 중복 할일 발견으로 생성 제외: "${template.title}" - ${finalDate.toDateString()}`)
-            continue // 이 인스턴스는 생성하지 않고 다음으로 넘어감
+          } else {
+            // 결정적 ID 생성: 템플릿ID + 날짜 (타임스탬프 제거로 일관성 보장)
+            const uniqueId = `${template.id}_${finalDate.toISOString().split('T')[0]}`
+            
+            instances.push({
+              id: uniqueId,
+              templateId: template.id,
+              date: finalDate,
+              completed: false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
           }
-          
-          // 결정적 ID 생성: 템플릿ID + 날짜 (타임스탬프 제거로 일관성 보장)
-          const uniqueId = `${template.id}_${finalDate.toISOString().split('T')[0]}`
-          
-          instances.push({
-            id: uniqueId,
-            templateId: template.id,
-            date: finalDate,
-            completed: false,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          })
         }
+        }
+      }
+      
+      // 다음 달로 이동
+      currentMonth++
+      if (currentMonth >= 12) {
+        currentMonth = 0
+        currentYear++
       }
     }
     

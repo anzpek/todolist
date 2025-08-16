@@ -801,6 +801,43 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const allTodos = [...state.todos, ...getRecurringTodos()]
     const targetTodo = allTodos.find(t => t.id === id)
     
+    // 기간 할일 특별 처리: 시작일과 마감일이 모두 있는 일반 할일
+    const periodTodo = state.todos.find(t => t.id === id)
+    if (periodTodo && periodTodo.startDate && periodTodo.dueDate && !(periodTodo as any)._isRecurringInstance) {
+      console.log('📅 기간 할일 토글:', id, '시작일:', periodTodo.startDate, '마감일:', periodTodo.dueDate)
+      
+      const updates: Partial<Todo> & { completedAt?: Date | ReturnType<typeof deleteField> } = {
+        completed: !periodTodo.completed,
+        ...(
+          !periodTodo.completed 
+            ? { completedAt: new Date() }
+            : { completedAt: deleteField() }
+        )
+      }
+
+      try {
+        // 먼저 로컬 상태를 즉시 업데이트
+        dispatch({ type: 'TOGGLE_TODO', payload: id })
+        
+        // Firestore 업데이트
+        if (currentUser) {
+          await firestoreService.updateTodo(id, updates, currentUser.uid)
+          console.log('✅ 기간 할일 Firestore 업데이트 성공:', id)
+        } else {
+          console.log('✅ 비로그인 모드: 기간 할일 메모리에서 토글')
+        }
+        
+        console.log(`✅ 기간 할일 토글 완료: ${id}`)
+        return
+      } catch (error: any) {
+        console.error('❌ 기간 할일 토글 실패:', error)
+        // 에러 발생시 이전 상태로 되돌림
+        dispatch({ type: 'TOGGLE_TODO', payload: id })
+        dispatch({ type: 'SET_ERROR', payload: '할일 상태 변경 중 오류가 발생했습니다.' })
+        return
+      }
+    }
+    
     if (targetTodo && (targetTodo as any)._isRecurringInstance) {
       console.log('🔄 반복 할일 토글:', id)
       const instanceId = (targetTodo as any)._instanceId
@@ -843,16 +880,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // 일반 할일 처리
-    const regularTodo = state.todos.find(t => t.id === id)
-    if (!regularTodo) {
+    const basicTodo = state.todos.find(t => t.id === id)
+    if (!basicTodo) {
       console.error('Todo not found:', id)
       return
     }
 
     const updates: Partial<Todo> & { completedAt?: Date | ReturnType<typeof deleteField> } = {
-      completed: !regularTodo.completed,
+      completed: !basicTodo.completed,
       ...(
-        !regularTodo.completed 
+        !basicTodo.completed 
           ? { completedAt: new Date() }
           : { completedAt: deleteField() }
       )
@@ -956,7 +993,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const today = targetDate ? new Date(targetDate) : new Date()
     today.setHours(0, 0, 0, 0) // 시간 부분을 00:00:00으로 설정
     
+    console.log('🗓️ getTodayTodos 호출됨, 대상 날짜:', today.toDateString())
+    
     const regularTodos = state.todos.filter(todo => {
+      console.log(`🔍 할일 체크: "${todo.title}"`)
+      console.log(`  startDate: ${todo.startDate ? new Date(todo.startDate).toDateString() : 'null'}`)
+      console.log(`  dueDate: ${todo.dueDate ? new Date(todo.dueDate).toDateString() : 'null'}`)
+      console.log(`  completed: ${todo.completed}`)
+      
       // 완료된 할일의 경우: 오늘 완료된 것만 표시
       if (todo.completed) {
         if (todo.completedAt) {
@@ -967,28 +1011,42 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         return false // 완료날짜가 없는 완료된 할일은 표시하지 않음
       }
       
-      // 미완료 할일의 경우
-      // 1. 마감일이 오늘인 할일
-      if (todo.dueDate) {
-        const dueDate = new Date(todo.dueDate)
-        dueDate.setHours(0, 0, 0, 0)
+      // 미완료 할일의 경우 - 기간 기반 로직
+      const startDate = todo.startDate ? new Date(todo.startDate) : null
+      const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+      
+      if (startDate) startDate.setHours(0, 0, 0, 0)
+      if (dueDate) dueDate.setHours(0, 0, 0, 0)
+      
+      console.log(`  처리된 startDate: ${startDate ? startDate.toDateString() : 'null'}`)
+      console.log(`  처리된 dueDate: ${dueDate ? dueDate.toDateString() : 'null'}`)
+      
+      // 1. 시작일과 마감일이 모두 있는 경우: 기간 내에 포함되는지 확인
+      if (startDate && dueDate) {
+        const isInPeriod = today.getTime() >= startDate.getTime() && today.getTime() <= dueDate.getTime()
+        console.log(`📅 기간 할일 체크: "${todo.title}"`)
+        console.log(`  시작일: ${startDate.toDateString()}, 마감일: ${dueDate.toDateString()}`)
+        console.log(`  오늘: ${today.toDateString()}, 기간 내 포함: ${isInPeriod}`)
+        // 미완료 할일: 시작일~마감일 기간 내 모든 날짜에 표시
+        return isInPeriod
+      }
+      
+      // 2. 시작일만 있는 경우: 시작일 이후 모든 날짜에 표시
+      if (startDate && !dueDate) {
+        return today.getTime() >= startDate.getTime()
+      }
+      
+      // 3. 마감일만 있는 경우: 마감일과 어제 못한 일 로직
+      if (!startDate && dueDate) {
+        // 마감일이 오늘인 할일
         if (dueDate.getTime() === today.getTime()) {
           return true
         }
         
-        // 2. 어제 못한 일 (어제 마감이었지만 완료되지 않은 할일)
+        // 어제 못한 일 (어제 마감이었지만 완료되지 않은 할일)
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
         if (dueDate.getTime() === yesterday.getTime()) {
-          return true
-        }
-      }
-      
-      // 2. 시작일이 오늘인 할일
-      if (todo.startDate) {
-        const startDate = new Date(todo.startDate)
-        startDate.setHours(0, 0, 0, 0)
-        if (startDate.getTime() === today.getTime()) {
           return true
         }
       }
@@ -1028,22 +1086,56 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   const getWeekTodos = () => {
     const today = new Date()
-    const weekFromNow = new Date()
-    weekFromNow.setDate(today.getDate() + 7)
+    today.setHours(0, 0, 0, 0)
+    console.log('📅 getWeekTodos 호출됨')
+    
+    // 이번 주의 시작일 (일요일)
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay())
+    startOfWeek.setHours(0, 0, 0, 0)
+    
+    // 이번 주의 마지막일 (토요일)
+    const endOfWeek = new Date(startOfWeek)
+    endOfWeek.setDate(startOfWeek.getDate() + 6)
+    endOfWeek.setHours(0, 0, 0, 0) // 시간을 00:00:00으로 통일
     
     const regularTodos = state.todos.filter(todo => {
-      // Include todos with due dates in the week range
-      if (todo.dueDate) {
-        const dueDate = new Date(todo.dueDate)
-        if (dueDate >= today && dueDate <= weekFromNow) {
-          return true
-        }
-      }
       
-      // Include todos completed this week
+      // 완료된 할일의 경우: 이번 주에 완료된 것만 표시
       if (todo.completed && todo.completedAt) {
         const completedDate = new Date(todo.completedAt)
-        if (completedDate >= today && completedDate <= weekFromNow) {
+        completedDate.setHours(0, 0, 0, 0)
+        return completedDate >= startOfWeek && completedDate <= endOfWeek
+      }
+      
+      // 미완료 할일의 경우 - 기간 기반 로직
+      if (!todo.completed) {
+        const startDate = todo.startDate ? new Date(todo.startDate) : null
+        const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+        
+        if (startDate) startDate.setHours(0, 0, 0, 0)
+        if (dueDate) dueDate.setHours(0, 0, 0, 0)
+        
+        // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 주와 겹치는지 확인
+        if (startDate && dueDate) {
+          // 미완료 할일: 할일 기간과 주간 범위가 겹치면 표시
+          // 겹침 조건: 할일 마감일 >= 주간 시작일 AND 할일 시작일 <= 주간 마지막일
+          const overlapsWeek = dueDate.getTime() >= startOfWeek.getTime() && startDate.getTime() <= endOfWeek.getTime()
+          return overlapsWeek
+        }
+        
+        // 2. 시작일만 있는 경우: 시작일이 이번 주 이전이거나 이번 주에 시작
+        if (startDate && !dueDate) {
+          return startDate <= endOfWeek
+        }
+        
+        // 3. 마감일만 있는 경우: 마감일이 이번 주 범위 내
+        if (!startDate && dueDate) {
+          return dueDate >= startOfWeek && dueDate <= endOfWeek
+        }
+        
+        // 4. 날짜가 없는 일반 할일
+        if (!startDate && !dueDate) {
           return true
         }
       }
@@ -1051,12 +1143,52 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       return false
     })
 
-    // 반복 할일 추가
+    // 반복 할일 추가 - 기간 기반 로직 적용
     const weeklyRecurringTodos = getRecurringTodos()
     const weekRecurringTodos = weeklyRecurringTodos.filter(todo => {
-      if (!todo.dueDate) return false
-      const dueDate = new Date(todo.dueDate)
-      return dueDate >= today && dueDate <= weekFromNow
+      // 완료된 반복 할일의 경우: 이번 주에 완료된 것만 표시
+      if (todo.completed && todo.completedAt) {
+        const completedDate = new Date(todo.completedAt)
+        completedDate.setHours(0, 0, 0, 0)
+        return completedDate >= startOfWeek && completedDate <= endOfWeek
+      }
+      
+      // 미완료 반복 할일의 경우 - 기간 기반 로직
+      if (!todo.completed) {
+        const startDate = todo.startDate ? new Date(todo.startDate) : null
+        const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+        
+        if (startDate) startDate.setHours(0, 0, 0, 0)
+        if (dueDate) dueDate.setHours(0, 0, 0, 0)
+        
+        // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 주와 겹치는지 확인
+        if (startDate && dueDate) {
+          // 반복 할일: 할일 기간과 주간 범위가 겹치면 표시
+          const overlapsWeek = dueDate.getTime() >= startOfWeek.getTime() && startDate.getTime() <= endOfWeek.getTime()
+          console.log(`🔄 주간 반복 기간 할일 체크: "${todo.title}"`)
+          console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
+          console.log(`  주간 범위: ${startOfWeek.toDateString()} ~ ${endOfWeek.toDateString()}`)
+          console.log(`  겹침 여부: ${overlapsWeek}`)
+          return overlapsWeek
+        }
+        
+        // 2. 시작일만 있는 경우: 시작일이 이번 주 이전이거나 이번 주에 시작
+        if (startDate && !dueDate) {
+          return startDate <= endOfWeek
+        }
+        
+        // 3. 마감일만 있는 경우: 마감일이 이번 주 범위 내
+        if (!startDate && dueDate) {
+          return dueDate >= startOfWeek && dueDate <= endOfWeek
+        }
+        
+        // 4. 날짜가 없는 반복 할일
+        if (!startDate && !dueDate) {
+          return true
+        }
+      }
+      
+      return false
     })
 
     return [...regularTodos, ...weekRecurringTodos]
@@ -1064,22 +1196,54 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   const getMonthTodos = () => {
     const today = new Date()
-    const monthFromNow = new Date()
-    monthFromNow.setMonth(today.getMonth() + 1)
+    today.setHours(0, 0, 0, 0)
+    console.log('📆 getMonthTodos 호출됨')
+    
+    // 이번 달의 시작일 (1일)
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    startOfMonth.setHours(0, 0, 0, 0)
+    
+    // 이번 달의 마지막일 (말일)
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    endOfMonth.setHours(0, 0, 0, 0) // 시간을 00:00:00으로 통일
     
     const regularTodos = state.todos.filter(todo => {
-      // Include todos with due dates in the month range
-      if (todo.dueDate) {
-        const dueDate = new Date(todo.dueDate)
-        if (dueDate >= today && dueDate <= monthFromNow) {
-          return true
-        }
-      }
       
-      // Include todos completed this month
+      // 완료된 할일의 경우: 이번 달에 완료된 것만 표시
       if (todo.completed && todo.completedAt) {
         const completedDate = new Date(todo.completedAt)
-        if (completedDate >= today && completedDate <= monthFromNow) {
+        completedDate.setHours(0, 0, 0, 0)
+        return completedDate >= startOfMonth && completedDate <= endOfMonth
+      }
+      
+      // 미완료 할일의 경우 - 기간 기반 로직
+      if (!todo.completed) {
+        const startDate = todo.startDate ? new Date(todo.startDate) : null
+        const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+        
+        if (startDate) startDate.setHours(0, 0, 0, 0)
+        if (dueDate) dueDate.setHours(0, 0, 0, 0)
+        
+        // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 달과 겹치는지 확인
+        if (startDate && dueDate) {
+          // 미완료 할일: 할일 기간과 월간 범위가 겹치면 표시
+          // 겹침 조건: 할일 마감일 >= 월간 시작일 AND 할일 시작일 <= 월간 마지막일
+          const overlapsMonth = dueDate.getTime() >= startOfMonth.getTime() && startDate.getTime() <= endOfMonth.getTime()
+          return overlapsMonth
+        }
+        
+        // 2. 시작일만 있는 경우: 시작일이 이번 달 이전이거나 이번 달에 시작
+        if (startDate && !dueDate) {
+          return startDate <= endOfMonth
+        }
+        
+        // 3. 마감일만 있는 경우: 마감일이 이번 달 범위 내
+        if (!startDate && dueDate) {
+          return dueDate >= startOfMonth && dueDate <= endOfMonth
+        }
+        
+        // 4. 날짜가 없는 일반 할일
+        if (!startDate && !dueDate) {
           return true
         }
       }
@@ -1087,12 +1251,52 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       return false
     })
 
-    // 반복 할일 추가
+    // 반복 할일 추가 - 기간 기반 로직 적용
     const monthlyRecurringTodos = getRecurringTodos()
     const monthRecurringTodos = monthlyRecurringTodos.filter(todo => {
-      if (!todo.dueDate) return false
-      const dueDate = new Date(todo.dueDate)
-      return dueDate >= today && dueDate <= monthFromNow
+      // 완료된 반복 할일의 경우: 이번 달에 완료된 것만 표시
+      if (todo.completed && todo.completedAt) {
+        const completedDate = new Date(todo.completedAt)
+        completedDate.setHours(0, 0, 0, 0)
+        return completedDate >= startOfMonth && completedDate <= endOfMonth
+      }
+      
+      // 미완료 반복 할일의 경우 - 기간 기반 로직
+      if (!todo.completed) {
+        const startDate = todo.startDate ? new Date(todo.startDate) : null
+        const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+        
+        if (startDate) startDate.setHours(0, 0, 0, 0)
+        if (dueDate) dueDate.setHours(0, 0, 0, 0)
+        
+        // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 달과 겹치는지 확인
+        if (startDate && dueDate) {
+          // 반복 할일: 할일 기간과 월간 범위가 겹치면 표시
+          const overlapsMonth = dueDate.getTime() >= startOfMonth.getTime() && startDate.getTime() <= endOfMonth.getTime()
+          console.log(`🔄 월간 반복 기간 할일 체크: "${todo.title}"`)
+          console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
+          console.log(`  월간 범위: ${startOfMonth.toDateString()} ~ ${endOfMonth.toDateString()}`)
+          console.log(`  겹침 여부: ${overlapsMonth}`)
+          return overlapsMonth
+        }
+        
+        // 2. 시작일만 있는 경우: 시작일이 이번 달 이전이거나 이번 달에 시작
+        if (startDate && !dueDate) {
+          return startDate <= endOfMonth
+        }
+        
+        // 3. 마감일만 있는 경우: 마감일이 이번 달 범위 내
+        if (!startDate && dueDate) {
+          return dueDate >= startOfMonth && dueDate <= endOfMonth
+        }
+        
+        // 4. 날짜가 없는 반복 할일
+        if (!startDate && !dueDate) {
+          return true
+        }
+      }
+      
+      return false
     })
 
     return [...regularTodos, ...monthRecurringTodos]

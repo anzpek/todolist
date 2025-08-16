@@ -87,8 +87,44 @@ const MonthlyCalendarView = ({
 
   const getTodosForDate = (date: Date) => {
     return filteredTodos.filter(todo => {
-      if (!todo.dueDate) return false
-      return isSameDay(todo.dueDate, date)
+      // 완료된 할일의 경우: 완료날짜가 해당 날짜인 것만 표시
+      if (todo.completed && todo.completedAt) {
+        return isSameDay(todo.completedAt, date)
+      }
+      
+      // 미완료 할일의 경우 - 기간 기반 로직
+      if (!todo.completed) {
+        const startDate = todo.startDate ? new Date(todo.startDate) : null
+        const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+        
+        // 시작일과 마감일이 모두 있는 경우: 해당 날짜가 기간 내에 있는지 확인
+        if (startDate && dueDate) {
+          const targetDate = new Date(date)
+          startDate.setHours(0, 0, 0, 0)
+          dueDate.setHours(0, 0, 0, 0)
+          targetDate.setHours(0, 0, 0, 0)
+          
+          return targetDate.getTime() >= startDate.getTime() && targetDate.getTime() <= dueDate.getTime()
+        }
+        
+        // 시작일만 있는 경우: 시작일 이후 모든 날짜에 표시
+        if (startDate && !dueDate) {
+          const targetDate = new Date(date)
+          startDate.setHours(0, 0, 0, 0)
+          targetDate.setHours(0, 0, 0, 0)
+          return targetDate.getTime() >= startDate.getTime()
+        }
+        
+        // 마감일만 있는 경우: 마감일에 표시
+        if (!startDate && dueDate) {
+          return isSameDay(dueDate, date)
+        }
+        
+        // 날짜가 없는 할일: 표시하지 않음
+        return false
+      }
+      
+      return false
     })
   }
 
