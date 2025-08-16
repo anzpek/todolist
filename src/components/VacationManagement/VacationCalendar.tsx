@@ -123,7 +123,7 @@ const VacationCalendar: React.FC<Props> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden w-full max-w-full">
       {/* 달력 헤더 */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <button
@@ -146,7 +146,11 @@ const VacationCalendar: React.FC<Props> = ({
       </div>
 
       {/* 요일 헤더 */}
-      <div className="grid border-b border-gray-200 dark:border-gray-700" style={{ gridTemplateColumns: '0.7fr 1fr 1fr 1fr 1fr 1fr 0.7fr' }}>
+      <div className="grid w-full border-b border-gray-200 dark:border-gray-700" style={{ 
+        gridTemplateColumns: '0.7fr 1fr 1fr 1fr 1fr 1fr 0.7fr',
+        minWidth: '100%',
+        maxWidth: '100%'
+      }}>
         {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
           <div
             key={day}
@@ -164,8 +168,12 @@ const VacationCalendar: React.FC<Props> = ({
       {/* 달력 그리드 */}
       <div 
         ref={calendarRef}
-        className="grid"
-        style={{ gridTemplateColumns: '0.7fr 1fr 1fr 1fr 1fr 1fr 0.7fr' }}
+        className="grid w-full"
+        style={{ 
+          gridTemplateColumns: '0.7fr 1fr 1fr 1fr 1fr 1fr 0.7fr',
+          minWidth: '100%',
+          maxWidth: '100%'
+        }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -179,13 +187,18 @@ const VacationCalendar: React.FC<Props> = ({
           return (
             <div
               key={date.toISOString()}
-              className={`min-h-[120px] border-b border-r border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+              className={`min-h-[120px] border-b border-r border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 overflow-hidden ${
                 isWeekend ? 'p-1' : 'p-2'
               } ${
                 !isCurrentMonth ? 'bg-gray-50 dark:bg-gray-900' : ''
               } ${isToday ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${
                 isWeekend ? 'bg-gray-25 dark:bg-gray-850' : ''
               }`}
+              style={{ 
+                minWidth: 0,
+                maxWidth: '100%',
+                width: '100%'
+              }}
               onClick={() => {
                 if (dayVacations.length > 0) {
                   setSelectedDate(date);
@@ -205,7 +218,7 @@ const VacationCalendar: React.FC<Props> = ({
               </div>
 
               {/* 휴가 목록 (주말은 최대 3개, 평일은 최대 6개까지 표시) */}
-              <div className="space-y-1">
+              <div className="space-y-1 w-full overflow-hidden">
                 {dayVacations.slice(0, isWeekend ? 3 : 6).map(vacation => {
                   const employee = getEmployee(vacation.employeeId);
                   return (
@@ -214,16 +227,38 @@ const VacationCalendar: React.FC<Props> = ({
                       className={`text-xs rounded border cursor-pointer group ${getVacationTypeColor(vacation.type)} ${
                         isWeekend ? 'px-1 py-0.5' : 'px-2 py-1'
                       }`}
+                      style={{ 
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        width: '100%',
+                        overflow: 'hidden'
+                      }}
                       onClick={(e) => {
                         e.stopPropagation();
                         onEditVacation(vacation);
                       }}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">
+                      <div 
+                        className="flex items-center justify-between"
+                        style={{ 
+                          minWidth: 0,
+                          maxWidth: '100%',
+                          width: '100%'
+                        }}
+                      >
+                        <span 
+                          className="truncate"
+                          style={{ 
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
                           {employee?.name} {vacation.type}
                         </span>
-                        <div className="hidden group-hover:flex items-center space-x-1">
+                        <div className="hidden group-hover:flex items-center space-x-1 flex-shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -250,9 +285,17 @@ const VacationCalendar: React.FC<Props> = ({
                 
                 {/* 더 많은 휴가가 있을 때 */}
                 {dayVacations.length > (isWeekend ? 3 : 6) && (
-                  <div className={`text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 ${
-                    isWeekend ? 'px-1 py-0.5' : 'px-2 py-1'
-                  }`}>
+                  <div 
+                    className={`text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 ${
+                      isWeekend ? 'px-1 py-0.5' : 'px-2 py-1'
+                    }`}
+                    style={{ 
+                      minWidth: 0,
+                      maxWidth: '100%',
+                      width: '100%',
+                      overflow: 'hidden'
+                    }}
+                  >
                     +{dayVacations.length - (isWeekend ? 3 : 6)}개 더
                   </div>
                 )}

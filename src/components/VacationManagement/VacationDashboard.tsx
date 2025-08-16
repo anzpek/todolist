@@ -241,7 +241,7 @@ const VacationDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full overflow-hidden">
       {/* 헤더 - 모바일 친화적 */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -305,37 +305,38 @@ const VacationDashboard: React.FC = () => {
                   </button>
                 </div>
 
-                {/* 직원 목록 */}
-                <div className="space-y-2">
+                {/* 직원 목록 - 콤팩트 한줄 표시 */}
+                <div className="grid grid-cols-2 gap-1">
                   {employees.map(employee => (
-                    <label key={employee.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg">
+                    <label key={employee.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1.5 rounded">
                       <input
                         type="checkbox"
                         checked={filters.selectedEmployees.includes(employee.id)}
                         onChange={() => toggleEmployee(employee.id)}
-                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        className="w-3 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                       />
                       <div
-                        className="w-4 h-4 rounded-full"
+                        className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
                         style={{ backgroundColor: employee.color }}
-                      />
-                      <span className="text-gray-900 dark:text-gray-100">{employee.name}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">({employee.position})</span>
+                      >
+                        {employee.name.charAt(0)}
+                      </div>
+                      <span className="text-xs text-gray-900 dark:text-gray-100 truncate">{employee.name}</span>
                     </label>
                   ))}
                 </div>
 
                 {/* 휴가 유형 필터 */}
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-3">휴가 유형</span>
-                  <div className="space-y-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">휴가 유형</span>
+                  <div className="flex flex-wrap gap-2">
                     {Object.entries(filters.vacationTypes).map(([type, checked]) => (
-                      <label key={type} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg">
+                      <label key={type} className="flex items-center space-x-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-600">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleVacationType(type as keyof typeof filters.vacationTypes)}
-                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          className="w-3 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                         />
                         <span className="text-gray-900 dark:text-gray-100">{type}</span>
                       </label>
