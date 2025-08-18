@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Calendar, Clock, Flag, FolderPlus, FileText, Save, Minus, Plus } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
+import SubTaskManager from './SubTaskManager'
 import type { Todo, Priority, RecurrenceType, TaskType } from '../types/todo'
 import type { RecurrenceException } from '../utils/simpleRecurring'
 import { getWeekLabel } from '../utils/helpers'
@@ -411,6 +412,16 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
                 placeholder="태그를 쉼표로 구분하여 입력하세요 (예: 업무, 개인, 중요)"
               />
             </div>
+
+            {/* 하위 작업 (프로젝트 타입인 경우만) */}
+            {formData.type === 'project' && todo && !isRecurringTodo && (
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <SubTaskManager 
+                  todoId={todo.id} 
+                  subTasks={todo.subTasks || []} 
+                />
+              </div>
+            )}
 
             {/* 반복 할일인 경우 예외 설정 */}
             {isRecurringTodo && (

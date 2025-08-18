@@ -12,7 +12,7 @@ interface ProjectTemplateManagerProps {
 const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTemplateManagerProps) => {
   const [templates, setTemplates] = useState<ProjectTemplate[]>([])
   const [isCreating, setIsCreating] = useState(false)
-  // const [editingTemplate, setEditingTemplate] = useState<ProjectTemplate | null>(null)
+  const [editingTemplate, setEditingTemplate] = useState<ProjectTemplate | null>(null)
   const [newTemplate, setNewTemplate] = useState<Omit<ProjectTemplate, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
     description: '',
@@ -32,12 +32,30 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
           createdAt: new Date(template.createdAt),
           updatedAt: new Date(template.updatedAt)
         }))
+        console.log('로드된 템플릿들:', parsed) // 디버깅용
+        console.log('editingTemplate 상태:', editingTemplate) // 디버깅용
         setTemplates(parsed)
       } catch (error) {
         console.error('Failed to load templates:', error)
       }
     }
   }, [])
+
+  // 모달이 닫힐 때 편집 상태 초기화
+  useEffect(() => {
+    if (!isOpen) {
+      setEditingTemplate(null)
+      setIsCreating(false)
+      setNewTemplate({
+        name: '',
+        description: '',
+        category: 'shortterm',
+        subTasks: [],
+        defaultPriority: 'medium',
+        tags: []
+      })
+    }
+  }, [isOpen])
 
   // 템플릿 저장
   const saveTemplates = (updatedTemplates: ProjectTemplate[]) => {
@@ -55,6 +73,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
       updatedAt: new Date()
     }
 
+    console.log('새 템플릿 저장:', template) // 디버깅용
     saveTemplates([...templates, template])
     setNewTemplate({
       name: '',
@@ -67,17 +86,19 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
     setIsCreating(false)
   }
 
-  // const handleUpdateTemplate = () => {
-  //   if (!editingTemplate) return
+  const handleUpdateTemplate = () => {
+    if (!editingTemplate) return
 
-  //   const updatedTemplates = templates.map(t => 
-  //     t.id === editingTemplate.id 
-  //       ? { ...editingTemplate, updatedAt: new Date() }
-  //       : t
-  //   )
-  //   saveTemplates(updatedTemplates)
-  //   setEditingTemplate(null)
-  // }
+    console.log('업데이트할 템플릿:', editingTemplate) // 디버깅용
+    const updatedTemplates = templates.map(t => 
+      t.id === editingTemplate.id 
+        ? { ...editingTemplate, updatedAt: new Date() }
+        : t
+    )
+    console.log('업데이트된 템플릿 목록:', updatedTemplates) // 디버깅용
+    saveTemplates(updatedTemplates)
+    setEditingTemplate(null)
+  }
 
   const handleDeleteTemplate = (templateId: string) => {
     if (confirm('이 템플릿을 삭제하시겠습니까?')) {
@@ -257,6 +278,108 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
             </div>
           )}
 
+          {/* 템플릿 수정 폼 */}
+          {editingTemplate && (
+            <div className="mb-6 p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <h3 className="text-lg font-medium mb-4 text-blue-800 dark:text-blue-200">템플릿 수정</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">템플릿 이름</label>
+                  <input
+                    type="text"
+                    value={editingTemplate.name}
+                    onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    placeholder="예: 7월 진흥원 교육 프로젝트"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">카테고리</label>
+                  <select
+                    value={editingTemplate.category}
+                    onChange={(e) => setEditingTemplate({ ...editingTemplate, category: e.target.value as 'longterm' | 'shortterm' })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="shortterm">숏텀 프로젝트</option>
+                    <option value="longterm">롱텀 프로젝트</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">설명</label>
+                <textarea
+                  value={editingTemplate.description}
+                  onChange={(e) => setEditingTemplate({ ...editingTemplate, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  rows={3}
+                  placeholder="프로젝트 설명"
+                />
+              </div>
+
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium">하위 작업</label>
+                  <button
+                    onClick={() => addSubTaskToTemplate(editingTemplate, setEditingTemplate)}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    작업 추가
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  {editingTemplate.subTasks.map((subTask, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                      <input
+                        type="text"
+                        value={subTask.title}
+                        onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setEditingTemplate)}
+                        className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                        placeholder="작업명"
+                      />
+                      <select
+                        value={subTask.priority}
+                        onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { priority: e.target.value as Priority }, setEditingTemplate)}
+                        className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-600 dark:text-white"
+                      >
+                        <option value="low">낮음</option>
+                        <option value="medium">보통</option>
+                        <option value="high">높음</option>
+                        <option value="urgent">긴급</option>
+                      </select>
+                      <button
+                        onClick={() => removeSubTaskFromTemplate(editingTemplate, index, setEditingTemplate)}
+                        className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setEditingTemplate(null)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleUpdateTemplate}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  수정 완료
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 템플릿 목록 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {templates.map((template) => (
@@ -274,7 +397,10 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   </div>
                   <div className="flex gap-1">
                     <button
-                      onClick={() => {/* setEditingTemplate(template) */}}
+                      onClick={() => {
+                        console.log('수정할 템플릿:', template) // 디버깅용
+                        setEditingTemplate(template)
+                      }}
                       className="p-1 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded"
                       title="수정"
                     >
