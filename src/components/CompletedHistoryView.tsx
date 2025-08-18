@@ -21,6 +21,7 @@ const CompletedHistoryView = ({
 }: CompletedHistoryViewProps) => {
   const { todos, toggleTodo } = useTodos()
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['today']))
+  const [viewMode, setViewMode] = useState<'period' | 'daily' | 'weekly' | 'monthly'>('period')
 
   // 완료된 할일만 필터링
   const completedTodos = todos.filter(todo => 
@@ -103,6 +104,123 @@ const CompletedHistoryView = ({
     })
 
     return groups
+  }
+
+  // 날짜별로 그룹화 (일간 뷰)
+  const groupTodosByDay = () => {
+    const groupedByDay: { [key: string]: Todo[] } = {}
+    
+    completedTodos.forEach(todo => {
+      if (!todo.completedAt) return
+      
+      const completedDate = new Date(todo.completedAt)
+      const dateKey = completedDate.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+      })
+      
+      if (!groupedByDay[dateKey]) {
+        groupedByDay[dateKey] = []
+      }
+      groupedByDay[dateKey].push(todo)
+    })
+
+    // 각 날짜 그룹을 시간순으로 정렬
+    Object.values(groupedByDay).forEach(group => {
+      group.sort((a, b) => {
+        if (!a.completedAt || !b.completedAt) return 0
+        return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+      })
+    })
+
+    // 날짜순으로 정렬된 키들 반환
+    const sortedKeys = Object.keys(groupedByDay).sort((a, b) => {
+      const dateA = new Date(groupedByDay[a][0].completedAt!)
+      const dateB = new Date(groupedByDay[b][0].completedAt!)
+      return dateB.getTime() - dateA.getTime()
+    })
+
+    return { groupedByDay, sortedKeys }
+  }
+
+  // 주별로 그룹화 (주간 뷰)
+  const groupTodosByWeek = () => {
+    const groupedByWeek: { [key: string]: Todo[] } = {}
+    
+    completedTodos.forEach(todo => {
+      if (!todo.completedAt) return
+      
+      const completedDate = new Date(todo.completedAt)
+      const weekStart = new Date(completedDate)
+      weekStart.setDate(completedDate.getDate() - completedDate.getDay())
+      weekStart.setHours(0, 0, 0, 0)
+      
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 6)
+      
+      const weekKey = `${weekStart.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} ~ ${weekEnd.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}`
+      
+      if (!groupedByWeek[weekKey]) {
+        groupedByWeek[weekKey] = []
+      }
+      groupedByWeek[weekKey].push(todo)
+    })
+
+    // 각 주 그룹을 시간순으로 정렬
+    Object.values(groupedByWeek).forEach(group => {
+      group.sort((a, b) => {
+        if (!a.completedAt || !b.completedAt) return 0
+        return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+      })
+    })
+
+    // 주순으로 정렬된 키들 반환
+    const sortedKeys = Object.keys(groupedByWeek).sort((a, b) => {
+      const dateA = new Date(groupedByWeek[a][0].completedAt!)
+      const dateB = new Date(groupedByWeek[b][0].completedAt!)
+      return dateB.getTime() - dateA.getTime()
+    })
+
+    return { groupedByWeek, sortedKeys }
+  }
+
+  // 월별로 그룹화 (월간 뷰)
+  const groupTodosByMonth = () => {
+    const groupedByMonth: { [key: string]: Todo[] } = {}
+    
+    completedTodos.forEach(todo => {
+      if (!todo.completedAt) return
+      
+      const completedDate = new Date(todo.completedAt)
+      const monthKey = completedDate.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long'
+      })
+      
+      if (!groupedByMonth[monthKey]) {
+        groupedByMonth[monthKey] = []
+      }
+      groupedByMonth[monthKey].push(todo)
+    })
+
+    // 각 월 그룹을 시간순으로 정렬
+    Object.values(groupedByMonth).forEach(group => {
+      group.sort((a, b) => {
+        if (!a.completedAt || !b.completedAt) return 0
+        return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+      })
+    })
+
+    // 월순으로 정렬된 키들 반환
+    const sortedKeys = Object.keys(groupedByMonth).sort((a, b) => {
+      const dateA = new Date(groupedByMonth[a][0].completedAt!)
+      const dateB = new Date(groupedByMonth[b][0].completedAt!)
+      return dateB.getTime() - dateA.getTime()
+    })
+
+    return { groupedByMonth, sortedKeys }
   }
 
   const toggleSection = (section: string) => {
@@ -219,7 +337,54 @@ const CompletedHistoryView = ({
   }
 
   const groups = groupTodosByPeriod()
+  const dailyGroups = groupTodosByDay()
+  const weeklyGroups = groupTodosByWeek()
+  const monthlyGroups = groupTodosByMonth()
   const totalCompleted = completedTodos.length
+
+  const renderCustomGroupedView = () => {
+    if (viewMode === 'daily') {
+      const { groupedByDay, sortedKeys } = dailyGroups
+      return (
+        <div className="space-y-4">
+          {sortedKeys.map(dateKey => 
+            renderSection(dateKey, groupedByDay[dateKey], `day-${dateKey}`, <Calendar className="w-5 h-5 text-blue-600" />)
+          )}
+        </div>
+      )
+    } else if (viewMode === 'weekly') {
+      const { groupedByWeek, sortedKeys } = weeklyGroups
+      return (
+        <div className="space-y-4">
+          {sortedKeys.map(weekKey => 
+            renderSection(weekKey, groupedByWeek[weekKey], `week-${weekKey}`, <Calendar className="w-5 h-5 text-purple-600" />)
+          )}
+        </div>
+      )
+    } else if (viewMode === 'monthly') {
+      const { groupedByMonth, sortedKeys } = monthlyGroups
+      return (
+        <div className="space-y-4">
+          {sortedKeys.map(monthKey => 
+            renderSection(monthKey, groupedByMonth[monthKey], `month-${monthKey}`, <Calendar className="w-5 h-5 text-indigo-600" />)
+          )}
+        </div>
+      )
+    }
+    
+    // period 모드 (기본)
+    return (
+      <div className="space-y-4">
+        {renderSection('오늘 완료한 할일', groups.today, 'today', <CheckCircle className="w-5 h-5 text-green-600" />)}
+        {renderSection('어제 완료한 할일', groups.yesterday, 'yesterday', <Calendar className="w-5 h-5 text-blue-600" />)}
+        {renderSection('이번 주 완료한 할일', groups.thisWeek, 'thisWeek', <Calendar className="w-5 h-5 text-purple-600" />)}
+        {renderSection('저번 주 완료한 할일', groups.lastWeek, 'lastWeek', <Calendar className="w-5 h-5 text-orange-600" />)}
+        {renderSection('이번 달 완료한 할일', groups.thisMonth, 'thisMonth', <Calendar className="w-5 h-5 text-indigo-600" />)}
+        {renderSection('저번 달 완료한 할일', groups.lastMonth, 'lastMonth', <Calendar className="w-5 h-5 text-pink-600" />)}
+        {renderSection('더 이전에 완료한 할일', groups.older, 'older', <Clock className="w-5 h-5 text-gray-600" />)}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -233,43 +398,88 @@ const CompletedHistoryView = ({
         </div>
       </div>
 
+      {/* 뷰 모드 선택 탭 */}
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+        {[
+          { key: 'period', label: '기간별' },
+          { key: 'daily', label: '일별' },
+          { key: 'weekly', label: '주별' },
+          { key: 'monthly', label: '월별' }
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setViewMode(key as any)}
+            className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              viewMode === key
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* 통계 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {groups.today.length}
+      {viewMode === 'period' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {groups.today.length}
+            </div>
+            <div className="text-sm text-green-700 dark:text-green-300">오늘</div>
           </div>
-          <div className="text-sm text-green-700 dark:text-green-300">오늘</div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {groups.thisWeek.length + groups.yesterday.length}
+            </div>
+            <div className="text-sm text-blue-700 dark:text-blue-300">이번 주</div>
+          </div>
+          <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              {groups.thisMonth.length}
+            </div>
+            <div className="text-sm text-purple-700 dark:text-purple-300">이번 달</div>
+          </div>
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-center">
+            <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+              {groups.lastMonth.length + groups.older.length}
+            </div>
+            <div className="text-sm text-gray-700 dark:text-gray-300">이전</div>
+          </div>
         </div>
+      )}
+      
+      {viewMode === 'daily' && (
         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {groups.thisWeek.length + groups.yesterday.length}
+            {dailyGroups.sortedKeys.length}
           </div>
-          <div className="text-sm text-blue-700 dark:text-blue-300">이번 주</div>
+          <div className="text-sm text-blue-700 dark:text-blue-300">완료한 날</div>
         </div>
+      )}
+      
+      {viewMode === 'weekly' && (
         <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {groups.thisMonth.length}
+            {weeklyGroups.sortedKeys.length}
           </div>
-          <div className="text-sm text-purple-700 dark:text-purple-300">이번 달</div>
+          <div className="text-sm text-purple-700 dark:text-purple-300">완료한 주</div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-            {groups.lastMonth.length + groups.older.length}
+      )}
+      
+      {viewMode === 'monthly' && (
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+            {monthlyGroups.sortedKeys.length}
           </div>
-          <div className="text-sm text-gray-700 dark:text-gray-300">이전</div>
+          <div className="text-sm text-indigo-700 dark:text-indigo-300">완료한 월</div>
         </div>
-      </div>
+      )}
 
       {/* 완료된 할일 목록 */}
       <div className="space-y-4">
-        {renderSection('오늘 완료한 할일', groups.today, 'today', <CheckCircle className="w-5 h-5 text-green-600" />)}
-        {renderSection('어제 완료한 할일', groups.yesterday, 'yesterday', <Calendar className="w-5 h-5 text-blue-600" />)}
-        {renderSection('이번 주 완료한 할일', groups.thisWeek, 'thisWeek', <Calendar className="w-5 h-5 text-purple-600" />)}
-        {renderSection('저번 주 완료한 할일', groups.lastWeek, 'lastWeek', <Calendar className="w-5 h-5 text-orange-600" />)}
-        {renderSection('이번 달 완료한 할일', groups.thisMonth, 'thisMonth', <Calendar className="w-5 h-5 text-indigo-600" />)}
-        {renderSection('저번 달 완료한 할일', groups.lastMonth, 'lastMonth', <Calendar className="w-5 h-5 text-pink-600" />)}
-        {renderSection('더 이전에 완료한 할일', groups.older, 'older', <Clock className="w-5 h-5 text-gray-600" />)}
+        {renderCustomGroupedView()}
       </div>
 
       {/* 빈 상태 */}

@@ -29,6 +29,11 @@ const TodoItem = ({ todo }: TodoItemProps) => {
   const totalSubTasks = hasSubTasks ? todo.subTasks!.length : 0
   const progress = hasSubTasks ? (completedSubTasks / totalSubTasks) * 100 : 0
 
+  // 디버깅용 로그 (간단히)
+  if (todo.type === 'project' && hasSubTasks) {
+    console.log(`📋 프로젝트: ${todo.title} (${totalSubTasks}개 하위 작업)`)
+  }
+
   // 반복 인스턴스인지 확인
   const isRecurringInstance = isRecurringInstanceTodo(todo)
   // const instanceId = getInstanceIdFromRecurringTodo(todo) // Unused in simplified system
@@ -62,6 +67,12 @@ const TodoItem = ({ todo }: TodoItemProps) => {
     }
   }
 
+  const handleDoubleClick = () => {
+    if (hasSubTasks) {
+      setIsExpanded(!isExpanded)
+    }
+  }
+
 
   return (
     <div className={`card ${todo.completed ? 'p-2 mb-1.5 bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' : 'p-2 mb-1.5'} ${isTaskOverdue && !todo.completed ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : ''}`}>
@@ -81,7 +92,24 @@ const TodoItem = ({ todo }: TodoItemProps) => {
           {/* 첫 번째 줄: 제목, 우선순위, 태그들, 버튼들 */}
           <div className="flex items-center justify-between gap-1">
             <div className="flex items-center gap-1 min-w-0 flex-1">
-              <h3 className={`text-xs font-medium truncate ${todo.completed ? 'line-through text-green-700 dark:text-green-300' : 'text-gray-900 dark:text-white'}`}>
+              {hasSubTasks && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="flex-shrink-0 p-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                  title={isExpanded ? "하위 작업 접기" : "하위 작업 펼치기"}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="w-3 h-3 text-gray-600" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 text-gray-600" />
+                  )}
+                </button>
+              )}
+              <h3 
+                className={`text-xs font-medium truncate ${todo.completed ? 'line-through text-green-700 dark:text-green-300' : 'text-gray-900 dark:text-white'} ${hasSubTasks ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                onDoubleClick={handleDoubleClick}
+                title={hasSubTasks ? "더블클릭하여 하위 작업 펼치기/접기" : ""}
+              >
                 {todo.title}
               </h3>
               <span className={`px-1 py-0.5 text-[8px] rounded border ${getPriorityColor(todo.priority)} flex-shrink-0`}>
@@ -95,6 +123,11 @@ const TodoItem = ({ todo }: TodoItemProps) => {
               {todo.type === 'project' && (
                 <span className="px-1 py-0.5 text-[8px] bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded flex-shrink-0">
                   {todo.project === 'longterm' ? '롱텀' : '숏텀'}
+                </span>
+              )}
+              {hasSubTasks && (
+                <span className="px-1 py-0.5 text-[8px] bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded flex-shrink-0">
+                  {completedSubTasks}/{totalSubTasks}
                 </span>
               )}
             </div>
@@ -136,6 +169,21 @@ const TodoItem = ({ todo }: TodoItemProps) => {
             <p className={`text-sm mb-2 ${todo.completed ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-300'}`}>
               {todo.description}
             </p>
+          )}
+
+          {/* 하위 작업 진행률 바 */}
+          {hasSubTasks && (
+            <div className="mt-2">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                <div 
+                  className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                진행률: {Math.round(progress)}% ({completedSubTasks}/{totalSubTasks} 완료)
+              </div>
+            </div>
           )}
 
           {/* 두 번째 줄: 날짜 정보만 간단하게 */}

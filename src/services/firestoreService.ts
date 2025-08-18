@@ -8,6 +8,29 @@ const safeToDate = (value: any): Date | undefined => {
   if (typeof value === 'string') return new Date(value)
   return undefined
 }
+
+// undefined 값을 제거하는 함수
+const removeUndefinedValues = (obj: any): any => {
+  if (obj === null || obj === undefined) return obj
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedValues)
+  }
+  // Date 객체는 그대로 반환 (중요!)
+  if (obj instanceof Date) {
+    return obj
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {}
+    Object.keys(obj).forEach(key => {
+      const value = obj[key]
+      if (value !== undefined) {
+        cleaned[key] = removeUndefinedValues(value)
+      }
+    })
+    return cleaned
+  }
+  return obj
+}
 import {
   collection,
   doc,
@@ -61,11 +84,19 @@ export const firestoreService = {
   addTodo: async (todo: Todo, uid: string): Promise<string> => {
     try {
       const todosRef = collection(db, `users/${uid}/todos`)
+      
+      // undefined 값 제거
+      const cleanedTodo = removeUndefinedValues(todo)
+      
       const todoData = {
-        ...todo,
+        ...cleanedTodo,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }
+      
+      console.log('Firestore에 저장할 데이터:', JSON.stringify(todoData, null, 2))
+      console.log('🔥 Firestore 저장 데이터의 startDate:', todoData.startDate)
+      console.log('🔥 Firestore 저장 데이터의 startDate 타입:', typeof todoData.startDate)
       
       const docRef = await addDoc(todosRef, todoData)
       console.log('Firestore addTodo 성공:', docRef.id)
@@ -218,15 +249,19 @@ export const firestoreService = {
           try {
             const data = doc.data()
             console.log(`📄 문서 처리 중 - Firestore ID: ${doc.id}, title: "${data.title}", created: ${data.createdAt}`)
+            console.log(`🔥 원본 data.startDate:`, data.startDate, '(타입:', typeof data.startDate, ')')
             
             // 실제 Firestore 문서 ID 사용 (중요!)
+            const processedStartDate = safeToDate(data.startDate)
+            console.log(`🔥 safeToDate 처리 후 startDate:`, processedStartDate, '(타입:', typeof processedStartDate, ')')
+            
             const processedTodo = {
               ...data,
               id: doc.id, // Firestore 문서 ID를 마지막에 설정하여 덮어쓰기 방지
               createdAt: safeToDate(data.createdAt) || new Date(),
               updatedAt: safeToDate(data.updatedAt) || new Date(),
               dueDate: safeToDate(data.dueDate),
-              startDate: safeToDate(data.startDate),
+              startDate: processedStartDate,
               completedAt: safeToDate(data.completedAt)
             }
             

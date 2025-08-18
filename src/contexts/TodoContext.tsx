@@ -1036,19 +1036,18 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         return today.getTime() >= startDate.getTime()
       }
       
-      // 3. 마감일만 있는 경우: 마감일과 어제 못한 일 로직
+      // 3. 마감일만 있는 경우: 마감일까지 지속적으로 표시
       if (!startDate && dueDate) {
-        // 마감일이 오늘인 할일
-        if (dueDate.getTime() === today.getTime()) {
+        // 마감일이 오늘이거나 이후인 경우: 지속적으로 표시
+        if (dueDate.getTime() >= today.getTime()) {
+          console.log(`📅 마감일 할일 체크: "${todo.title}" - 마감일까지 표시`)
+          console.log(`  마감일: ${dueDate.toDateString()}, 오늘: ${today.toDateString()}`)
           return true
         }
         
-        // 어제 못한 일 (어제 마감이었지만 완료되지 않은 할일)
-        const yesterday = new Date(today)
-        yesterday.setDate(yesterday.getDate() - 1)
-        if (dueDate.getTime() === yesterday.getTime()) {
-          return true
-        }
+        // 마감일이 지난 경우: 어제 못한 일로만 처리 (오늘 할일에는 표시 안함)
+        console.log(`📅 마감일 지난 할일: "${todo.title}" - 어제 할일로만 표시`)
+        return false
       }
       
       // 3. 마감일도 시작일도 없는 미완료 할일 (일반적인 할일)
@@ -1129,12 +1128,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           return startDate <= endOfWeek
         }
         
-        // 3. 마감일만 있는 경우: 마감일이 이번 주 범위 내
+        // 3. 마감일만 있는 경우: 마감일이 오늘 이후이면 표시 (getTodayTodos와 동일한 로직)
         if (!startDate && dueDate) {
-          return dueDate >= startOfWeek && dueDate <= endOfWeek
+          // 마감일이 오늘 이후이면 표시 (마감일까지 지속적으로)
+          return dueDate >= today
         }
         
-        // 4. 날짜가 없는 일반 할일
+        // 4. 날짜가 없는 일반 할일 - 오늘 할일과 동일하게 표시
         if (!startDate && !dueDate) {
           return true
         }
@@ -1177,9 +1177,10 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           return startDate <= endOfWeek
         }
         
-        // 3. 마감일만 있는 경우: 마감일이 이번 주 범위 내
+        // 3. 마감일만 있는 경우: 마감일이 이번 주 시작일 이후면 지속적으로 표시
         if (!startDate && dueDate) {
-          return dueDate >= startOfWeek && dueDate <= endOfWeek
+          // 마감일이 이번 주 시작일 이후면 표시 (마감일까지 지속적으로)
+          return dueDate >= startOfWeek
         }
         
         // 4. 날짜가 없는 반복 할일
@@ -1237,12 +1238,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           return startDate <= endOfMonth
         }
         
-        // 3. 마감일만 있는 경우: 마감일이 이번 달 범위 내
+        // 3. 마감일만 있는 경우: 마감일이 오늘 이후이면 표시 (getTodayTodos와 동일한 로직)
         if (!startDate && dueDate) {
-          return dueDate >= startOfMonth && dueDate <= endOfMonth
+          // 마감일이 오늘 이후이면 표시 (마감일까지 지속적으로)
+          return dueDate >= today
         }
         
-        // 4. 날짜가 없는 일반 할일
+        // 4. 날짜가 없는 일반 할일 - 오늘 할일과 동일하게 표시
         if (!startDate && !dueDate) {
           return true
         }
@@ -1285,9 +1287,10 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           return startDate <= endOfMonth
         }
         
-        // 3. 마감일만 있는 경우: 마감일이 이번 달 범위 내
+        // 3. 마감일만 있는 경우: 마감일이 이번 달 시작일 이후면 지속적으로 표시
         if (!startDate && dueDate) {
-          return dueDate >= startOfMonth && dueDate <= endOfMonth
+          // 마감일이 이번 달 시작일 이후면 표시 (마감일까지 지속적으로)
+          return dueDate >= startOfMonth
         }
         
         // 4. 날짜가 없는 반복 할일
@@ -1328,22 +1331,28 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   const getYesterdayIncompleteTodos = (targetDate?: Date) => {
     const baseDate = targetDate || new Date()
-    const yesterday = new Date(baseDate)
-    yesterday.setDate(yesterday.getDate() - 1)
+    const today = new Date(baseDate)
+    today.setHours(0, 0, 0, 0)
     
     return state.todos.filter(todo => {
       if (todo.completed || !todo.dueDate) return false
       const dueDate = new Date(todo.dueDate)
-      return dueDate.toDateString() === yesterday.toDateString()
+      dueDate.setHours(0, 0, 0, 0)
+      
+      // 마감일이 오늘보다 이전인 미완료 할일들을 어제 할일로 처리
+      return dueDate.getTime() < today.getTime()
     })
   }
 
   const isYesterdayIncompleteTodo = (todo: Todo) => {
     if (todo.completed || !todo.dueDate) return false
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
     const dueDate = new Date(todo.dueDate)
-    return dueDate.toDateString() === yesterday.toDateString()
+    dueDate.setHours(0, 0, 0, 0)
+    
+    // 마감일이 오늘보다 이전인 미완료 할일들을 어제 할일로 처리
+    return dueDate.getTime() < today.getTime()
   }
 
   const updateTodoOrder = (todoId: string, newOrder: number) => {

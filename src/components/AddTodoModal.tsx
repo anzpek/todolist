@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Calendar, Clock, Repeat, Flag, FolderPlus, FileText, Wand2, Minus, Plus } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import ProjectTemplateManager from './ProjectTemplateManager'
 import { NaturalLanguageParser } from '../utils/naturalLanguageParser'
 import type { Priority, RecurrenceType, TaskType, ProjectTemplate, WeeklyRecurrenceType, MonthlyRecurrenceType, HolidayHandling } from '../types/todo'
 import type { RecurrenceException, ConflictException } from '../utils/simpleRecurring'
-import { getWeekLabel } from '../utils/helpers'
+import { getWeekLabel, generateId } from '../utils/helpers'
 
 interface AddTodoModalProps {
   isOpen: boolean
@@ -20,9 +20,9 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
     description: '',
     priority: 'medium' as Priority,
     type: 'simple' as TaskType,
-    startDate: '',
+    startDate: new Date().toISOString().split('T')[0], // 기본값으로 오늘 날짜 설정
     startTime: '',
-    dueDate: new Date().toISOString().split('T')[0], // 기본값으로 오늘 날짜 설정
+    dueDate: '', // 기본값으로 빈칸 설정
     dueTime: '',
     recurrence: 'none' as RecurrenceType,
     // 기본 반복 설정 (호환성)
@@ -46,6 +46,46 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('')
   const [isNaturalLanguageMode, setIsNaturalLanguageMode] = useState(false)
   const [parsedPreview, setParsedPreview] = useState<any>(null)
+
+  // 초기 폼 데이터 생성 함수
+  const getInitialFormData = () => ({
+    title: '',
+    description: '',
+    priority: 'medium' as Priority,
+    type: 'simple' as TaskType,
+    startDate: new Date().toISOString().split('T')[0], // 항상 오늘 날짜로 설정
+    startTime: '',
+    dueDate: '', // 항상 빈칸으로 설정
+    dueTime: '',
+    recurrence: 'none' as RecurrenceType,
+    recurrenceDay: 1,
+    recurrenceDate: 1,
+    holidayHandling: 'before' as HolidayHandling,
+    weeklyRecurrenceType: 'every_week' as WeeklyRecurrenceType,
+    monthlyRecurrenceType: 'by_date' as MonthlyRecurrenceType,
+    weekOfMonth: 1,
+    recurringEndDate: '',
+    project: 'shortterm' as 'longterm' | 'shortterm',
+    tags: [] as string[],
+    exceptions: [] as RecurrenceException[],
+  })
+
+  // 폼 초기화 함수
+  const resetForm = () => {
+    setFormData(getInitialFormData())
+    setErrors({})
+    setSelectedTemplate(null)
+    setNaturalLanguageInput('')
+    setIsNaturalLanguageMode(false)
+    setParsedPreview(null)
+  }
+
+  // 모달이 열릴 때마다 폼 초기화
+  useEffect(() => {
+    if (isOpen) {
+      resetForm()
+    }
+  }, [isOpen])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -92,25 +132,25 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
     
     if (!validateForm()) return
 
-    // Firestore는 undefined 값을 허용하지 않으므로 조건부로 필드 포함
+    // Firestore는 undefined 값을 허용하지 않으므로 모든 필드를 명시적으로 설정
     const todoData: any = {
       title: formData.title.trim(),
       description: formData.description.trim() || '',
       completed: false,
       priority: formData.priority,
       type: formData.type,
-      tags: formData.tags || []
+      tags: formData.tags || [],
+      recurrence: formData.recurrence || 'none'
     }
 
-    // 선택적 필드들은 값이 있을 때만 추가
-    if (formData.startDate) {
-      try {
-        todoData.startDate = new Date(formData.startDate)
-        console.log('시작일 설정됨:', todoData.startDate)
-      } catch (error) {
-        console.error('시작일 파싱 오류:', error)
-        throw new Error('시작일 형식이 올바르지 않습니다')
-      }
+    // 시작일 처리 - 기본값이 있으므로 항상 설정
+    try {
+      const startDateValue = formData.startDate || new Date().toISOString().split('T')[0]
+      todoData.startDate = new Date(startDateValue)
+      console.log('시작일 설정됨:', todoData.startDate, '(원본:', formData.startDate, ')')
+    } catch (error) {
+      console.error('시작일 파싱 오류:', error)
+      throw new Error('시작일 형식이 올바르지 않습니다')
     }
     if (formData.startTime) {
       todoData.startTime = formData.startTime
@@ -145,8 +185,31 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
       todoData.holidayHandling = formData.holidayHandling
     }
     if (formData.type === 'project') {
-      todoData.subTasks = []
       todoData.project = formData.project
+      
+      // 템플릿이 선택된 경우 템플릿의 하위 작업들을 추가
+      if (selectedTemplate && selectedTemplate.subTasks.length > 0) {
+        todoData.subTasks = selectedTemplate.subTasks.map(subTask => {
+          const subTaskData: any = {
+            id: generateId(),
+            title: subTask.title,
+            description: subTask.description || '',
+            completed: false,
+            priority: subTask.priority,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+          
+          // dueDate가 있는 경우에만 추가 (undefined 방지)
+          if (subTask.dueDate) {
+            subTaskData.dueDate = new Date(subTask.dueDate)
+          }
+          
+          return subTaskData
+        })
+      } else {
+        todoData.subTasks = []
+      }
     }
     if (selectedTemplate?.id) {
       todoData.templateId = selectedTemplate.id
@@ -202,9 +265,22 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
       // completedAt 필드 추가 (Firestore에서는 undefined 지원하지 않으므로 제거)
       // todoData.completedAt = undefined
       
+      console.log('=== 할일 추가 시도 ===')
+      console.log('formData.startDate:', formData.startDate)
       console.log('일반 할일 추가 시도:', todoData)
+      console.log('템플릿 사용 여부:', !!selectedTemplate)
+      if (selectedTemplate) {
+        console.log('사용된 템플릿:', selectedTemplate.name)
+        console.log('템플릿 하위 작업 수:', selectedTemplate.subTasks.length)
+        console.log('todoData 하위 작업 수:', todoData.subTasks?.length || 0)
+      }
       
       try {
+        // 일반 할일 추가 직전 최종 데이터 확인
+        console.log('🔥 addTodo 호출 직전 최종 todoData:', JSON.stringify(todoData, null, 2))
+        console.log('🔥 todoData.startDate 타입:', typeof todoData.startDate)
+        console.log('🔥 todoData.startDate 값:', todoData.startDate)
+        
         // 일반 할일 추가
         await addTodo(todoData)
         console.log('일반 할일 추가 성공')
@@ -214,39 +290,11 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
       }
     }
     
-    // 템플릿에서 서브태스크 추가
-    // 서브태스크 처리는 비로그인 모드에서는 생략 (localStorage 사용 중단)
-    if (selectedTemplate && selectedTemplate.subTasks && formData.type === 'project') {
-      console.log('프로젝트 템플릿의 서브태스크는 비로그인 모드에서 지원되지 않습니다.')
-    }
+    // 템플릿에서 하위 작업 추가는 이미 todoData에 포함되어 있음 (147-165번째 줄에서 처리)
+    console.log('템플릿 처리 완료:', selectedTemplate ? `템플릿: ${selectedTemplate.name}` : '템플릿 없음')
     
-    // 폼 초기화
-    setFormData({
-      title: '',
-      description: '',
-      priority: 'medium',
-      type: 'simple',
-      startDate: '',
-      startTime: '',
-      dueDate: '',
-      dueTime: '',
-      recurrence: 'none',
-      recurrenceDay: 1,
-      recurrenceDate: 1,
-      holidayHandling: 'before',
-      weeklyRecurrenceType: 'every_week',
-      monthlyRecurrenceType: 'by_date',
-      weekOfMonth: 1,
-      recurringEndDate: '',
-      project: 'shortterm',
-      tags: [],
-      exceptions: [],
-    })
-    setErrors({})
-    setSelectedTemplate(null)
-    setNaturalLanguageInput('')
-    setParsedPreview(null)
-    setIsNaturalLanguageMode(false)
+    // 폼 초기화 및 모달 닫기
+    resetForm()
     onClose()
   }
 
