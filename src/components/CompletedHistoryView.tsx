@@ -19,12 +19,20 @@ const CompletedHistoryView = ({
   projectFilter = 'all',
   tagFilter = []
 }: CompletedHistoryViewProps) => {
-  const { todos, toggleTodo } = useTodos()
+  const { todos, toggleTodo, getRecurringTodos } = useTodos()
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['today']))
   const [viewMode, setViewMode] = useState<'period' | 'daily' | 'weekly' | 'monthly'>('period')
 
-  // 완료된 할일만 필터링
-  const completedTodos = todos.filter(todo => 
+  // 모든 할일 (일반 + 반복 할일) 가져오기
+  const recurringTodos = getRecurringTodos()
+  const allTodos = [...todos, ...recurringTodos]
+
+  console.log('📊 완료 히스토리 - 전체 할일:', allTodos.length)
+  console.log('📊 완료 히스토리 - 일반 할일:', todos.length)
+  console.log('📊 완료 히스토리 - 반복 할일:', recurringTodos.length)
+
+  // 완료된 할일만 필터링 (일반 할일 + 반복 할일 포함)
+  const completedTodos = allTodos.filter(todo => 
     todo.completed && 
     todo.completedAt &&
     // 검색 필터
@@ -42,6 +50,23 @@ const CompletedHistoryView = ({
     // 태그 필터
     (tagFilter.length === 0 || (todo.tags && tagFilter.every(tag => todo.tags?.includes(tag))))
   )
+
+  console.log('📊 완료 히스토리 - 완료된 할일:', completedTodos.length)
+  console.log('📊 완료 히스토리 - 완료된 반복 할일:', completedTodos.filter(t => (t as any)._isRecurringInstance).length)
+  
+  // 주간업무보고 특별 확인
+  const weeklyReportCompleted = completedTodos.find(t => t.title === '주간업무보고')
+  if (weeklyReportCompleted) {
+    console.log('📊 완료 히스토리 - 주간업무보고 발견:', {
+      title: weeklyReportCompleted.title,
+      completed: weeklyReportCompleted.completed,
+      completedAt: weeklyReportCompleted.completedAt,
+      _isRecurringInstance: (weeklyReportCompleted as any)._isRecurringInstance
+    })
+  } else {
+    console.log('📊 완료 히스토리 - 주간업무보고를 찾을 수 없음')
+    console.log('📊 완료 히스토리 - 완료된 할일 제목들:', completedTodos.map(t => t.title))
+  }
 
   // 날짜별로 그룹화
   const groupTodosByPeriod = () => {
@@ -273,6 +298,14 @@ const CompletedHistoryView = ({
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {formatDateTime(todo.completedAt)} 완료
+                </span>
+              )}
+              
+              {/* 반복 할일 표시 */}
+              {(todo as any)._isRecurringInstance && (
+                <span className="bg-purple-200 dark:bg-purple-800 px-2 py-1 rounded flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  반복 할일
                 </span>
               )}
               
