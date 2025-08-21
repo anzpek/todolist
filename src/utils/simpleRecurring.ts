@@ -596,6 +596,14 @@ class SimpleRecurringSystem {
     // 일관된 ID 생성: recurring_ + 인스턴스ID (인스턴스 ID가 이미 결정적이므로)
     const todoId = `recurring_${instance.id}`
     
+    // 주간업무보고 특별 로깅
+    if (instance.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21') {
+      console.log('🔄🔄🔄 convertToTodo 호출됨 - 주간업무보고')
+      console.log('  입력 instance.completed:', instance.completed, typeof instance.completed)
+      console.log('  입력 instance 전체:', JSON.stringify(instance, null, 2))
+      console.log('  템플릿 제목:', template.title)
+    }
+    
     const todo = {
       id: todoId,
       title: template.title,
@@ -617,6 +625,13 @@ class SimpleRecurringSystem {
       _isRecurringInstance: boolean
       _instanceId: string
       _templateId: string
+    }
+    
+    // 주간업무보고 결과 로깅
+    if (instance.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21') {
+      console.log('📋📋📋 convertToTodo 결과 - 주간업무보고')
+      console.log('  출력 todo.completed:', todo.completed, typeof todo.completed)
+      console.log('  출력 todo 전체:', JSON.stringify(todo, null, 2))
     }
     
     return todo

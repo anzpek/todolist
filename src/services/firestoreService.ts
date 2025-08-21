@@ -524,7 +524,9 @@ export const firestoreService = {
       
       console.log(`📍 Firestore 쿼리 경로: users/${uid}/recurringInstances`)
       
-      const snapshot = await getDocs(q)
+      // 캐시 우회를 위해 source를 'server'로 강제 설정
+      console.log(`🚨 캐시 우회 모드로 서버에서 직접 조회`)
+      const snapshot = await getDocs(q, { source: 'server' })
       console.log(`📄 조회된 문서 수: ${snapshot.docs.length}`)
       
       const instances = snapshot.docs.map(doc => {
@@ -696,8 +698,11 @@ export const firestoreService = {
       const instancesRef = collection(db, `users/${uid}/recurringInstances`)
       const q = query(instancesRef, orderBy('date', 'asc'))
       
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      const unsubscribe = onSnapshot(q, {
+        includeMetadataChanges: false
+      }, (snapshot) => {
         console.log('🔔 Firestore 반복 인스턴스 구독 업데이트 수신')
+        console.log('📡 구독 소스:', snapshot.metadata.fromCache ? 'CACHE' : 'SERVER')
         
         // 변경 사항 상세 로깅
         snapshot.docChanges().forEach((change) => {

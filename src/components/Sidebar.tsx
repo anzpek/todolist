@@ -20,7 +20,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false, forceMobile = null, onToggleForceMobile }: SidebarProps) => {
-  const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, recurringInstances } = useTodos()
+  const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, getRecurringTodos } = useTodos()
   const { currentUser } = useAuth()
   const { showVacationsInTodos, toggleVacationDisplay } = useVacation()
   
@@ -36,12 +36,18 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
   // 반복 템플릿 통계
   const activeTemplates = recurringTemplates.filter(template => template.isActive)
   
-  // 오늘의 반복 인스턴스
+  // 오늘의 반복 할일 (중복 제거된 버전 사용)
   const today = new Date()
-  const todayRecurringInstances = recurringInstances.filter(instance => {
-    const instanceDate = new Date(instance.date)
-    return instanceDate.toDateString() === today.toDateString()
+  const allRecurringTodos = getRecurringTodos()
+  const todayRecurringTodos = allRecurringTodos.filter(todo => {
+    if (!todo.dueDate) return false
+    const todoDate = new Date(todo.dueDate)
+    return todoDate.toDateString() === today.toDateString()
   })
+  
+  console.log('🔍 Sidebar - 전체 반복 할일:', allRecurringTodos.length)
+  console.log('🔍 Sidebar - 오늘 반복 할일:', todayRecurringTodos.length)
+  console.log('🔍 Sidebar - 오늘 반복 할일 목록:', todayRecurringTodos.map(t => ({ title: t.title, completed: t.completed })))
   
   // 기본 네비게이션 아이템
   const baseNavItems: Array<{ id: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation', label: string, icon: any, adminOnly?: boolean }> = [
@@ -119,33 +125,30 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
           </ul>
 
           {/* 오늘의 반복 태스크 */}
-          {todayRecurringInstances.length > 0 && (
+          {todayRecurringTodos.length > 0 && (
             <div className="mt-4">
               <div className="flex items-center gap-2 px-4 py-1 text-sm font-medium text-purple-600 dark:text-purple-400">
                 <Repeat className="w-4 h-4" />
-                <span>오늘 반복 할일 ({todayRecurringInstances.length})</span>
+                <span>오늘 반복 할일 ({todayRecurringTodos.length})</span>
               </div>
               <div className="space-y-1 mt-1">
-                {todayRecurringInstances.slice(0, 3).map(instance => {
-                  const template = activeTemplates.find(t => t.id === instance.templateId)
-                  if (!template) return null
-                  
+                {todayRecurringTodos.slice(0, 3).map(todo => {
                   return (
-                    <div key={instance.id} className={`px-3 py-1 text-sm mx-2 rounded ${
-                      instance.completed 
+                    <div key={todo.id} className={`px-3 py-1 text-sm mx-2 rounded ${
+                      todo.completed 
                         ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' 
                         : 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
                     }`}>
-                      <div className="truncate">{template.title}</div>
+                      <div className="truncate">{todo.title}</div>
                       <div className="text-xs">
-                        {instance.completed ? '완료' : '대기 중'}
+                        {todo.completed ? '완료' : '대기 중'}
                       </div>
                     </div>
                   )
                 })}
-                {todayRecurringInstances.length > 3 && (
+                {todayRecurringTodos.length > 3 && (
                   <div className="px-4 py-1 text-xs text-purple-500 dark:text-purple-400">
-                    +{todayRecurringInstances.length - 3}개 더
+                    +{todayRecurringTodos.length - 3}개 더
                   </div>
                 )}
               </div>

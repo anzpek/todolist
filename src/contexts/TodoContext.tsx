@@ -365,30 +365,85 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         
         // 3. Firestore 반복 인스턴스 실시간 구독
         console.log('🚀 반복 인스턴스 실시간 구독 설정 시작...')
+        
+        // 먼저 직접 데이터 조회로 확인
+        console.log('🔍 실시간 구독 전에 직접 데이터 조회로 확인...')
+        console.log('👤 현재 사용자 정보:')
+        console.log('  UID:', currentUser.uid)
+        console.log('  Email:', currentUser.email)
+        console.log('  DisplayName:', currentUser.displayName)
+        console.log('📍 Firestore 경로: users/' + currentUser.uid + '/recurringInstances')
+        
+        const directInstances = await firestoreService.getRecurringInstances(currentUser.uid)
+        const directWeeklyReport = directInstances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
+        if (directWeeklyReport) {
+          console.log('🎯🎯🎯 직접 조회한 주간업무보고 데이터:')
+          console.log('  completed:', directWeeklyReport.completed, typeof directWeeklyReport.completed)
+          console.log('  completedAt:', directWeeklyReport.completedAt)
+          console.log('  전체 객체:', JSON.stringify(directWeeklyReport, null, 2))
+          console.log('📍 해당 문서의 전체 경로: users/' + currentUser.uid + '/recurringInstances/PUH4xT3lVY5aK2vuQyUe_2025-08-21')
+          
+        }
+        
         const instanceUnsubscribe = firestoreService.subscribeRecurringInstances(
           currentUser.uid,
           (instances) => {
-            console.log('📡 Firestore 반복 인스턴스 실시간 업데이트 수신:', instances.length, '개')
-            console.log('⏰ 실시간 구독 타임스탬프:', new Date().toISOString())
+            console.log('🚨🚨🚨 FIRESTORE 실시간 구독 데이터 수신 🚨🚨🚨')
+            console.log('⏰ 타임스탬프:', new Date().toISOString())
+            console.log('📊 받은 인스턴스 개수:', instances.length)
             
-            // 각 인스턴스의 상태 로깅
-            instances.forEach(instance => {
-              console.log(`📄 실시간 구독 인스턴스: ${instance.id}, completed: ${instance.completed}, completedAt: ${instance.completedAt}, updatedAt: ${instance.updatedAt}`)
+            // 주간업무보고 찾아서 상태 확인
+            const weeklyReportInstance = instances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
+            if (weeklyReportInstance) {
+              console.log('🔍🔍🔍 주간업무보고 Firestore 원본 데이터:')
+              console.log('  ID:', weeklyReportInstance.id)
+              console.log('  completed:', weeklyReportInstance.completed, typeof weeklyReportInstance.completed)
+              console.log('  completedAt:', weeklyReportInstance.completedAt)
+              console.log('  전체 객체:', JSON.stringify(weeklyReportInstance, null, 2))
               
-              // 주간업무보고 특별 로깅
-              if (instance.id && instance.id.includes('PUH4xT3lVY5aK2vuQyUe_2025-08-21')) {
-                console.log(`🔍 주간업무보고 실시간 상태: completed=${instance.completed}, completedAt=${instance.completedAt}`)
+              // 직접 조회 결과와 비교
+              if (directWeeklyReport) {
+                console.log('📊📊📊 데이터 비교:')
+                console.log('  직접 조회 completed:', directWeeklyReport.completed)
+                console.log('  실시간 구독 completed:', weeklyReportInstance.completed)
+                if (directWeeklyReport.completed !== weeklyReportInstance.completed) {
+                  console.log('⚠️⚠️⚠️ 직접 조회와 실시간 구독 데이터가 다름!')
+                }
               }
-            })
+            } else {
+              console.log('❌ 주간업무보고 인스턴스를 찾을 수 없음!')
+              console.log('📋 받은 인스턴스 ID 목록:', instances.map(i => i.id))
+            }
             
             dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
-            console.log('✅ 반복 인스턴스 실시간 상태 업데이트 완료')
+            console.log('✅ dispatch 완료')
           }
         )
         
         if (instanceUnsubscribe) {
           console.log('✅ 반복 인스턴스 실시간 구독 설정 성공')
           instanceUnsubscribeRef.current = instanceUnsubscribe
+          
+          // 강제로 한 번 더 데이터 가져오기 (실시간 구독이 안 될 경우 대비)
+          setTimeout(async () => {
+            try {
+              console.log('🔄 강제 반복 인스턴스 데이터 새로고침 실행...')
+              const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
+              console.log('📊 강제 새로고침된 인스턴스 개수:', freshInstances.length)
+              
+              const weeklyReport = freshInstances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
+              if (weeklyReport) {
+                console.log('🔍🔍🔍 강제 새로고침 주간업무보고 데이터:')
+                console.log('  completed:', weeklyReport.completed, typeof weeklyReport.completed)
+                console.log('  전체 객체:', JSON.stringify(weeklyReport, null, 2))
+              }
+              
+              dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
+              console.log('✅ 강제 새로고침 완료')
+            } catch (error) {
+              console.error('❌ 강제 새로고침 실패:', error)
+            }
+          }, 1000)
         } else {
           console.error('❌ 반복 인스턴스 실시간 구독 설정 실패')
         }
@@ -410,12 +465,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentUser, authLoading])
 
-  // 반복 템플릿이 변경될 때마다 인스턴스 재생성
+  // 반복 템플릿이 변경될 때마다 인스턴스 재생성 (완전 비활성화)
   useEffect(() => {
-    if (state.recurringTemplates.length > 0) {
-      dispatch({ type: 'GENERATE_RECURRING_INSTANCES' })
-    }
-  }, [state.recurringTemplates])
+    console.log('🚫 반복 인스턴스 자동 재생성 완전 비활성화 (중복 생성 방지)')
+    // 로그인/비로그인 상관없이 자동 생성 비활성화
+    // Firebase에서 실시간 구독으로만 관리
+  }, [state.recurringTemplates, currentUser])
 
   // 새로운 반복 인스턴스를 Firebase에 동기화
   useEffect(() => {
@@ -1002,7 +1057,11 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
               console.log(`🔍 주간업무보고 Firestore 업데이트: completed=${updateData.completed}`)
             }
             
-            console.log('⏳ 실시간 구독을 통한 최종 상태 동기화 대기 중...')
+            // 업데이트 완료 후 짧은 지연을 두어 실시간 구독이 새 데이터를 받을 시간을 줌
+            console.log('⏳ Firestore 동기화 완료 대기 중 (1초)...')
+            setTimeout(() => {
+              console.log('✅ Firestore 동기화 대기 완료')
+            }, 1000)
             
           } catch (error) {
             console.error('❌ Firebase 저장 실패:', error)
@@ -1876,6 +1935,24 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   // 반복 인스턴스를 일반 할일로 변환하여 반환 (중복 키 방지)
   const getRecurringTodos = (): Todo[] => {
+    console.log('🔍 getRecurringTodos 호출됨')
+    console.log(`📋 현재 recurringInstances 개수: ${state.recurringInstances.length}`)
+    
+    // 주간업무보고 특별 로깅
+    const weeklyReport = state.recurringInstances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
+    if (weeklyReport) {
+      console.log(`🔍 주간업무보고 인스턴스 발견:`, {
+        id: weeklyReport.id,
+        completed: weeklyReport.completed,
+        completedAt: weeklyReport.completedAt,
+        date: weeklyReport.date,
+        templateId: weeklyReport.templateId
+      })
+    } else {
+      console.log(`❌ 주간업무보고 인스턴스를 찾을 수 없음`)
+      console.log(`📋 전체 인스턴스 ID 목록:`, state.recurringInstances.map(i => i.id))
+    }
+    
     const recurringTodos: Todo[] = []
     const seenIds = new Set<string>()
     
@@ -1883,6 +1960,18 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       const template = state.recurringTemplates.find(t => t.id === instance.templateId)
       if (template) {
         const todo = simpleRecurringSystem.convertToTodo(instance, template)
+        
+        // 주간업무보고 변환 결과 로깅
+        if (instance.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21') {
+          console.log(`🔄 주간업무보고 convertToTodo 결과:`, {
+            todoId: todo.id,
+            completed: todo.completed,
+            title: todo.title,
+            dueDate: todo.dueDate,
+            _isRecurringInstance: (todo as any)._isRecurringInstance,
+            _instanceId: (todo as any)._instanceId
+          })
+        }
         
         // 중복 키 검사 및 방지
         if (seenIds.has(todo.id)) {
@@ -1899,6 +1988,17 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     
     // 중복 반복 할일 제거
     const uniqueRecurringTodos = simpleRecurringSystem.removeDuplicateTodos(recurringTodos)
+    
+    console.log(`📊 getRecurringTodos 최종 결과: ${uniqueRecurringTodos.length}개`)
+    // 주간업무보고 최종 상태 확인
+    const finalWeeklyReport = uniqueRecurringTodos.find(t => t.title === '주간업무보고')
+    if (finalWeeklyReport) {
+      console.log(`🎯 최종 주간업무보고 상태:`, {
+        id: finalWeeklyReport.id,
+        completed: finalWeeklyReport.completed,
+        title: finalWeeklyReport.title
+      })
+    }
     
     return uniqueRecurringTodos
   }
