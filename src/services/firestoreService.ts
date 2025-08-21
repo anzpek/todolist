@@ -627,10 +627,25 @@ export const firestoreService = {
       const q = query(instancesRef, orderBy('date', 'asc'))
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
+        console.log('🔔 Firestore 반복 인스턴스 구독 업데이트 수신')
+        
+        // 변경 사항 상세 로깅
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            console.log('➕ 반복 인스턴스 추가:', change.doc.id, change.doc.data())
+          }
+          if (change.type === 'modified') {
+            console.log('✏️ 반복 인스턴스 수정:', change.doc.id, change.doc.data())
+          }
+          if (change.type === 'removed') {
+            console.log('🗑️ 반복 인스턴스 삭제:', change.doc.id)
+          }
+        })
+        
         const instances = snapshot.docs.map(doc => {
           const data = doc.data()
           
-          return {
+          const processedInstance = {
             id: doc.id,
             ...data,
             date: safeToDate(data.date) || new Date(),
@@ -638,9 +653,18 @@ export const firestoreService = {
             updatedAt: safeToDate(data.updatedAt) || new Date(),
             completedAt: safeToDate(data.completedAt)
           }
+          
+          console.log('📄 반복 인스턴스 처리:', {
+            id: processedInstance.id,
+            completed: processedInstance.completed,
+            completedAt: processedInstance.completedAt,
+            updatedAt: processedInstance.updatedAt
+          })
+          
+          return processedInstance
         })
         
-        console.log('Firestore subscribeRecurringInstances 업데이트:', instances.length, '개')
+        console.log('📊 Firestore subscribeRecurringInstances 최종 결과:', instances.length, '개')
         callback(instances)
       })
       
