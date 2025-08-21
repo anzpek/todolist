@@ -516,18 +516,46 @@ export const firestoreService = {
   // 반복 인스턴스 관련 함수들 추가
   getRecurringInstances: async (uid: string): Promise<any[]> => {
     try {
+      console.log(`🔍 getRecurringInstances 시작 - 사용자 ID: ${uid}`)
+      console.log(`⏰ 조회 시작 시각: ${new Date().toISOString()}`)
+      
       const instancesRef = collection(db, `users/${uid}/recurringInstances`)
       const q = query(instancesRef, orderBy('date', 'asc'))
-      const snapshot = await getDocs(q)
       
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: safeToDate(doc.data().date) || new Date(),
-        createdAt: safeToDate(doc.data().createdAt) || new Date(),
-        updatedAt: safeToDate(doc.data().updatedAt) || new Date(),
-        completedAt: safeToDate(doc.data().completedAt)
-      }))
+      console.log(`📍 Firestore 쿼리 경로: users/${uid}/recurringInstances`)
+      
+      const snapshot = await getDocs(q)
+      console.log(`📄 조회된 문서 수: ${snapshot.docs.length}`)
+      
+      const instances = snapshot.docs.map(doc => {
+        const data = doc.data()
+        const instance = {
+          id: doc.id,
+          ...data,
+          date: safeToDate(data.date) || new Date(),
+          createdAt: safeToDate(data.createdAt) || new Date(),
+          updatedAt: safeToDate(data.updatedAt) || new Date(),
+          completedAt: safeToDate(data.completedAt)
+        }
+        
+        // 주간업무보고 특별 로깅
+        if (doc.id.includes('PUH4xT3lVY5aK2vuQyUe_2025-08-21')) {
+          console.log(`🔍 주간업무보고 조회 결과:`, {
+            id: instance.id,
+            completed: instance.completed,
+            completedAt: instance.completedAt,
+            updatedAt: instance.updatedAt,
+            rawData: data
+          })
+        }
+        
+        return instance
+      })
+      
+      console.log(`✅ getRecurringInstances 완료 - ${instances.length}개 인스턴스 반환`)
+      console.log(`⏰ 조회 완료 시각: ${new Date().toISOString()}`)
+      
+      return instances
     } catch (error) {
       console.error('Firestore getRecurringInstances 실패:', error)
       throw error
@@ -574,12 +602,33 @@ export const firestoreService = {
 
   updateRecurringInstance: async (id: string, updates: any, uid: string): Promise<void> => {
     try {
-      const instanceRef = doc(db, `users/${uid}/recurringInstances`, id)
+      console.log(`🔄 Firestore updateRecurringInstance 시작 - ID: ${id}`)
+      console.log(`📋 원본 업데이트 데이터:`, updates)
+      console.log(`⏰ Firestore 업데이트 시작 시각: ${new Date().toISOString()}`)
+      console.log(`🔗 사용자 ID: ${uid}`)
+      console.log(`📍 Firestore 경로: users/${uid}/recurringInstances/${id}`)
       
-      // 먼저 문서 존재 여부 확인
-      const docSnap = await getDoc(instanceRef)
+      const instanceRef = doc(db, `users/${uid}/recurringInstances`, id)
+      console.log(`📄 DocumentReference 생성 완료`)
+      
+      let docSnap
+      try {
+        console.log(`🔍 문서 존재 여부 확인 중...`)
+        docSnap = await getDoc(instanceRef)
+        console.log(`📄 문서 존재 여부: ${docSnap.exists()}`)
+        
+        if (docSnap.exists()) {
+          console.log(`📋 기존 문서 데이터:`, docSnap.data())
+        } else {
+          console.log(`📋 문서가 존재하지 않음 - 새로 생성 예정`)
+        }
+      } catch (getDocError) {
+        console.error(`❌ getDoc 실행 중 오류:`, getDocError)
+        throw new Error(`getDoc 실패: ${getDocError.message}`)
+      }
       
       const cleanUpdates = removeUndefinedValues(updates)
+      console.log(`📋 정리된 업데이트 데이터:`, cleanUpdates)
       
       if (!docSnap.exists()) {
         console.log('📝 반복 인스턴스 문서가 존재하지 않음. 새로 생성:', id)
@@ -592,6 +641,7 @@ export const firestoreService = {
           updatedAt: serverTimestamp()
         }
         
+        console.log(`📋 새 문서 생성 데이터:`, newInstanceData)
         await setDoc(instanceRef, newInstanceData)
         console.log('✅ 새 반복 인스턴스 문서 생성 완료:', id)
       } else {
@@ -607,8 +657,22 @@ export const firestoreService = {
           hasDeleteField: Object.values(updateData).some(v => v && typeof v === 'object' && v.constructor.name === 'FieldValue')
         })
         
-        await updateDoc(instanceRef, updateData)
-        console.log('✅ 기존 반복 인스턴스 문서 업데이트 완료:', id)
+        // 주간업무보고 특별 로깅
+        if (id.includes('weekly_work_report')) {
+          console.log(`🔍 주간업무보고 Firestore 업데이트 직전: completed=${updateData.completed}`)
+        }
+        
+        try {
+          console.log(`🔧 updateDoc 실행 시작...`)
+          await updateDoc(instanceRef, updateData)
+          console.log('✅ 기존 반복 인스턴스 문서 업데이트 완료:', id)
+          console.log(`⏰ Firestore 업데이트 완료 시각: ${new Date().toISOString()}`)
+        } catch (updateDocError) {
+          console.error(`❌ updateDoc 실행 중 오류:`, updateDocError)
+          console.error(`❌ 업데이트 시도한 데이터:`, updateData)
+          console.error(`❌ 문서 경로:`, `users/${uid}/recurringInstances/${id}`)
+          throw new Error(`updateDoc 실패: ${updateDocError.message}`)
+        }
       }
     } catch (error) {
       console.error('❌ Firestore updateRecurringInstance 실패:', error)

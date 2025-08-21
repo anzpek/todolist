@@ -364,20 +364,34 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         )
         
         // 3. Firestore 반복 인스턴스 실시간 구독
-        instanceUnsubscribeRef.current = firestoreService.subscribeRecurringInstances(
+        console.log('🚀 반복 인스턴스 실시간 구독 설정 시작...')
+        const instanceUnsubscribe = firestoreService.subscribeRecurringInstances(
           currentUser.uid,
           (instances) => {
             console.log('📡 Firestore 반복 인스턴스 실시간 업데이트 수신:', instances.length, '개')
+            console.log('⏰ 실시간 구독 타임스탬프:', new Date().toISOString())
             
             // 각 인스턴스의 상태 로깅
             instances.forEach(instance => {
-              console.log(`📄 실시간 구독 인스턴스: ${instance.id}, completed: ${instance.completed}, updatedAt: ${instance.updatedAt}`)
+              console.log(`📄 실시간 구독 인스턴스: ${instance.id}, completed: ${instance.completed}, completedAt: ${instance.completedAt}, updatedAt: ${instance.updatedAt}`)
+              
+              // 주간업무보고 특별 로깅
+              if (instance.id && instance.id.includes('PUH4xT3lVY5aK2vuQyUe_2025-08-21')) {
+                console.log(`🔍 주간업무보고 실시간 상태: completed=${instance.completed}, completedAt=${instance.completedAt}`)
+              }
             })
             
             dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
             console.log('✅ 반복 인스턴스 실시간 상태 업데이트 완료')
           }
         )
+        
+        if (instanceUnsubscribe) {
+          console.log('✅ 반복 인스턴스 실시간 구독 설정 성공')
+          instanceUnsubscribeRef.current = instanceUnsubscribe
+        } else {
+          console.error('❌ 반복 인스턴스 실시간 구독 설정 실패')
+        }
         
       } catch (error) {
         console.error('Firestore 초기화 실패:', error)
@@ -492,17 +506,21 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         console.log('로그인된 사용자 - localStorage 할일 로드 건너뜀 (Firestore 사용)')
       }
       
-      // 반복 템플릿 데이터 로드
-      const templatesJson = localStorage.getItem('recurringTemplates')
-      if (templatesJson) {
-        const parsedTemplates = JSON.parse(templatesJson)
-        const templates = parsedTemplates.map((template: any) => ({
-          ...template,
-          createdAt: new Date(template.createdAt),
-          updatedAt: new Date(template.updatedAt)
-        }))
-        console.log('localStorage에서 반복 템플릿 로드:', templates.length, '개')
-        dispatch({ type: 'SET_RECURRING_TEMPLATES', payload: templates })
+      // 반복 템플릿 데이터 로드 (비로그인 사용자만)
+      if (!currentUser) {
+        const templatesJson = localStorage.getItem('recurringTemplates')
+        if (templatesJson) {
+          const parsedTemplates = JSON.parse(templatesJson)
+          const templates = parsedTemplates.map((template: any) => ({
+            ...template,
+            createdAt: new Date(template.createdAt),
+            updatedAt: new Date(template.updatedAt)
+          }))
+          console.log('localStorage에서 반복 템플릿 로드:', templates.length, '개')
+          dispatch({ type: 'SET_RECURRING_TEMPLATES', payload: templates })
+        }
+      } else {
+        console.log('🚫 로그인된 사용자 - localStorage 템플릿 로드 완전 비활성화 (Firestore 전용)')
       }
       
       dispatch({ type: 'SET_LOADING', payload: false })
@@ -540,9 +558,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       
       if (!currentUser) return;
 
-      // 개인 전용 모드 - 마이그레이션 건너뜀
-      console.log('👤 개인 전용 모드 - localStorage 마이그레이션 건너뜀')
-      localStorage.setItem(`migrated_${currentUser.uid}`, new Date().toISOString())
+      // 로그인 사용자 - localStorage 완전 비활성화, 마이그레이션 건너뜀
+      console.log('🚫 로그인 사용자 - localStorage 완전 비활성화, 마이그레이션 건너뜀')
       return
       
       // 마이그레이션 완료 여부 확인
@@ -709,18 +726,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         console.log('비로그인 모드: 메모리에 할일 추가')
         dispatch({ type: 'ADD_TODO', payload: newTodo })
         
-        // 즉시 localStorage에 저장 (useEffect 의존하지 않음)
-        console.log('📦 즉시 localStorage 저장 실행')
-        setTimeout(() => {
-          try {
-            const updatedTodos = [...state.todos, newTodo]
-            localStorage.setItem('todos', JSON.stringify(updatedTodos))
-            localStorage.setItem('recurringTemplates', JSON.stringify(state.recurringTemplates))
-            console.log('✅ localStorage 저장 완료 - todos:', updatedTodos.length)
-          } catch (error) {
-            console.error('❌ localStorage 저장 실패:', error)
-          }
-        }, 100)
+        // 비로그인 사용자만 localStorage 사용
+        console.log('🚫 로그인된 사용자 - localStorage 저장 완전 비활성화')
       }
     } catch (error) {
       console.error('할일 추가 실패:', error)
@@ -948,33 +955,23 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           updatedAt: new Date()
         }
         
-        // 1. 즉시 로컬 상태 업데이트 (즉각적인 UI 반응성)
-        const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
-        dispatch({ 
-          type: 'SET_RECURRING_INSTANCES', 
-          payload: updatedInstances
-        })
-        console.log('✅ 로컬 상태 즉시 업데이트 완료')
-        console.log(`🔄 로컬 업데이트된 인스턴스: ${instanceId}, completed: ${updatedInstance.completed}, updatedAt: ${updatedInstance.updatedAt}`)
-        
-        // 2. Firebase에 저장 (로그인 사용자)
+        // Firebase에 저장 후 실시간 구독으로 상태 업데이트 (동기화 문제 해결)
         if (currentUser) {
           try {
             console.log(`🔄 Firebase에 기존 반복 인스턴스 업데이트 중: ${instanceId}`)
             console.log(`📋 업데이트 데이터:`, {
               completed: updatedInstance.completed,
               completedAt: updatedInstance.completedAt
-              // updatedAt은 Firestore에서 serverTimestamp()로 자동 설정됨
             })
             
             const updateData: any = {
               completed: updatedInstance.completed
             }
             
-            // completedAt 처리: undefined면 필드 삭제, 아니면 Date 객체 저장
+            // completedAt 처리: undefined면 null, 아니면 Date 객체 저장
             if (updatedInstance.completedAt === undefined) {
-              console.log('🗑️ completedAt이 undefined -> deleteField() 사용')
-              updateData.completedAt = deleteField()
+              console.log('🗑️ completedAt이 undefined -> null 사용')
+              updateData.completedAt = null
             } else {
               console.log('📅 completedAt 설정:', updatedInstance.completedAt)
               updateData.completedAt = updatedInstance.completedAt
@@ -982,10 +979,30 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('📋 최종 업데이트 데이터:', updateData)
             
-            await firestoreService.updateRecurringInstance(instanceId, updateData, currentUser.uid)
-            console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
+            // 먼저 낙관적 업데이트 (즉각적인 UI 반응성)
+            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
+            dispatch({ 
+              type: 'SET_RECURRING_INSTANCES', 
+              payload: updatedInstances
+            })
+            console.log('✅ 낙관적 로컬 상태 업데이트 완료')
             
-            // Firebase 저장 성공 후 실시간 구독이 다른 클라이언트에 변경사항을 전파함
+            // Firebase 업데이트 실행
+            console.log(`🔄 Firestore 업데이트 실행 - instanceId: ${instanceId}`)
+            console.log(`📋 전송할 데이터:`, updateData)
+            console.log(`⏰ 업데이트 시작 시각: ${new Date().toISOString()}`)
+            
+            await firestoreService.updateRecurringInstance(instanceId, updateData, currentUser.uid)
+            
+            console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
+            console.log(`⏰ 업데이트 완료 시각: ${new Date().toISOString()}`)
+            
+            // 주간업무보고 특별 로깅
+            if (instanceId.includes('weekly_work_report')) {
+              console.log(`🔍 주간업무보고 Firestore 업데이트: completed=${updateData.completed}`)
+            }
+            
+            console.log('⏳ 실시간 구독을 통한 최종 상태 동기화 대기 중...')
             
           } catch (error) {
             console.error('❌ Firebase 저장 실패:', error)
@@ -994,15 +1011,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
               type: 'SET_RECURRING_INSTANCES', 
               payload: state.recurringInstances
             })
+            dispatch({ type: 'SET_ERROR', payload: '반복 할일 상태 변경 중 오류가 발생했습니다.' })
           }
         } else {
-          // 비로그인 사용자: localStorage에 저장
-          try {
-            localStorage.setItem('recurringInstances', JSON.stringify(updatedInstances))
-            console.log('✅ 반복 할일 상태 localStorage에 저장 완료')
-          } catch (error) {
-            console.error('❌ localStorage 저장 실패:', error)
-          }
+          // 비로그인 사용자: 메모리 상태만 업데이트 (localStorage 사용 안함)
+          const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
+          dispatch({ 
+            type: 'SET_RECURRING_INSTANCES', 
+            payload: updatedInstances
+          })
+          console.log('🚫 비로그인 사용자 - localStorage 사용 비활성화, 메모리만 업데이트')
         }
         
         console.log('✅ 기존 반복 할일 토글 완료')
@@ -1033,20 +1051,21 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
               updatedAt: new Date()
             }
             
-            // 1. 즉시 로컬 상태 업데이트 (즉각적인 UI 반응성)
-            const updatedInstances = [...state.recurringInstances, newInstance]
-            dispatch({ 
-              type: 'SET_RECURRING_INSTANCES', 
-              payload: updatedInstances
-            })
-            console.log('✅ 새 인스턴스 로컬 상태 즉시 업데이트 완료')
-            
-            // 2. Firebase에 저장 (로그인 사용자)
+            // Firebase에 저장 후 실시간 구독으로 상태 업데이트
             if (currentUser) {
               try {
                 console.log(`🔄 Firebase에 새 반복 인스턴스 생성 중: ${instanceId}`)
                 console.log(`📋 새 인스턴스 데이터:`, newInstance)
                 
+                // 먼저 낙관적 업데이트 (즉각적인 UI 반응성)
+                const updatedInstances = [...state.recurringInstances, newInstance]
+                dispatch({ 
+                  type: 'SET_RECURRING_INSTANCES', 
+                  payload: updatedInstances
+                })
+                console.log('✅ 새 인스턴스 낙관적 로컬 상태 업데이트 완료')
+                
+                // Firebase에 저장
                 await firestoreService.updateRecurringInstance(instanceId, {
                   templateId: newInstance.templateId,
                   date: newInstance.date,
@@ -1056,7 +1075,18 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
                 }, currentUser.uid)
                 console.log('✅ 새 반복 할일 인스턴스 Firebase에 생성 완료')
                 
-                // Firebase 저장 성공 후 실시간 구독이 다른 클라이언트에 변경사항을 전파함
+                // Firestore 업데이트 완료 후 약간의 지연 후 수동 새로고침
+                console.log('🔄 새 인스턴스 Firestore 업데이트 반영 대기 중 (500ms)...')
+                setTimeout(async () => {
+                  try {
+                    console.log('🔄 새 인스턴스 수동 새로고침 실행...')
+                    const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
+                    dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
+                    console.log('✅ 수동 새로고침으로 새 인스턴스 상태 동기화 완료')
+                  } catch (error) {
+                    console.error('❌ 새 인스턴스 수동 새로고침 실패:', error)
+                  }
+                }, 500)
                 
               } catch (error) {
                 console.error('❌ 새 인스턴스 Firebase 생성 실패:', error)
@@ -1065,15 +1095,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
                   type: 'SET_RECURRING_INSTANCES', 
                   payload: state.recurringInstances
                 })
+                dispatch({ type: 'SET_ERROR', payload: '새 반복 할일 인스턴스 생성 중 오류가 발생했습니다.' })
               }
             } else {
-              // 비로그인 사용자: localStorage에 저장
-              try {
-                localStorage.setItem('recurringInstances', JSON.stringify(updatedInstances))
-                console.log('✅ 새 반복 할일 상태 localStorage에 저장 완료')
-              } catch (error) {
-                console.error('❌ localStorage 저장 실패:', error)
-              }
+              // 비로그인 사용자: 메모리 상태만 업데이트 (localStorage 사용 안함)
+              const updatedInstances = [...state.recurringInstances, newInstance]
+              dispatch({ 
+                type: 'SET_RECURRING_INSTANCES', 
+                payload: updatedInstances
+              })
+              console.log('🚫 비로그인 사용자 - localStorage 사용 비활성화, 메모리만 업데이트')
             }
             
             console.log('✅ 새 반복 할일 토글 완료')
@@ -1785,13 +1816,17 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       }
       dispatch({ type: 'SET_RECURRING_INSTANCES', payload: newInstances })
       
-      // localStorage에 즉시 저장
-      try {
-        localStorage.setItem('recurringTemplates', JSON.stringify(templatesToKeep))
-        localStorage.setItem('recurringInstances', JSON.stringify(newInstances))
-        console.log('✅ 중복 정리 완료 - 남은 템플릿:', templatesToKeep.length, '인스턴스:', newInstances.length)
-      } catch (error) {
-        console.error('❌ 정리 후 저장 실패:', error)
+      // 로그인 사용자는 localStorage 사용 안함
+      if (!currentUser) {
+        try {
+          localStorage.setItem('recurringTemplates', JSON.stringify(templatesToKeep))
+          localStorage.setItem('recurringInstances', JSON.stringify(newInstances))
+          console.log('✅ 중복 정리 완료 - 남은 템플릿:', templatesToKeep.length, '인스턴스:', newInstances.length)
+        } catch (error) {
+          console.error('❌ 정리 후 저장 실패:', error)
+        }
+      } else {
+        console.log('🚫 로그인된 사용자 - localStorage 저장 비활성화, 중복 정리 완료 - 남은 템플릿:', templatesToKeep.length, '인스턴스:', newInstances.length)
       }
     } else {
       console.log('✅ 중복된 템플릿이 없습니다.')
@@ -1813,17 +1848,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         console.log('비로그인 모드: 메모리에서 반복 템플릿 삭제')
         dispatch({ type: 'DELETE_RECURRING_TEMPLATE', payload: id })
         
-        // 즉시 localStorage에 저장
-        setTimeout(() => {
-          try {
-            const updatedTemplates = state.recurringTemplates.filter(t => t.id !== id)
-            localStorage.setItem('recurringTemplates', JSON.stringify(updatedTemplates))
-            localStorage.setItem('todos', JSON.stringify(state.todos))
-            console.log('✅ 반복 템플릿 삭제 후 localStorage 저장 완료')
-          } catch (error) {
-            console.error('❌ 삭제 후 localStorage 저장 실패:', error)
-          }
-        }, 100)
+        // 비로그인 사용자만 localStorage 사용
+        console.log('🚫 비로그인 사용자 - localStorage 사용 비활성화, 메모리만 업데이트')
       }
     } catch (error) {
       console.error('반복 템플릿 삭제 실패:', error)

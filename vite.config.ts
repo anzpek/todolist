@@ -6,7 +6,8 @@ export default defineConfig({
   base: '/todolist/',
   plugins: [react()],
   server: {
-    port: 5173,
-    host: true
+    port: 4000,
+    host: true,
+    strictPort: true
   }
 })
