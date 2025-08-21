@@ -226,7 +226,7 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
       // 모든 활성 템플릿에 대해 인스턴스 생성
       let allInstances: SimpleRecurringInstance[] = []
       
-      // localStorage에서 기존 인스턴스 상태 로드
+      // localStorage에서 기존 인스턴스 상태 로드 (비로그인 사용자용)
       let savedInstances: SimpleRecurringInstance[] = []
       try {
         const savedData = localStorage.getItem('recurringInstances')
@@ -249,11 +249,19 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
         try {
           const instances = simpleRecurringSystem.generateInstances(template)
           
-          // 기존 완료 상태 복원
+          // 기존 완료 상태 복원 (로그인 사용자는 Firebase에서, 비로그인은 localStorage에서)
           const restoredInstances = instances.map(instance => {
+            // Firebase에서 인스턴스가 이미 로드되었다면 현재 상태 사용
+            const existing = state.recurringInstances.find(s => s.id === instance.id)
+            if (existing) {
+              console.log(`🔄 Firebase 인스턴스 상태 유지: ${instance.id} (완료: ${existing.completed})`)
+              return existing
+            }
+            
+            // 비로그인 사용자: localStorage에서 복원
             const saved = savedInstances.find(s => s.id === instance.id)
             if (saved) {
-              console.log(`🔄 인스턴스 상태 복원: ${instance.id} (완료: ${saved.completed})`)
+              console.log(`🔄 localStorage 인스턴스 상태 복원: ${instance.id} (완료: ${saved.completed})`)
               return {
                 ...instance,
                 completed: saved.completed,
@@ -284,6 +292,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   // 구독 함수들을 useRef로 관리 (전역 접근 가능)
   const todoUnsubscribeRef = useRef<(() => void) | null>(null)
   const templateUnsubscribeRef = useRef<(() => void) | null>(null)
+  const instanceUnsubscribeRef = useRef<(() => void) | null>(null)
 
   // Firebase 실시간 구독 설정
   useEffect(() => {
@@ -309,6 +318,10 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     if (templateUnsubscribeRef.current) {
       templateUnsubscribeRef.current()
       templateUnsubscribeRef.current = null
+    }
+    if (instanceUnsubscribeRef.current) {
+      instanceUnsubscribeRef.current()
+      instanceUnsubscribeRef.current = null
     }
     
     // 마이그레이션과 구독을 비동기로 처리
@@ -350,6 +363,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           }
         )
         
+        // 3. Firestore 반복 인스턴스 실시간 구독
+        instanceUnsubscribeRef.current = firestoreService.subscribeRecurringInstances(
+          currentUser.uid,
+          (instances) => {
+            dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
+            console.log('반복 인스턴스 Firestore에서 로드됨:', instances.length, '개')
+          }
+        )
+        
       } catch (error) {
         console.error('Firestore 초기화 실패:', error)
         dispatch({ type: 'SET_LOADING', payload: false })
@@ -363,6 +385,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       if (todoUnsubscribeRef.current) todoUnsubscribeRef.current()
       if (templateUnsubscribeRef.current) templateUnsubscribeRef.current()
+      if (instanceUnsubscribeRef.current) instanceUnsubscribeRef.current()
     }
   }, [currentUser, authLoading])
 
@@ -372,6 +395,39 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       dispatch({ type: 'GENERATE_RECURRING_INSTANCES' })
     }
   }, [state.recurringTemplates])
+
+  // 새로운 반복 인스턴스를 Firebase에 동기화
+  useEffect(() => {
+    if (!currentUser || state.recurringInstances.length === 0) return
+
+    const syncInstancesToFirebase = async () => {
+      try {
+        // Firebase에서 기존 인스턴스 조회
+        const existingInstances = await firestoreService.getRecurringInstances(currentUser.uid)
+        const existingIds = new Set(existingInstances.map(i => i.id))
+
+        // 새로운 인스턴스만 Firebase에 추가
+        const newInstances = state.recurringInstances.filter(instance => !existingIds.has(instance.id))
+        
+        if (newInstances.length > 0) {
+          console.log(`🔄 Firebase에 새로운 반복 인스턴스 ${newInstances.length}개 추가 중...`)
+          
+          for (const instance of newInstances) {
+            try {
+              await firestoreService.addRecurringInstance(instance, currentUser.uid)
+              console.log(`✅ 반복 인스턴스 Firebase 추가 성공: ${instance.id}`)
+            } catch (error) {
+              console.error(`❌ 반복 인스턴스 Firebase 추가 실패: ${instance.id}`, error)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ 반복 인스턴스 Firebase 동기화 실패:', error)
+      }
+    }
+
+    syncInstancesToFirebase()
+  }, [state.recurringInstances, currentUser])
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
   const loadFromLocalStorage = () => {
@@ -872,12 +928,25 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           payload: updatedInstances
         })
         
-        // localStorage에 저장
-        try {
-          localStorage.setItem('recurringInstances', JSON.stringify(updatedInstances))
-          console.log('✅ 반복 할일 상태 localStorage에 저장 완료')
-        } catch (error) {
-          console.error('❌ localStorage 저장 실패:', error)
+        // Firebase에 저장 (로그인 사용자)
+        if (currentUser) {
+          try {
+            await firestoreService.updateRecurringInstance(instanceId, {
+              completed: updatedInstance.completed,
+              completedAt: updatedInstance.completedAt
+            }, currentUser.uid)
+            console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
+          } catch (error) {
+            console.error('❌ Firebase 저장 실패:', error)
+          }
+        } else {
+          // 비로그인 사용자: localStorage에 저장
+          try {
+            localStorage.setItem('recurringInstances', JSON.stringify(updatedInstances))
+            console.log('✅ 반복 할일 상태 localStorage에 저장 완료')
+          } catch (error) {
+            console.error('❌ localStorage 저장 실패:', error)
+          }
         }
         
         console.log('✅ 반복 할일 토글 완료')

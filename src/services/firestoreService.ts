@@ -510,5 +510,108 @@ export const firestoreService = {
       callback([])
       return () => {}
     }
+  },
+
+  // 반복 인스턴스 관련 함수들 추가
+  getRecurringInstances: async (uid: string): Promise<any[]> => {
+    try {
+      const instancesRef = collection(db, `users/${uid}/recurringInstances`)
+      const q = query(instancesRef, orderBy('date', 'asc'))
+      const snapshot = await getDocs(q)
+      
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: safeToDate(doc.data().date) || new Date(),
+        createdAt: safeToDate(doc.data().createdAt) || new Date(),
+        updatedAt: safeToDate(doc.data().updatedAt) || new Date(),
+        completedAt: safeToDate(doc.data().completedAt)
+      }))
+    } catch (error) {
+      console.error('Firestore getRecurringInstances 실패:', error)
+      throw error
+    }
+  },
+
+  addRecurringInstance: async (instance: any, uid: string): Promise<string> => {
+    try {
+      const instancesRef = collection(db, `users/${uid}/recurringInstances`)
+      
+      const cleanInstance = removeUndefinedValues(instance)
+      
+      const instanceData = {
+        ...cleanInstance,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+      
+      const docRef = await addDoc(instancesRef, instanceData)
+      console.log('Firestore addRecurringInstance 성공:', docRef.id)
+      return docRef.id
+    } catch (error) {
+      console.error('Firestore addRecurringInstance 실패:', error)
+      throw error
+    }
+  },
+
+  updateRecurringInstance: async (id: string, updates: any, uid: string): Promise<void> => {
+    try {
+      const instanceRef = doc(db, `users/${uid}/recurringInstances`, id)
+      
+      const cleanUpdates = removeUndefinedValues(updates)
+      
+      const updateData = {
+        ...cleanUpdates,
+        updatedAt: serverTimestamp()
+      }
+      
+      await updateDoc(instanceRef, updateData)
+      console.log('Firestore updateRecurringInstance 성공:', id)
+    } catch (error) {
+      console.error('Firestore updateRecurringInstance 실패:', error)
+      throw error
+    }
+  },
+
+  deleteRecurringInstance: async (id: string, uid: string): Promise<void> => {
+    try {
+      const instanceRef = doc(db, `users/${uid}/recurringInstances`, id)
+      await deleteDoc(instanceRef)
+      console.log('Firestore deleteRecurringInstance 성공:', id)
+    } catch (error) {
+      console.error('Firestore deleteRecurringInstance 실패:', error)
+      throw error
+    }
+  },
+
+  subscribeRecurringInstances: (uid: string, callback: (instances: any[]) => void) => {
+    try {
+      const instancesRef = collection(db, `users/${uid}/recurringInstances`)
+      const q = query(instancesRef, orderBy('date', 'asc'))
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const instances = snapshot.docs.map(doc => {
+          const data = doc.data()
+          
+          return {
+            id: doc.id,
+            ...data,
+            date: safeToDate(data.date) || new Date(),
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date(),
+            completedAt: safeToDate(data.completedAt)
+          }
+        })
+        
+        console.log('Firestore subscribeRecurringInstances 업데이트:', instances.length, '개')
+        callback(instances)
+      })
+      
+      return unsubscribe
+    } catch (error) {
+      console.error('Firestore subscribeRecurringInstances 실패:', error)
+      callback([])
+      return () => {}
+    }
   }
 }
