@@ -44,7 +44,8 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
-  arrayUnion
+  arrayUnion,
+  setDoc
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { Todo, SubTask } from '../types/todo'
@@ -539,15 +540,32 @@ export const firestoreService = {
       
       const cleanInstance = removeUndefinedValues(instance)
       
-      const instanceData = {
-        ...cleanInstance,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+      // ID가 제공된 경우 해당 ID로 문서 생성, 아니면 자동 생성
+      if (cleanInstance.id) {
+        const instanceDocRef = doc(db, `users/${uid}/recurringInstances`, cleanInstance.id)
+        
+        const instanceData = {
+          ...cleanInstance,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+        
+        // setDoc을 사용하여 특정 ID로 문서 생성
+        await setDoc(instanceDocRef, instanceData)
+        console.log('Firestore addRecurringInstance 성공 (특정 ID):', cleanInstance.id)
+        return cleanInstance.id
+      } else {
+        // ID가 없는 경우 자동 생성
+        const instanceData = {
+          ...cleanInstance,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+        
+        const docRef = await addDoc(instancesRef, instanceData)
+        console.log('Firestore addRecurringInstance 성공 (자동 ID):', docRef.id)
+        return docRef.id
       }
-      
-      const docRef = await addDoc(instancesRef, instanceData)
-      console.log('Firestore addRecurringInstance 성공:', docRef.id)
-      return docRef.id
     } catch (error) {
       console.error('Firestore addRecurringInstance 실패:', error)
       throw error

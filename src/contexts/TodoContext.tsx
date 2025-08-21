@@ -367,8 +367,9 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         instanceUnsubscribeRef.current = firestoreService.subscribeRecurringInstances(
           currentUser.uid,
           (instances) => {
+            console.log('📡 Firestore 반복 인스턴스 업데이트 수신:', instances.length, '개')
             dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
-            console.log('반복 인스턴스 Firestore에서 로드됨:', instances.length, '개')
+            console.log('✅ 반복 인스턴스 상태 업데이트 완료')
           }
         )
         
@@ -402,31 +403,53 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
     const syncInstancesToFirebase = async () => {
       try {
+        console.log(`🔄 반복 인스턴스 Firebase 동기화 확인 중... (총 ${state.recurringInstances.length}개)`)
+        
         // Firebase에서 기존 인스턴스 조회
         const existingInstances = await firestoreService.getRecurringInstances(currentUser.uid)
         const existingIds = new Set(existingInstances.map(i => i.id))
+        
+        console.log(`📂 Firebase에 기존 인스턴스: ${existingInstances.length}개`)
+        console.log(`📋 로컬 인스턴스: ${state.recurringInstances.length}개`)
 
-        // 새로운 인스턴스만 Firebase에 추가
-        const newInstances = state.recurringInstances.filter(instance => !existingIds.has(instance.id))
+        // 새로운 인스턴스만 Firebase에 추가 (실제로 없는 것들만)
+        const newInstances = state.recurringInstances.filter(instance => {
+          const isNew = !existingIds.has(instance.id)
+          if (isNew) {
+            console.log(`🆕 새로운 인스턴스 발견: ${instance.id} (날짜: ${instance.date})`)
+          }
+          return isNew
+        })
         
         if (newInstances.length > 0) {
-          console.log(`🔄 Firebase에 새로운 반복 인스턴스 ${newInstances.length}개 추가 중...`)
+          console.log(`🔄 Firebase에 새로운 반복 인스턴스 ${newInstances.length}개 추가 시작...`)
           
           for (const instance of newInstances) {
             try {
-              await firestoreService.addRecurringInstance(instance, currentUser.uid)
-              console.log(`✅ 반복 인스턴스 Firebase 추가 성공: ${instance.id}`)
+              // 인스턴스를 Firebase에 동일한 ID로 저장
+              const firestoreId = await firestoreService.addRecurringInstance({
+                ...instance,
+                // ID 유지를 위해 직접 설정 (일반적으로는 Firestore가 생성하지만)
+                id: instance.id
+              }, currentUser.uid)
+              console.log(`✅ 반복 인스턴스 Firebase 추가 성공: ${instance.id} -> Firestore ID: ${firestoreId}`)
             } catch (error) {
               console.error(`❌ 반복 인스턴스 Firebase 추가 실패: ${instance.id}`, error)
             }
           }
+          
+          console.log(`🎉 반복 인스턴스 Firebase 동기화 완료!`)
+        } else {
+          console.log(`✅ 모든 반복 인스턴스가 이미 Firebase에 동기화되어 있음`)
         }
       } catch (error) {
         console.error('❌ 반복 인스턴스 Firebase 동기화 실패:', error)
       }
     }
 
-    syncInstancesToFirebase()
+    // 디바운스: 500ms 후에 실행 (너무 자주 실행되지 않도록)
+    const timeoutId = setTimeout(syncInstancesToFirebase, 500)
+    return () => clearTimeout(timeoutId)
   }, [state.recurringInstances, currentUser])
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
@@ -931,13 +954,26 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         // Firebase에 저장 (로그인 사용자)
         if (currentUser) {
           try {
+            console.log(`🔄 Firebase에 반복 인스턴스 업데이트 중: ${instanceId}`)
+            console.log(`📋 업데이트 데이터:`, {
+              completed: updatedInstance.completed,
+              completedAt: updatedInstance.completedAt
+            })
+            
             await firestoreService.updateRecurringInstance(instanceId, {
               completed: updatedInstance.completed,
               completedAt: updatedInstance.completedAt
             }, currentUser.uid)
             console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
+            
+            // 실시간 구독이 자동으로 업데이트를 전파함
           } catch (error) {
             console.error('❌ Firebase 저장 실패:', error)
+            // Firebase 저장 실패 시 로컬 상태 되돌리기
+            dispatch({ 
+              type: 'SET_RECURRING_INSTANCES', 
+              payload: state.recurringInstances
+            })
           }
         } else {
           // 비로그인 사용자: localStorage에 저장
