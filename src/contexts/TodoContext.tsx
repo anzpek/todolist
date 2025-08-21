@@ -963,15 +963,22 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             console.log(`🔄 Firebase에 기존 반복 인스턴스 업데이트 중: ${instanceId}`)
             console.log(`📋 업데이트 데이터:`, {
               completed: updatedInstance.completed,
-              completedAt: updatedInstance.completedAt,
-              updatedAt: updatedInstance.updatedAt
+              completedAt: updatedInstance.completedAt
+              // updatedAt은 Firestore에서 serverTimestamp()로 자동 설정됨
             })
             
-            await firestoreService.updateRecurringInstance(instanceId, {
-              completed: updatedInstance.completed,
-              completedAt: updatedInstance.completedAt,
-              updatedAt: updatedInstance.updatedAt
-            }, currentUser.uid)
+            const updateData: any = {
+              completed: updatedInstance.completed
+            }
+            
+            // completedAt 처리: undefined면 필드 삭제, 아니면 Date 객체 저장
+            if (updatedInstance.completedAt === undefined) {
+              updateData.completedAt = deleteField()
+            } else {
+              updateData.completedAt = updatedInstance.completedAt
+            }
+            
+            await firestoreService.updateRecurringInstance(instanceId, updateData, currentUser.uid)
             console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
             
             // Firebase 저장 성공 후 실시간 구독이 다른 클라이언트에 변경사항을 전파함
@@ -1040,9 +1047,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
                   templateId: newInstance.templateId,
                   date: newInstance.date,
                   completed: newInstance.completed,
-                  completedAt: newInstance.completedAt,
-                  createdAt: newInstance.createdAt,
-                  updatedAt: newInstance.updatedAt
+                  completedAt: newInstance.completedAt
+                  // createdAt, updatedAt은 Firestore 서비스에서 serverTimestamp()로 자동 설정
                 }, currentUser.uid)
                 console.log('✅ 새 반복 할일 인스턴스 Firebase에 생성 완료')
                 
