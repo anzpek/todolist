@@ -367,9 +367,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         instanceUnsubscribeRef.current = firestoreService.subscribeRecurringInstances(
           currentUser.uid,
           (instances) => {
-            console.log('📡 Firestore 반복 인스턴스 업데이트 수신:', instances.length, '개')
+            console.log('📡 Firestore 반복 인스턴스 실시간 업데이트 수신:', instances.length, '개')
+            
+            // 각 인스턴스의 상태 로깅
+            instances.forEach(instance => {
+              console.log(`📄 실시간 구독 인스턴스: ${instance.id}, completed: ${instance.completed}, updatedAt: ${instance.updatedAt}`)
+            })
+            
             dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
-            console.log('✅ 반복 인스턴스 상태 업데이트 완료')
+            console.log('✅ 반복 인스턴스 실시간 상태 업데이트 완료')
           }
         )
         
@@ -949,6 +955,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           payload: updatedInstances
         })
         console.log('✅ 로컬 상태 즉시 업데이트 완료')
+        console.log(`🔄 로컬 업데이트된 인스턴스: ${instanceId}, completed: ${updatedInstance.completed}, updatedAt: ${updatedInstance.updatedAt}`)
         
         // 2. Firebase에 저장 (로그인 사용자)
         if (currentUser) {
