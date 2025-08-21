@@ -942,7 +942,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           updatedAt: new Date()
         }
         
-        // Firebase에 저장 (로그인 사용자)
+        // 1. 즉시 로컬 상태 업데이트 (즉각적인 UI 반응성)
+        const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
+        dispatch({ 
+          type: 'SET_RECURRING_INSTANCES', 
+          payload: updatedInstances
+        })
+        console.log('✅ 로컬 상태 즉시 업데이트 완료')
+        
+        // 2. Firebase에 저장 (로그인 사용자)
         if (currentUser) {
           try {
             console.log(`🔄 Firebase에 기존 반복 인스턴스 업데이트 중: ${instanceId}`)
@@ -959,26 +967,19 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             }, currentUser.uid)
             console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
             
-            // Firebase 저장 성공 후 실시간 구독이 자동으로 상태를 업데이트함
-            // 로컬 상태는 즉시 업데이트 하지 않고 Firestore 구독을 통해 업데이트
+            // Firebase 저장 성공 후 실시간 구독이 다른 클라이언트에 변경사항을 전파함
             
           } catch (error) {
             console.error('❌ Firebase 저장 실패:', error)
-            // Firebase 저장 실패 시에만 로컬에서 낙관적 업데이트
-            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
+            // Firebase 저장 실패 시 로컬 상태를 원래대로 되돌리기
             dispatch({ 
               type: 'SET_RECURRING_INSTANCES', 
-              payload: updatedInstances
+              payload: state.recurringInstances
             })
           }
         } else {
           // 비로그인 사용자: localStorage에 저장
           try {
-            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
-            dispatch({ 
-              type: 'SET_RECURRING_INSTANCES', 
-              payload: updatedInstances
-            })
             localStorage.setItem('recurringInstances', JSON.stringify(updatedInstances))
             console.log('✅ 반복 할일 상태 localStorage에 저장 완료')
           } catch (error) {
@@ -1014,7 +1015,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
               updatedAt: new Date()
             }
             
-            // Firebase에 저장 (로그인 사용자)
+            // 1. 즉시 로컬 상태 업데이트 (즉각적인 UI 반응성)
+            const updatedInstances = [...state.recurringInstances, newInstance]
+            dispatch({ 
+              type: 'SET_RECURRING_INSTANCES', 
+              payload: updatedInstances
+            })
+            console.log('✅ 새 인스턴스 로컬 상태 즉시 업데이트 완료')
+            
+            // 2. Firebase에 저장 (로그인 사용자)
             if (currentUser) {
               try {
                 console.log(`🔄 Firebase에 새 반복 인스턴스 생성 중: ${instanceId}`)
@@ -1030,26 +1039,19 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
                 }, currentUser.uid)
                 console.log('✅ 새 반복 할일 인스턴스 Firebase에 생성 완료')
                 
-                // Firebase 저장 성공 후 실시간 구독이 자동으로 상태를 업데이트함
-                // 로컬 상태는 즉시 업데이트 하지 않고 Firestore 구독을 통해 업데이트
+                // Firebase 저장 성공 후 실시간 구독이 다른 클라이언트에 변경사항을 전파함
                 
               } catch (error) {
                 console.error('❌ 새 인스턴스 Firebase 생성 실패:', error)
-                // Firebase 저장 실패 시에만 로컬에서 낙관적 업데이트
-                const updatedInstances = [...state.recurringInstances, newInstance]
+                // Firebase 저장 실패 시 로컬 상태를 원래대로 되돌리기
                 dispatch({ 
                   type: 'SET_RECURRING_INSTANCES', 
-                  payload: updatedInstances
+                  payload: state.recurringInstances
                 })
               }
             } else {
               // 비로그인 사용자: localStorage에 저장
               try {
-                const updatedInstances = [...state.recurringInstances, newInstance]
-                dispatch({ 
-                  type: 'SET_RECURRING_INSTANCES', 
-                  payload: updatedInstances
-                })
                 localStorage.setItem('recurringInstances', JSON.stringify(updatedInstances))
                 console.log('✅ 새 반복 할일 상태 localStorage에 저장 완료')
               } catch (error) {
