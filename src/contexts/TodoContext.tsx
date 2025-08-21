@@ -840,8 +840,17 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     
     if (targetTodo && (targetTodo as any)._isRecurringInstance) {
       console.log('🔄 반복 할일 토글:', id)
-      const instanceId = (targetTodo as any)._instanceId
-      console.log('📍 인스턴스 ID:', instanceId)
+      
+      // 인스턴스 ID 추출: recurring_ 접두사 제거
+      let instanceId = (targetTodo as any)._instanceId
+      
+      // 메타데이터에서 인스턴스 ID를 가져올 수 없는 경우 ID에서 직접 추출
+      if (!instanceId && id.startsWith('recurring_')) {
+        instanceId = id.replace('recurring_', '')
+        console.log('📍 ID에서 인스턴스 ID 추출:', instanceId)
+      } else {
+        console.log('📍 메타데이터에서 인스턴스 ID:', instanceId)
+      }
       
       const instance = state.recurringInstances.find(i => i.id === instanceId)
       
@@ -875,6 +884,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         return
       } else {
         console.error('❌ 반복 인스턴스를 찾을 수 없음:', instanceId)
+        console.log('📋 현재 인스턴스 목록:', state.recurringInstances.map(i => i.id))
         return
       }
     }

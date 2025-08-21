@@ -596,7 +596,7 @@ class SimpleRecurringSystem {
     // 일관된 ID 생성: recurring_ + 인스턴스ID (인스턴스 ID가 이미 결정적이므로)
     const todoId = `recurring_${instance.id}`
     
-    return {
+    const todo = {
       id: todoId,
       title: template.title,
       description: template.description,
@@ -609,12 +609,17 @@ class SimpleRecurringSystem {
       completedAt: instance.completedAt,
       tags: [...(template.tags || [])],
       
-      // 메타데이터
+      // 메타데이터 - 반복 할일 식별용
+      _isRecurringInstance: true,
+      _instanceId: instance.id,
+      _templateId: template.id
     } as Todo & {
       _isRecurringInstance: boolean
       _instanceId: string
       _templateId: string
     }
+    
+    return todo
   }
   
   // 오늘 할일 필터링
