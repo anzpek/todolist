@@ -601,6 +601,12 @@ export const firestoreService = {
           updatedAt: serverTimestamp()
         }
         
+        console.log('🔧 Firestore updateDoc 실행 중...', {
+          id: id,
+          updateData: updateData,
+          hasDeleteField: Object.values(updateData).some(v => v && typeof v === 'object' && v.constructor.name === 'FieldValue')
+        })
+        
         await updateDoc(instanceRef, updateData)
         console.log('✅ 기존 반복 인스턴스 문서 업데이트 완료:', id)
       }

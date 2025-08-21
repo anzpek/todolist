@@ -973,10 +973,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             
             // completedAt 처리: undefined면 필드 삭제, 아니면 Date 객체 저장
             if (updatedInstance.completedAt === undefined) {
+              console.log('🗑️ completedAt이 undefined -> deleteField() 사용')
               updateData.completedAt = deleteField()
             } else {
+              console.log('📅 completedAt 설정:', updatedInstance.completedAt)
               updateData.completedAt = updatedInstance.completedAt
             }
+            
+            console.log('📋 최종 업데이트 데이터:', updateData)
             
             await firestoreService.updateRecurringInstance(instanceId, updateData, currentUser.uid)
             console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
