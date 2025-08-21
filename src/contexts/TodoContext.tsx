@@ -934,7 +934,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       const instance = state.recurringInstances.find(i => i.id === instanceId)
       
       if (instance) {
-        console.log('✅ 인스턴스 발견:', instance)
+        console.log('✅ 기존 인스턴스 발견:', instance)
         const updatedInstance = {
           ...instance,
           completed: !instance.completed,
@@ -954,7 +954,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         // Firebase에 저장 (로그인 사용자)
         if (currentUser) {
           try {
-            console.log(`🔄 Firebase에 반복 인스턴스 업데이트 중: ${instanceId}`)
+            console.log(`🔄 Firebase에 기존 반복 인스턴스 업데이트 중: ${instanceId}`)
             console.log(`📋 업데이트 데이터:`, {
               completed: updatedInstance.completed,
               completedAt: updatedInstance.completedAt
@@ -985,11 +985,84 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         
-        console.log('✅ 반복 할일 토글 완료')
+        console.log('✅ 기존 반복 할일 토글 완료')
         return
       } else {
+        console.log('📝 로컬 인스턴스가 없음. 새 인스턴스 생성:', instanceId)
+        
+        // 인스턴스 ID에서 템플릿 ID와 날짜 추출
+        const idParts = instanceId.split('_')
+        if (idParts.length >= 2) {
+          const templateId = idParts[0]
+          const dateStr = idParts.slice(1).join('_') // 날짜 부분 재조합
+          
+          // 해당 템플릿 찾기
+          const template = state.recurringTemplates.find(t => t.id === templateId)
+          
+          if (template) {
+            console.log('✅ 템플릿 발견:', template)
+            
+            // 새 인스턴스 생성
+            const newInstance = {
+              id: instanceId,
+              templateId: templateId,
+              date: new Date(dateStr),
+              completed: true, // 처음 토글이므로 완료로 설정
+              completedAt: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+            
+            // 로컬 상태에 추가
+            const updatedInstances = [...state.recurringInstances, newInstance]
+            dispatch({ 
+              type: 'SET_RECURRING_INSTANCES', 
+              payload: updatedInstances
+            })
+            
+            // Firebase에 저장 (로그인 사용자)
+            if (currentUser) {
+              try {
+                console.log(`🔄 Firebase에 새 반복 인스턴스 생성 중: ${instanceId}`)
+                console.log(`📋 새 인스턴스 데이터:`, newInstance)
+                
+                await firestoreService.updateRecurringInstance(instanceId, {
+                  templateId: newInstance.templateId,
+                  date: newInstance.date,
+                  completed: newInstance.completed,
+                  completedAt: newInstance.completedAt
+                }, currentUser.uid)
+                console.log('✅ 새 반복 할일 인스턴스 Firebase에 생성 완료')
+              } catch (error) {
+                console.error('❌ 새 인스턴스 Firebase 생성 실패:', error)
+                // Firebase 저장 실패 시 로컬 상태 되돌리기
+                dispatch({ 
+                  type: 'SET_RECURRING_INSTANCES', 
+                  payload: state.recurringInstances
+                })
+              }
+            } else {
+              // 비로그인 사용자: localStorage에 저장
+              try {
+                localStorage.setItem('recurringInstances', JSON.stringify(updatedInstances))
+                console.log('✅ 새 반복 할일 상태 localStorage에 저장 완료')
+              } catch (error) {
+                console.error('❌ localStorage 저장 실패:', error)
+              }
+            }
+            
+            console.log('✅ 새 반복 할일 토글 완료')
+            return
+          } else {
+            console.error('❌ 템플릿을 찾을 수 없음:', templateId)
+          }
+        } else {
+          console.error('❌ 인스턴스 ID 형식이 잘못됨:', instanceId)
+        }
+        
         console.error('❌ 반복 인스턴스를 찾을 수 없음:', instanceId)
         console.log('📋 현재 인스턴스 목록:', state.recurringInstances.map(i => i.id))
+        console.log('📋 현재 템플릿 목록:', state.recurringTemplates.map(t => t.id))
         return
       }
     }

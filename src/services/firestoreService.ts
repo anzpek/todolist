@@ -576,17 +576,36 @@ export const firestoreService = {
     try {
       const instanceRef = doc(db, `users/${uid}/recurringInstances`, id)
       
+      // 먼저 문서 존재 여부 확인
+      const docSnap = await getDoc(instanceRef)
+      
       const cleanUpdates = removeUndefinedValues(updates)
       
-      const updateData = {
-        ...cleanUpdates,
-        updatedAt: serverTimestamp()
+      if (!docSnap.exists()) {
+        console.log('📝 반복 인스턴스 문서가 존재하지 않음. 새로 생성:', id)
+        
+        // 문서가 없으면 새로 생성 (setDoc 사용)
+        const newInstanceData = {
+          id: id,
+          ...cleanUpdates,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+        
+        await setDoc(instanceRef, newInstanceData)
+        console.log('✅ 새 반복 인스턴스 문서 생성 완료:', id)
+      } else {
+        // 문서가 있으면 업데이트
+        const updateData = {
+          ...cleanUpdates,
+          updatedAt: serverTimestamp()
+        }
+        
+        await updateDoc(instanceRef, updateData)
+        console.log('✅ 기존 반복 인스턴스 문서 업데이트 완료:', id)
       }
-      
-      await updateDoc(instanceRef, updateData)
-      console.log('Firestore updateRecurringInstance 성공:', id)
     } catch (error) {
-      console.error('Firestore updateRecurringInstance 실패:', error)
+      console.error('❌ Firestore updateRecurringInstance 실패:', error)
       throw error
     }
   },
