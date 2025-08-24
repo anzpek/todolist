@@ -1,15 +1,28 @@
-import { useState, useRef, useEffect } from 'react'
-import Sidebar from './components/Sidebar'
-import MainContent from './components/MainContent'
-import ErrorBoundary from './components/ErrorBoundary'
-import OfflineNotification from './components/OfflineNotification'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { TodoProvider } from './contexts/TodoContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { VacationProvider } from './contexts/VacationContext'
 import { KeyboardProvider } from './contexts/KeyboardContext'
 import { useGlobalKeyboard } from './hooks/useGlobalKeyboard'
+import { debug } from './utils/debug'
+import { performanceMonitor, measureRenderTime } from './utils/performance'
+import { errorTracker } from './utils/errorTracking'
+import { initializeSecurity, generateSecurityReport } from './utils/security'
 import './index.css'
+
+// 레이지 로딩 컴포넌트들
+const Sidebar = lazy(() => import('./components/Sidebar'))
+const MainContent = lazy(() => import('./components/MainContent'))
+const ErrorBoundary = lazy(() => import('./components/ErrorBoundary'))
+const OfflineNotification = lazy(() => import('./components/OfflineNotification'))
+
+// 로딩 스피너 컴포넌트
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+)
 
 // 기존 컴포넌트들과의 호환성을 위한 타입
 export type ViewType = 'today' | 'week' | 'month'
@@ -37,43 +50,53 @@ function AppInner({
   forceMobile,
   setForceMobile
 }: AppInnerProps) {
+  // 렌더링 성능 측정
+  const measureRender = measureRenderTime('AppInner')
+  
   // 전역 키보드 단축키 설정 (KeyboardProvider 내에서 호출)
   useGlobalKeyboard()
+
+  // 컴포넌트가 언마운트될 때 렌더링 시간 측정 완료
+  useEffect(() => {
+    return measureRender
+  }, [])
   
   return (
-    <div className={`h-screen flex bg-gray-50 dark:bg-gray-900 ${isMobile ? 'relative' : ''}`}>
-      {/* 모바일에서 사이드바 오버레이 */}
-      {isMobile && isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-60 z-40"
-          onClick={() => setIsSidebarOpen(false)}
+    <Suspense fallback={<LoadingSpinner />}>
+      <div className={`h-screen flex bg-gray-50 dark:bg-gray-900 ${isMobile ? 'relative' : ''}`}>
+        {/* 모바일에서 사이드바 오버레이 */}
+        {isMobile && isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-60 z-40"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        
+        {/* 사이드바 */}
+        <Sidebar 
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          isOpen={isSidebarOpen}
+          onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+          isMobile={isMobile}
+          forceMobile={forceMobile}
+          onToggleForceMobile={setForceMobile}
         />
-      )}
-      
-      {/* 사이드바 */}
-      <Sidebar 
-        currentView={currentView}
-        onViewChange={setCurrentView}
-        isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        isMobile={isMobile}
-        forceMobile={forceMobile}
-        onToggleForceMobile={setForceMobile}
-      />
-      
-      {/* 메인 컨텐츠 */}
-      <MainContent 
-        currentView={currentView}
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        searchInputRef={searchInputRef}
-        addTodoModalRef={addTodoModalRef}
-        isMobile={isMobile}
-      />
-      
-      {/* 오프라인 알림 */}
-      <OfflineNotification />
-    </div>
+        
+        {/* 메인 컨텐츠 */}
+        <MainContent 
+          currentView={currentView}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          searchInputRef={searchInputRef}
+          addTodoModalRef={addTodoModalRef}
+          isMobile={isMobile}
+        />
+        
+        {/* 오프라인 알림 */}
+        <OfflineNotification />
+      </div>
+    </Suspense>
   )
 }
 
@@ -86,17 +109,59 @@ function AppContent() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const addTodoModalRef = useRef<{ open: () => void }>(null)
 
+  // 앱 시작 시 보안, 성능 모니터링 시작
+  useEffect(() => {
+    debug.log('App 초기화 시작: 보안, 성능 모니터링')
+    
+    // 보안 시스템 초기화
+    initializeSecurity()
+    
+    // 초기 보안 보고서 생성
+    const securityReport = generateSecurityReport()
+    debug.log('Initial security report:', securityReport)
+    
+    // 5초마다 메모리 사용량 체크
+    const memoryInterval = setInterval(() => {
+      performanceMonitor.measureMemoryUsage()
+    }, 5000)
+
+    // 10초마다 에러 통계 로깅
+    const errorInterval = setInterval(() => {
+      const stats = errorTracker.getErrorStats()
+      if (stats.total > 0) {
+        debug.log('Error tracking stats:', stats)
+      }
+    }, 10000)
+
+    // 30초마다 보안 상태 체크 (프로덕션에서는 더 긴 간격 권장)
+    const securityInterval = setInterval(() => {
+      const report = generateSecurityReport()
+      const criticalIssues = report.checks.filter(check => check.status === 'fail')
+      
+      if (criticalIssues.length > 0) {
+        debug.error('Critical security issues detected:', criticalIssues)
+      }
+    }, 30000)
+
+    // 정리
+    return () => {
+      clearInterval(memoryInterval)
+      clearInterval(errorInterval)
+      clearInterval(securityInterval)
+    }
+  }, [])
+
   // 완전히 재작성된 모바일 감지 로직
   useEffect(() => {
     const checkIsMobile = () => {
       const width = window.innerWidth
       const height = window.innerHeight
       
-      console.log(`🔍 모바일 감지 시작: ${width}x${height}`)
+      debug.log(`모바일 감지 시작: ${width}x${height}`)
       
       // 1. 강제 모드가 설정된 경우 우선 적용
       if (forceMobile !== null) {
-        console.log(`🎯 강제 모드: ${forceMobile ? '모바일' : '데스크톱'}`)
+        debug.log(`강제 모드: ${forceMobile ? '모바일' : '데스크톱'}`)
         setIsMobile(forceMobile)
         setIsSidebarOpen(!forceMobile) // 모바일이면 사이드바 닫기
         return
@@ -140,19 +205,19 @@ function AppContent() {
         reason = `데스크톱 (${width}px > 768px)`
       }
       
-      console.log(`📱 감지 결과: ${detectedMobile ? '모바일' : '데스크톱'} - ${reason}`)
-      console.log(`   터치: ${isTouchDevice}, UserAgent: ${isMobileUserAgent}`)
-      console.log(`   미디어쿼리: ${mediaQueryMobile}, 터치포인터: ${mediaQueryTouch}, DPR: ${window.devicePixelRatio}`)
+      debug.log(`감지 결과: ${detectedMobile ? '모바일' : '데스크톱'} - ${reason}`)
+      debug.log(`터치: ${isTouchDevice}, UserAgent: ${isMobileUserAgent}`)
+      debug.log(`미디어쿼리: ${mediaQueryMobile}, 터치포인터: ${mediaQueryTouch}, DPR: ${window.devicePixelRatio}`)
       
       setIsMobile(detectedMobile)
       
       // 사이드바 상태 설정
       if (detectedMobile) {
         setIsSidebarOpen(false)
-        console.log('📱 모바일 모드: 사이드바 닫음')
+        debug.log('모바일 모드: 사이드바 닫음')
       } else {
         setIsSidebarOpen(true)
-        console.log('💻 데스크톱 모드: 사이드바 열림')
+        debug.log('데스크톱 모드: 사이드바 열림')
       }
     }
 
@@ -236,17 +301,19 @@ function AppContent() {
 
 function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <VacationProvider>
-            <TodoProvider>
-              <AppContent />
-            </TodoProvider>
-          </VacationProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <Suspense fallback={<LoadingSpinner />}>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AuthProvider>
+            <VacationProvider>
+              <TodoProvider>
+                <AppContent />
+              </TodoProvider>
+            </VacationProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </Suspense>
   )
 }
 
