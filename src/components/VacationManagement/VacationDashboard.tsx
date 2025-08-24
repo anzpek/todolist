@@ -207,7 +207,7 @@ const VacationDashboard: React.FC = () => {
   };
 
   // 모달 저장
-  const handleModalSave = async (vacationData: any) => {
+  const handleModalSave = async (vacationData: Omit<Vacation, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
     try {
       if (selectedVacation) {
         // 수정

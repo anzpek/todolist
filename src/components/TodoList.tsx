@@ -1,15 +1,13 @@
 import { CheckCircle2, Calendar } from 'lucide-react'
-import { useState } from 'react'
+import { useState, memo, useMemo } from 'react'
 import { useTodos } from '../contexts/TodoContext'
 import { useVacation } from '../contexts/VacationContext'
 import { useAuth } from '../contexts/AuthContext'
 import { isAdmin } from '../constants/admin'
-// import { useRecurring } from '../contexts/RecurringContext' // Removed for simplified system
 import type { ViewType } from '../App'
 import TodoItem from './TodoItem'
 import VacationItem from './VacationItem'
 import type { Todo, Priority, TaskType } from '../types/todo'
-// import { convertRecurringInstancesToTodos } from '../utils/recurringHelpers' // Removed for simplified system
 
 interface TodoListProps {
   currentView: ViewType
@@ -22,7 +20,7 @@ interface TodoListProps {
   selectedDate?: Date // 오늘 할일 뷰에서 선택된 날짜
 }
 
-const TodoList = ({ 
+const TodoList = memo(({ 
   currentView, 
   searchTerm = '', 
   priorityFilter = 'all', 
@@ -36,12 +34,10 @@ const TodoList = ({
   const { currentUser } = useAuth()
   const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  // const { instances, templates, getInstancesForDate } = useRecurring() // Removed for simplified system
 
-  // 간소화된 시스템에서는 사용하지 않는 함수들 (주석 처리)
 
-  const getCurrentTodos = (): Todo[] => {
-    // 간소화된 시스템에서는 TodoContext에서 반복 할일을 포함한 결과를 반환
+  // Memoized todo retrieval based on current view
+  const currentTodos = useMemo((): Todo[] => {
     switch (currentView) {
       case 'today':
         return getTodayTodos(selectedDate)
@@ -52,9 +48,11 @@ const TodoList = ({
       default:
         return todos
     }
-  }
+  }, [currentView, selectedDate, getTodayTodos, getWeekTodos, getMonthTodos, todos])
 
-  const applyFilters = (todoList: Todo[]): Todo[] => {
+  // Memoized filtering logic
+  const filteredTodos = useMemo((): Todo[] => {
+    const applyFilters = (todoList: Todo[]): Todo[] => {
     // React key 중복 방지를 위한 강화된 중복 제거
     const seenIds = new Set<string>()
     const uniqueTodos = todoList.filter(todo => {
@@ -100,9 +98,10 @@ const TodoList = ({
 
       return true
     })
-  }
-
-  const filteredTodos = applyFilters(getCurrentTodos())
+    }
+    
+    return applyFilters(currentTodos)
+  }, [currentTodos, searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter])
   const incompleteTodos = filteredTodos.filter(todo => !todo.completed)
   const completedTodos = filteredTodos.filter(todo => todo.completed)
 
@@ -251,6 +250,8 @@ const TodoList = ({
       )}
     </div>
   )
-}
+})
+
+TodoList.displayName = 'TodoList'
 
 export default TodoList

@@ -56,7 +56,7 @@ const MonthlyCalendarView = ({
   const { currentUser } = useAuth()
   const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
   const [selectedDateTodos, setSelectedDateTodos] = useState<Todo[]>([])
-  const [selectedDateVacations, setSelectedDateVacations] = useState<any[]>([])
+  const [selectedDateVacations, setSelectedDateVacations] = useState<Array<{id: string; employeeId: number; date: string; type: string}>>([])
   const { getFilteredTodos, toggleTodo, deleteTodo } = useTodos()
 
   const monthDays = useMemo(() => {

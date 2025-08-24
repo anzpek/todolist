@@ -1,12 +1,9 @@
 import { Clock, Calendar, AlertCircle, CheckCircle2, Circle, ChevronDown, ChevronRight, Repeat, Timer, Edit, Trash2, RotateCcw } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useCallback, useMemo, memo } from 'react'
 import type { Todo } from '../types/todo'
 import { useTodos } from '../contexts/TodoContext'
-// import { useRecurring } from '../contexts/RecurringContext' // Removed for simplified system
-import { formatDate, formatTime, formatDateTime, isOverdue, getPriorityColor, getPriorityLabel } from '../utils/helpers'
-import { getRecurrenceDescription } from '../utils/recurrence'
+import { formatTime, isOverdue, getPriorityColor, getPriorityLabel } from '../utils/helpers'
 import { isRecurringInstanceTodo } from '../utils/recurringHelpers'
-// import { getInstanceIdFromRecurringTodo } from '../utils/recurringHelpers' // Unused in simplified system
 import SubTaskManager from './SubTaskManager'
 import PomodoroTimer from './PomodoroTimer'
 import EditTodoModal from './EditTodoModal'
@@ -15,38 +12,45 @@ interface TodoItemProps {
   todo: Todo
 }
 
-const TodoItem = ({ todo }: TodoItemProps) => {
+const TodoItem = memo(({ todo }: TodoItemProps) => {
   const { toggleTodo, isYesterdayIncompleteTodo, deleteTodo } = useTodos()
-  // const { completeInstance, uncompleteInstance } = useRecurring() // Removed for simplified system
   const [isExpanded, setIsExpanded] = useState(false)
   const [isTimerOpen, setIsTimerOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
 
-  const isTaskOverdue = todo.dueDate ? isOverdue(todo.dueDate, todo.dueTime) : false
-  const isYesterdayTask = isYesterdayIncompleteTodo(todo)
-  const hasSubTasks = todo.type === 'project' && todo.subTasks && todo.subTasks.length > 0
-  const completedSubTasks = hasSubTasks ? todo.subTasks!.filter(st => st.completed).length : 0
-  const totalSubTasks = hasSubTasks ? todo.subTasks!.length : 0
-  const progress = hasSubTasks ? (completedSubTasks / totalSubTasks) * 100 : 0
+  // Memoized computed values
+  const computedValues = useMemo(() => {
+    const isTaskOverdue = todo.dueDate ? isOverdue(todo.dueDate, todo.dueTime) : false
+    const isYesterdayTask = isYesterdayIncompleteTodo(todo)
+    const hasSubTasks = todo.type === 'project' && todo.subTasks && todo.subTasks.length > 0
+    const completedSubTasks = hasSubTasks ? todo.subTasks!.filter(st => st.completed).length : 0
+    const totalSubTasks = hasSubTasks ? todo.subTasks!.length : 0
+    const progress = hasSubTasks ? (completedSubTasks / totalSubTasks) * 100 : 0
+    const isRecurringInstance = isRecurringInstanceTodo(todo)
+    
+    return {
+      isTaskOverdue,
+      isYesterdayTask,
+      hasSubTasks,
+      completedSubTasks,
+      totalSubTasks,
+      progress,
+      isRecurringInstance
+    }
+  }, [todo, isYesterdayIncompleteTodo])
 
-  // 디버깅용 로그 (간단히)
-  if (todo.type === 'project' && hasSubTasks) {
-    console.log(`📋 프로젝트: ${todo.title} (${totalSubTasks}개 하위 작업)`)
-  }
+  const { isTaskOverdue, isYesterdayTask, hasSubTasks, completedSubTasks, totalSubTasks, progress, isRecurringInstance } = computedValues
 
-  // 반복 인스턴스인지 확인
-  const isRecurringInstance = isRecurringInstanceTodo(todo)
-  // const instanceId = getInstanceIdFromRecurringTodo(todo) // Unused in simplified system
 
-  // 날짜 형식 변환 함수
-  const formatCompactDate = (date: Date) => {
+  // Memoized date formatting functions
+  const formatCompactDate = useCallback((date: Date) => {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}.${month}.${day}.`
-  }
+  }, [])
 
-  const formatCompactDateTime = (date: Date) => {
+  const formatCompactDateTime = useCallback((date: Date) => {
     const dateStr = formatCompactDate(date)
     const timeStr = date.toLocaleTimeString('ko-KR', {
       hour: 'numeric',
@@ -54,24 +58,23 @@ const TodoItem = ({ todo }: TodoItemProps) => {
       hour12: true
     })
     return `${dateStr} ${timeStr}`
-  }
+  }, [formatCompactDate])
 
-  const handleToggle = () => {
-    // 간소화된 시스템에서는 모든 할일을 동일하게 처리
+  const handleToggle = useCallback(() => {
     toggleTodo(todo.id)
-  }
+  }, [todo.id, toggleTodo])
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (confirm(`"${todo.title}" 할일을 삭제하시겠습니까?`)) {
       deleteTodo(todo.id)
     }
-  }
+  }, [todo.id, todo.title, deleteTodo])
 
-  const handleDoubleClick = () => {
+  const handleDoubleClick = useCallback(() => {
     if (hasSubTasks) {
       setIsExpanded(!isExpanded)
     }
-  }
+  }, [hasSubTasks, isExpanded])
 
 
   return (
@@ -225,6 +228,8 @@ const TodoItem = ({ todo }: TodoItemProps) => {
       />
     </div>
   )
-}
+})
+
+TodoItem.displayName = 'TodoItem'
 
 export default TodoItem

@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { Todo, SubTask, Priority, TaskType } from '../types/todo'
+import type { RecurringTemplate, RecurringInstance } from '../types/context'
 import { generateId } from '../utils/helpers'
 import { simpleRecurringSystem, type SimpleRecurringTemplate, type SimpleRecurringInstance } from '../utils/simpleRecurring'
 import { useAuth } from './AuthContext'
@@ -232,7 +233,16 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
         const savedData = localStorage.getItem('recurringInstances')
         if (savedData) {
           const parsed = JSON.parse(savedData)
-          savedInstances = parsed.map((item: any) => ({
+          savedInstances = (parsed as Array<{
+            id: string
+            templateId: string
+            date: string | Date
+            completed: boolean
+            completedAt?: string | Date
+            skipped?: boolean
+            createdAt: string | Date
+            updatedAt: string | Date
+          }>).map((item) => ({
             ...item,
             date: new Date(item.date),
             createdAt: new Date(item.createdAt),
@@ -885,7 +895,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           console.log('🗑️ Firestore에서 할일 삭제 시도:', id)
           await firestoreService.deleteTodo(id, currentUser.uid)
           console.log('✅ Firestore 할일 삭제 성공:', id)
-        } catch (firestoreError: any) {
+        } catch (firestoreError: unknown) {
           // Firestore에 할일이 없는 경우 (동기화 문제)
           if (firestoreError.message.includes('찾을 수 없습니다')) {
             console.warn(`⚠️ Firestore에 할일이 없음 - 로컬에서만 삭제: ${id}`)
@@ -976,7 +986,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         
         console.log(`✅ 기간 할일 토글 완료: ${id}`)
         return
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('❌ 기간 할일 토글 실패:', error)
         // 에러 발생시 이전 상태로 되돌림
         dispatch({ type: 'TOGGLE_TODO', payload: id })
@@ -1220,7 +1230,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       }
       
       console.log(`할일 토글 성공: ${id} (반복할일: ${isRecurringTodo})`)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('할일 토글 실패:', error)
       // 에러 발생시 이전 상태로 되돌림
       dispatch({ type: 'TOGGLE_TODO', payload: id })
@@ -2019,7 +2029,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       console.log('✅ 강제 새로고침 성공:', todos.length, '개 할일')
       dispatch({ type: 'SET_TODOS', payload: todos })
       dispatch({ type: 'SET_ERROR', payload: null })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ 강제 새로고침 실패:', error)
       dispatch({ type: 'SET_ERROR', payload: '데이터 새로고침에 실패했습니다.' })
     } finally {

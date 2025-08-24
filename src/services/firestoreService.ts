@@ -49,63 +49,74 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import type { Todo, SubTask } from '../types/todo'
+import { debug } from '../utils/debug'
+import { handleFirestoreError, withRetry } from '../utils/errorHandling'
 
-console.log('FirestoreService: 실제 Firestore 서비스 활성화')
+debug.info('FirestoreService: 실제 Firestore 서비스 활성화')
 
 // 실제 Firestore 서비스
 export const firestoreService = {
   // 할일 관련
   getTodos: async (uid: string): Promise<Todo[]> => {
-    try {
-      // 실제 Firestore 구조에 맞게 경로 수정: users/{uid}/todos
-      const todosRef = collection(db, `users/${uid}/todos`)
-      const q = query(todosRef, orderBy('createdAt', 'desc'))
-      const snapshot = await getDocs(q)
-      
-      return snapshot.docs.map(doc => {
-        const data = doc.data()
-        
-        
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: safeToDate(data.createdAt) || new Date(),
-          updatedAt: safeToDate(data.updatedAt) || new Date(),
-          dueDate: safeToDate(data.dueDate),
-          startDate: safeToDate(data.startDate),
-          completedAt: safeToDate(data.completedAt)
+    return withRetry(async () => {
+      try {
+        if (!uid) {
+          throw new Error('User ID is required')
         }
-      }) as Todo[]
-    } catch (error) {
-      console.error('Firestore getTodos 실패:', error)
-      throw error
-    }
+        
+        const todosRef = collection(db, `users/${uid}/todos`)
+        const q = query(todosRef, orderBy('createdAt', 'desc'))
+        const snapshot = await getDocs(q)
+        
+        const todos = snapshot.docs.map(doc => {
+          const data = doc.data()
+          
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date(),
+            dueDate: safeToDate(data.dueDate),
+            startDate: safeToDate(data.startDate),
+            completedAt: safeToDate(data.completedAt)
+          }
+        }) as Todo[]
+        
+        debug.log('Firestore getTodos 성공:', { count: todos.length, uid })
+        return todos
+      } catch (error) {
+        debug.error('Firestore getTodos 실패:', error)
+        throw handleFirestoreError(error, 'getTodos')
+      }
+    })
   },
 
   addTodo: async (todo: Todo, uid: string): Promise<string> => {
-    try {
-      const todosRef = collection(db, `users/${uid}/todos`)
-      
-      // undefined 값 제거
-      const cleanedTodo = removeUndefinedValues(todo)
-      
-      const todoData = {
-        ...cleanedTodo,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+    return withRetry(async () => {
+      try {
+        if (!uid || !todo.title?.trim()) {
+          throw new Error('User ID and todo title are required')
+        }
+        
+        const todosRef = collection(db, `users/${uid}/todos`)
+        const cleanedTodo = removeUndefinedValues(todo)
+        
+        const todoData = {
+          ...cleanedTodo,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+        
+        debug.log('Firestore에 저장할 데이터:', todoData)
+        
+        const docRef = await addDoc(todosRef, todoData)
+        debug.log('Firestore addTodo 성공:', docRef.id)
+        return docRef.id
+      } catch (error) {
+        debug.error('Firestore addTodo 실패:', error)
+        throw handleFirestoreError(error, 'addTodo')
       }
-      
-      console.log('Firestore에 저장할 데이터:', JSON.stringify(todoData, null, 2))
-      console.log('🔥 Firestore 저장 데이터의 startDate:', todoData.startDate)
-      console.log('🔥 Firestore 저장 데이터의 startDate 타입:', typeof todoData.startDate)
-      
-      const docRef = await addDoc(todosRef, todoData)
-      console.log('Firestore addTodo 성공:', docRef.id)
-      return docRef.id
-    } catch (error) {
-      console.error('Firestore addTodo 실패:', error)
-      throw error
-    }
+    })
   },
 
   updateTodo: async (id: string, updates: Partial<Todo>, uid: string): Promise<void> => {
@@ -116,7 +127,7 @@ export const firestoreService = {
       const docSnap = await getDoc(todoRef)
       
       if (!docSnap.exists()) {
-        console.warn(`할일 문서 ${id}가 존재하지 않습니다. 업데이트를 건너뜁니다.`)
+        debug.warn(`할일 문서 ${id}가 존재하지 않습니다. 업데이트를 건너뜁니다.`)
         return
       }
       
@@ -126,9 +137,9 @@ export const firestoreService = {
       }
       
       await updateDoc(todoRef, updateData)
-      console.log('Firestore updateTodo 성공:', id)
+      debug.log('Firestore updateTodo 성공:', id)
     } catch (error) {
-      console.error('Firestore updateTodo 실패:', error)
+      debug.error('Firestore updateTodo 실패:', error)
       throw error
     }
   },
@@ -146,13 +157,13 @@ export const firestoreService = {
       console.log('📖 문서 존재 여부 확인:', docSnap.exists())
       
       if (!docSnap.exists()) {
-        console.warn(`⚠️ 삭제하려는 문서가 존재하지 않음: ${id}`)
-        console.log('🔍 전체 컬렉션에서 검색 시도...')
+        debug.warn(`삭제하려는 문서가 존재하지 않음: ${id}`)
+        debug.log('전체 컬렉션에서 검색 시도...')
         
         // 전체 컬렉션에서 해당 ID를 가진 문서 찾기
         const allTodosRef = collection(db, `users/${uid}/todos`)
         const allSnapshot = await getDocs(allTodosRef)
-        console.log(`📊 사용자의 전체 할일 개수: ${allSnapshot.docs.length}`)
+        debug.log(`사용자의 전체 할일 개수: ${allSnapshot.docs.length}`)
         
         const foundDoc = allSnapshot.docs.find(doc => doc.id === id)
         if (foundDoc) {

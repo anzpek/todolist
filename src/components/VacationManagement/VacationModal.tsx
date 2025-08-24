@@ -19,7 +19,7 @@ interface Vacation {
 interface Props {
   employees: Employee[];
   vacation?: Vacation | null;
-  onSave: (vacationData: any) => void;
+  onSave: (vacationData: Omit<Vacation, 'id'> & { id?: string }) => void;
   onCancel: () => void;
 }
 
