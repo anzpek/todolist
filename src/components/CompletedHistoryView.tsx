@@ -195,9 +195,9 @@ const CompletedHistoryView = ({
       const completedDate = new Date(todo.completedAt)
       const dateKey = completedDate.toLocaleDateString('ko-KR', {
         year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long'
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'short'
       })
       
       if (!groupedByDay[dateKey]) {
@@ -239,7 +239,7 @@ const CompletedHistoryView = ({
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekStart.getDate() + 6)
       
-      const weekKey = `${weekStart.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} ~ ${weekEnd.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}`
+      const weekKey = `${weekStart.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })} ~ ${weekEnd.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}`
       
       if (!groupedByWeek[weekKey]) {
         groupedByWeek[weekKey] = []
@@ -275,7 +275,7 @@ const CompletedHistoryView = ({
       const completedDate = new Date(todo.completedAt)
       const monthKey = completedDate.toLocaleDateString('ko-KR', {
         year: 'numeric',
-        month: 'long'
+        month: '2-digit'
       })
       
       if (!groupedByMonth[monthKey]) {
@@ -428,9 +428,9 @@ const CompletedHistoryView = ({
           onClick={() => toggleSection(key)}
           className="w-full flex items-center justify-between p-2 sm:p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="w-4 h-4 flex-shrink-0">{icon}</div>
-            <span className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate">
+            <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white flex-1 leading-tight">
               {title} ({todos.length}개)
             </span>
           </div>

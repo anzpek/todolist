@@ -562,7 +562,7 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
             )}
 
             {/* 타입과 우선순위 */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <FolderPlus className="w-4 h-4 inline mr-1" />
@@ -661,7 +661,7 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
             )}
 
             {/* 시작일과 시간 */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <Calendar className="w-4 h-4 inline mr-1" />
@@ -692,7 +692,7 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
             </div>
 
             {/* 마감일과 시간 */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <Calendar className="w-4 h-4 inline mr-1" />
@@ -811,7 +811,7 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
 
                 {/* 요일별 반복 설정 */}
                 {formData.monthlyRecurrenceType === 'by_weekday' && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
                     {/* 주차 선택 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
