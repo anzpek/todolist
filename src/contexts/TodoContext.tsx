@@ -1298,7 +1298,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const subTask = todo?.subTasks?.find(st => st.id === subTaskId)
     if (!subTask) return
 
-    await updateSubTask(todoId, subTaskId, { completed: !subTask.completed })
+    const isCompleting = !subTask.completed
+    const updates = {
+      completed: isCompleting,
+      completedAt: isCompleting ? new Date() : undefined
+    }
+
+    await updateSubTask(todoId, subTaskId, updates)
   }
 
   // 날짜별 할일 필터링 함수들 (중복 방지 강화)

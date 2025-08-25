@@ -253,6 +253,18 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   {newTemplate.subTasks.map((subTask, index) => (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
                       <input
+                        type="checkbox"
+                        checked={subTask.completed}
+                        onChange={(e) => {
+                          const now = new Date()
+                          updateSubTaskInTemplate(newTemplate, index, { 
+                            completed: e.target.checked,
+                            completedAt: e.target.checked ? now : undefined
+                          }, setNewTemplate)
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <input
                         type="text"
                         value={subTask.title}
                         onChange={(e) => updateSubTaskInTemplate(newTemplate, index, { title: e.target.value }, setNewTemplate)}
@@ -269,6 +281,11 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                         <option value="high">높음</option>
                         <option value="urgent">긴급</option>
                       </select>
+                      {subTask.completed && subTask.completedAt && (
+                        <span className="text-xs text-green-600 dark:text-green-400">
+                          완료: {new Date(subTask.completedAt).toLocaleString()}
+                        </span>
+                      )}
                       <button
                         onClick={() => removeSubTaskFromTemplate(newTemplate, index, setNewTemplate)}
                         className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded"
@@ -360,6 +377,18 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   {editingTemplate.subTasks.map((subTask, index) => (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
                       <input
+                        type="checkbox"
+                        checked={subTask.completed}
+                        onChange={(e) => {
+                          const now = new Date()
+                          updateSubTaskInTemplate(editingTemplate, index, { 
+                            completed: e.target.checked,
+                            completedAt: e.target.checked ? now : undefined
+                          }, setEditingTemplate)
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <input
                         type="text"
                         value={subTask.title}
                         onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setEditingTemplate)}
@@ -376,6 +405,11 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                         <option value="high">높음</option>
                         <option value="urgent">긴급</option>
                       </select>
+                      {subTask.completed && subTask.completedAt && (
+                        <span className="text-xs text-green-600 dark:text-green-400">
+                          완료: {new Date(subTask.completedAt).toLocaleString()}
+                        </span>
+                      )}
                       <button
                         onClick={() => removeSubTaskFromTemplate(editingTemplate, index, setEditingTemplate)}
                         className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded"

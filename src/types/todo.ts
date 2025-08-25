@@ -42,6 +42,7 @@ export interface SubTask {
   completed: boolean
   priority: Priority
   dueDate?: Date // 마감일과 시간 포함 (Date 객체로 저장)
+  completedAt?: Date // 완료 시간
   createdAt: Date
   updatedAt: Date
 }

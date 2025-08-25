@@ -32,7 +32,7 @@ const CompletedHistoryView = ({
   console.log('📊 완료 히스토리 - 반복 할일:', recurringTodos.length)
 
   // 완료된 할일만 필터링 (일반 할일 + 반복 할일 포함)
-  const completedTodos = allTodos.filter(todo => 
+  const completedMainTodos = allTodos.filter(todo => 
     todo.completed && 
     todo.completedAt &&
     // 검색 필터
@@ -50,6 +50,43 @@ const CompletedHistoryView = ({
     // 태그 필터
     (tagFilter.length === 0 || (todo.tags && tagFilter.every(tag => todo.tags?.includes(tag))))
   )
+
+  // 완료된 하위 작업 수집
+  const completedSubTasks: Array<Todo & { isSubTask: true, parentTitle: string }> = []
+  
+  allTodos.forEach(todo => {
+    if (todo.subTasks && todo.subTasks.length > 0) {
+      todo.subTasks
+        .filter(subTask => subTask.completed && subTask.completedAt)
+        .forEach(subTask => {
+          // 하위 작업도 필터 적용
+          const matchesSearch = searchTerm === '' || 
+            subTask.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (subTask.description && subTask.description.toLowerCase().includes(searchTerm.toLowerCase()))
+          
+          const matchesPriority = priorityFilter === 'all' || subTask.priority === priorityFilter
+          
+          if (matchesSearch && matchesPriority) {
+            completedSubTasks.push({
+              ...subTask,
+              type: 'simple' as const,
+              recurrence: 'none' as const,
+              isSubTask: true,
+              parentTitle: todo.title,
+              createdAt: subTask.createdAt,
+              updatedAt: subTask.updatedAt
+            })
+          }
+        })
+    }
+  })
+
+  // 메인 할일과 하위 작업을 합쳐서 완료 시간 순으로 정렬
+  const completedTodos = [...completedMainTodos, ...completedSubTasks].sort((a, b) => {
+    const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0
+    const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0
+    return dateB - dateA // 최신순 정렬
+  })
 
   console.log('📊 완료 히스토리 - 완료된 할일:', completedTodos.length)
   console.log('📊 완료 히스토리 - 완료된 반복 할일:', completedTodos.filter(t => (t as any)._isRecurringInstance).length)
@@ -277,7 +314,10 @@ const CompletedHistoryView = ({
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-4 h-4 text-green-600" />
               <h3 className="font-medium text-green-800 dark:text-green-300 line-through">
-                {todo.title}
+                {(todo as any).isSubTask ? 
+                  `↳ ${todo.title} (${(todo as any).parentTitle})` : 
+                  todo.title
+                }
               </h3>
               <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[todo.priority]}`}>
                 {todo.priority === 'low' && '낮음'}
@@ -285,6 +325,11 @@ const CompletedHistoryView = ({
                 {todo.priority === 'high' && '높음'}
                 {todo.priority === 'urgent' && '긴급'}
               </span>
+              {(todo as any).isSubTask && (
+                <span className="bg-indigo-200 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
+                  하위 작업
+                </span>
+              )}
             </div>
             
             {todo.description && (

@@ -131,9 +131,16 @@ const SubTaskManager = ({ todoId, subTasks }: SubTaskManagerProps) => {
                   onChange={() => toggleSubTask(todoId, subTask.id)}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                 />
-                <span className={`flex-1 text-sm ${subTask.completed ? 'line-through text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
-                  {subTask.title}
-                </span>
+                <div className="flex-1">
+                  <span className={`text-sm ${subTask.completed ? 'line-through text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {subTask.title}
+                  </span>
+                  {subTask.completed && subTask.completedAt && (
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      완료: {new Date(subTask.completedAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => handleStartEdit(subTask)}
