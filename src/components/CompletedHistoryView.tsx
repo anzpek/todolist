@@ -22,6 +22,7 @@ const CompletedHistoryView = ({
   const { todos, toggleTodo, getRecurringTodos } = useTodos()
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['today']))
   const [viewMode, setViewMode] = useState<'period' | 'daily' | 'weekly' | 'monthly'>('period')
+  const [fourthStatMode, setFourthStatMode] = useState<'yesterday' | 'lastWeek' | 'lastMonth'>('yesterday')
 
   // 모든 할일 (일반 + 반복 할일) 가져오기
   const recurringTodos = getRecurringTodos()
@@ -52,12 +53,12 @@ const CompletedHistoryView = ({
   )
 
   // 완료된 하위 작업 수집
-  const completedSubTasks: Array<Todo & { isSubTask: true, parentTitle: string }> = []
+  const completedSubTasks: Array<Todo & { isSubTask: true, parentTitle: string, parentDescription?: string }> = []
   
   allTodos.forEach(todo => {
     if (todo.subTasks && todo.subTasks.length > 0) {
       todo.subTasks
-        .filter(subTask => subTask.completed && subTask.completedAt)
+        .filter(subTask => subTask.completed && subTask.completedAt && subTask.completedAt !== null)
         .forEach(subTask => {
           // 하위 작업도 필터 적용
           const matchesSearch = searchTerm === '' || 
@@ -73,6 +74,7 @@ const CompletedHistoryView = ({
               recurrence: 'none' as const,
               isSubTask: true,
               parentTitle: todo.title,
+              parentDescription: todo.description, // 부모 할일의 설명 추가
               createdAt: subTask.createdAt,
               updatedAt: subTask.updatedAt
             })
@@ -83,8 +85,18 @@ const CompletedHistoryView = ({
 
   // 메인 할일과 하위 작업을 합쳐서 완료 시간 순으로 정렬
   const completedTodos = [...completedMainTodos, ...completedSubTasks].sort((a, b) => {
-    const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0
-    const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0
+    const getValidTime = (date: any) => {
+      if (!date) return 0
+      try {
+        const time = new Date(date).getTime()
+        return isNaN(time) ? 0 : time
+      } catch {
+        return 0
+      }
+    }
+    
+    const dateA = getValidTime(a.completedAt)
+    const dateB = getValidTime(b.completedAt)
     return dateB - dateA // 최신순 정렬
   })
 
@@ -145,14 +157,19 @@ const CompletedHistoryView = ({
       } else if (completedDay.getTime() === yesterday.getTime()) {
         groups.yesterday.push(todo)
       } else if (completedDate >= thisWeekStart && completedDay < today) {
+        // 이번 주의 오늘, 어제를 제외한 나머지 날들
         groups.thisWeek.push(todo)
-      } else if (completedDate >= lastWeekStart && completedDate <= lastWeekEnd) {
+      } else if (completedDate >= lastWeekStart && completedDate < thisWeekStart) {
+        // 저번 주
         groups.lastWeek.push(todo)
-      } else if (completedDate >= thisMonthStart && completedDate < thisWeekStart) {
+      } else if (completedDate >= thisMonthStart && completedDate < lastWeekStart) {
+        // 이번 달의 저번 주 이전 날들
         groups.thisMonth.push(todo)
-      } else if (completedDate >= lastMonthStart && completedDate <= lastMonthEnd) {
+      } else if (completedDate >= lastMonthStart && completedDate < thisMonthStart) {
+        // 저번 달 (7월)
         groups.lastMonth.push(todo)
-      } else {
+      } else if (completedDate < lastMonthStart) {
+        // 그 이전 달들 (6월 이전)
         groups.older.push(todo)
       }
     })
@@ -295,6 +312,17 @@ const CompletedHistoryView = ({
     setExpandedSections(newExpanded)
   }
 
+  const cycleFourthStat = () => {
+    setFourthStatMode(current => {
+      switch (current) {
+        case 'yesterday': return 'lastWeek'
+        case 'lastWeek': return 'lastMonth'  
+        case 'lastMonth': return 'yesterday'
+        default: return 'yesterday'
+      }
+    })
+  }
+
   const renderTodoItem = (todo: Todo) => {
     const priorityColors = {
       low: 'text-gray-500 bg-gray-100 dark:bg-gray-800',
@@ -308,76 +336,80 @@ const CompletedHistoryView = ({
     }
 
     return (
-      <div key={todo.id} className="border-l-4 border-green-500 bg-green-50 dark:bg-green-900/10 p-4 rounded-r-lg">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <h3 className="font-medium text-green-800 dark:text-green-300 line-through">
+      <div key={todo.id} className="border-l-2 border-green-500 bg-green-50 dark:bg-green-900/10 p-2 sm:p-3 rounded-r-lg">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1 mb-1">
+              <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
+              <h3 className="text-xs sm:text-sm font-medium text-green-800 dark:text-green-300 line-through truncate">
                 {(todo as any).isSubTask ? 
                   `↳ ${todo.title} (${(todo as any).parentTitle})` : 
                   todo.title
                 }
               </h3>
-              <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[todo.priority]}`}>
+            </div>
+            
+            {/* 태그와 설명 */}
+            <div className="flex flex-wrap items-center gap-1 mb-1">
+              {(todo as any).isSubTask ? (
+                (todo as any).parentDescription && (
+                  <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 py-0.5 rounded text-xs">
+                    {(todo as any).parentDescription}
+                  </span>
+                )
+              ) : (
+                todo.description && (
+                  <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 py-0.5 rounded text-xs">
+                    {todo.description}
+                  </span>
+                )
+              )}
+              
+              <span className={`px-1 py-0.5 rounded text-xs ${priorityColors[todo.priority]}`}>
                 {todo.priority === 'low' && '낮음'}
                 {todo.priority === 'medium' && '보통'}
                 {todo.priority === 'high' && '높음'}
                 {todo.priority === 'urgent' && '긴급'}
               </span>
+              
               {(todo as any).isSubTask && (
-                <span className="bg-indigo-200 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
-                  하위 작업
-                </span>
-              )}
-            </div>
-            
-            {todo.description && (
-              <p className="text-sm text-green-700 dark:text-green-400 mb-2 line-through opacity-75">
-                {todo.description}
-              </p>
-            )}
-            
-            <div className="flex items-center gap-4 text-xs text-green-600 dark:text-green-400">
-              {todo.completedAt && (
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {formatDateTime(todo.completedAt)} 완료
+                <span className="bg-indigo-200 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300 px-1 py-0.5 rounded text-xs">
+                  하위작업
                 </span>
               )}
               
-              {/* 반복 할일 표시 */}
               {(todo as any)._isRecurringInstance && (
-                <span className="bg-purple-200 dark:bg-purple-800 px-2 py-1 rounded flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  반복 할일
+                <span className="bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded text-xs">
+                  반복할일
                 </span>
               )}
               
               {todo.type === 'project' && (
-                <span className="bg-green-200 dark:bg-green-800 px-2 py-1 rounded">
-                  {todo.project === 'longterm' ? '롱텀' : '숏텀'} 프로젝트
+                <span className="bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-300 px-1 py-0.5 rounded text-xs">
+                  {todo.project === 'longterm' ? '롱텀' : '숏텀'}
                 </span>
               )}
-              
-              {todo.tags && todo.tags.length > 0 && (
-                <div className="flex gap-1">
-                  {todo.tags.map(tag => (
-                    <span key={tag} className="bg-green-200 dark:bg-green-800 px-2 py-1 rounded">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
+            
+            {/* 완료 시간 */}
+            {todo.completedAt && (
+              <div className="text-xs text-green-600 dark:text-green-400">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {formatDateTime(todo.completedAt)} 완료
+                </span>
+              </div>
+            )}
           </div>
-          <div className="flex-shrink-0 ml-4">
+          
+          {/* 액션 버튼 */}
+          <div className="flex items-start">
             <button
               onClick={handleUncomplete}
-              className="p-2 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors"
-              title="할일 목록으로 되돌리기"
+              className="p-1 hover:bg-green-100 dark:hover:bg-green-800 rounded transition-colors"
+              title="완료 취소"
             >
-              <RotateCcw className="w-4 h-4 text-green-600 dark:text-green-400" />
+              <RotateCcw className="w-3 h-3 text-green-600 dark:text-green-400" />
             </button>
           </div>
         </div>
@@ -391,22 +423,22 @@ const CompletedHistoryView = ({
     const isExpanded = expandedSections.has(key)
     
     return (
-      <div key={key} className="mb-6">
+      <div key={key} className="mb-4">
         <button
           onClick={() => toggleSection(key)}
-          className="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          className="w-full flex items-center justify-between p-2 sm:p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         >
-          <div className="flex items-center gap-3">
-            {icon}
-            <span className="font-medium text-gray-900 dark:text-white">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 flex-shrink-0">{icon}</div>
+            <span className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate">
               {title} ({todos.length}개)
             </span>
           </div>
-          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          {isExpanded ? <ChevronDown className="w-4 h-4 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 flex-shrink-0" />}
         </button>
         
         {isExpanded && (
-          <div className="mt-3 space-y-3">
+          <div className="mt-2 space-y-2">
             {todos.map(renderTodoItem)}
           </div>
         )}
@@ -419,6 +451,35 @@ const CompletedHistoryView = ({
   const weeklyGroups = groupTodosByWeek()
   const monthlyGroups = groupTodosByMonth()
   const totalCompleted = completedTodos.length
+
+  const getFourthStatData = () => {
+    switch (fourthStatMode) {
+      case 'yesterday':
+        return {
+          count: groups.yesterday.length,
+          label: '어제',
+          color: 'text-orange-600 dark:text-orange-400'
+        }
+      case 'lastWeek':
+        return {
+          count: groups.lastWeek.length,
+          label: '저번주',
+          color: 'text-indigo-600 dark:text-indigo-400'
+        }
+      case 'lastMonth':
+        return {
+          count: groups.lastMonth.length,
+          label: '저번달',
+          color: 'text-pink-600 dark:text-pink-400'
+        }
+      default:
+        return {
+          count: groups.yesterday.length,
+          label: '어제',
+          color: 'text-orange-600 dark:text-orange-400'
+        }
+    }
+  }
 
   const renderCustomGroupedView = () => {
     if (viewMode === 'daily') {
@@ -465,18 +526,16 @@ const CompletedHistoryView = ({
   }
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">완료 히스토리</h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            총 {totalCompleted}개의 할일을 완료했습니다
-          </p>
-        </div>
+    <div className="space-y-3 sm:space-y-4">
+      {/* 헤더 - 컴팩트 */}
+      <div className="text-center">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-1">완료 히스토리</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          총 {totalCompleted}개의 할일을 완료했습니다
+        </p>
       </div>
 
-      {/* 뷰 모드 선택 탭 */}
+      {/* 뷰 모드 선택 탭 - 컴팩트 */}
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
         {[
           { key: 'period', label: '기간별' },
@@ -487,7 +546,7 @@ const CompletedHistoryView = ({
           <button
             key={key}
             onClick={() => setViewMode(key as any)}
-            className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 px-2 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
               viewMode === key
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -498,60 +557,68 @@ const CompletedHistoryView = ({
         ))}
       </div>
 
-      {/* 통계 */}
+      {/* 통계 - 한 줄로 표시 */}
       {viewMode === 'period' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {groups.today.length}
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border">
+          <div className="grid grid-cols-4 gap-1">
+            <div className="text-center px-2 py-2">
+              <div className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">
+                {groups.today.length}
+              </div>
+              <div className="text-xs text-green-700 dark:text-green-300 leading-tight">오늘</div>
             </div>
-            <div className="text-sm text-green-700 dark:text-green-300">오늘</div>
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {groups.thisWeek.length + groups.yesterday.length}
+            <div className="text-center px-2 py-2">
+              <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                {groups.today.length + groups.yesterday.length + groups.thisWeek.length}
+              </div>
+              <div className="text-xs text-blue-700 dark:text-blue-300 leading-tight">이번 주</div>
             </div>
-            <div className="text-sm text-blue-700 dark:text-blue-300">이번 주</div>
-          </div>
-          <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {groups.thisMonth.length}
+            <div className="text-center px-2 py-2">
+              <div className="text-lg sm:text-xl font-bold text-purple-600 dark:text-purple-400">
+                {totalCompleted - groups.lastMonth.length - groups.older.length}
+              </div>
+              <div className="text-xs text-purple-700 dark:text-purple-300 leading-tight">이번 달</div>
             </div>
-            <div className="text-sm text-purple-700 dark:text-purple-300">이번 달</div>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-              {groups.lastMonth.length + groups.older.length}
-            </div>
-            <div className="text-sm text-gray-700 dark:text-gray-300">이전</div>
+            <button 
+              onClick={cycleFourthStat}
+              className="text-center px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors cursor-pointer"
+              title="클릭하여 어제 → 저번주 → 저번달 순환"
+            >
+              <div className={`text-lg sm:text-xl font-bold ${getFourthStatData().color}`}>
+                {getFourthStatData().count}
+              </div>
+              <div className={`text-xs leading-tight ${getFourthStatData().color.replace('text-', 'text-').replace('600', '700').replace('400', '300')}`}>
+                {getFourthStatData().label}
+              </div>
+            </button>
           </div>
         </div>
       )}
       
       {viewMode === 'daily' && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border text-center">
+          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
             {dailyGroups.sortedKeys.length}
           </div>
-          <div className="text-sm text-blue-700 dark:text-blue-300">완료한 날</div>
+          <div className="text-xs text-blue-700 dark:text-blue-300">완료한 날</div>
         </div>
       )}
       
       {viewMode === 'weekly' && (
-        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border text-center">
+          <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
             {weeklyGroups.sortedKeys.length}
           </div>
-          <div className="text-sm text-purple-700 dark:text-purple-300">완료한 주</div>
+          <div className="text-xs text-purple-700 dark:text-purple-300">완료한 주</div>
         </div>
       )}
       
       {viewMode === 'monthly' && (
-        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border text-center">
+          <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
             {monthlyGroups.sortedKeys.length}
           </div>
-          <div className="text-sm text-indigo-700 dark:text-indigo-300">완료한 월</div>
+          <div className="text-xs text-indigo-700 dark:text-indigo-300">완료한 월</div>
         </div>
       )}
 

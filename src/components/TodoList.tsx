@@ -102,8 +102,50 @@ const TodoList = memo(({
     
     return applyFilters(currentTodos)
   }, [currentTodos, searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter])
+  // 완료되지 않은 할일: 메인 할일이 완료되지 않은 모든 할일
   const incompleteTodos = filteredTodos.filter(todo => !todo.completed)
-  const completedTodos = filteredTodos.filter(todo => todo.completed)
+
+  // 완료된 할일: 메인 할일이 완료된 것들만 (서브태스크는 별도 처리)
+  const completedMainTodos = filteredTodos.filter(todo => todo.completed)
+
+  // 오늘 완료된 서브태스크들을 개별 항목으로 추출 (오늘 뷰에서만)
+  const completedSubTasksAsItems: Array<Todo & { isSubTask: true, parentTitle: string, parentDescription?: string }> = []
+  
+  if (currentView === 'today') {
+    const today = selectedDate || new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    filteredTodos.forEach(todo => {
+      if (todo.subTasks && todo.subTasks.length > 0) {
+        todo.subTasks.forEach(subTask => {
+          if (subTask.completed && subTask.completedAt && subTask.completedAt !== null) {
+            try {
+              const subTaskCompletedDate = new Date(subTask.completedAt)
+              subTaskCompletedDate.setHours(0, 0, 0, 0)
+              
+              if (subTaskCompletedDate.getTime() === today.getTime()) {
+                completedSubTasksAsItems.push({
+                  ...subTask,
+                  type: 'simple' as const,
+                  recurrence: 'none' as const,
+                  isSubTask: true,
+                  parentTitle: todo.title,
+                  parentDescription: todo.description,
+                  createdAt: subTask.createdAt,
+                  updatedAt: subTask.updatedAt
+                })
+              }
+            } catch {
+              // 날짜 파싱 오류 무시
+            }
+          }
+        })
+      }
+    })
+  }
+
+  // 완료된 할일 = 완료된 메인 할일 + 오늘 완료된 서브태스크 항목들
+  const allCompletedItems = [...completedMainTodos, ...completedSubTasksAsItems]
 
   // 휴가 데이터 가져오기 (관리자이고 휴가 표시가 활성화된 경우)
   const getDisplayDate = () => {
@@ -174,9 +216,31 @@ const TodoList = memo(({
   }
 
   const sortedIncompleteTodos = sortByPriority(incompleteTodos)
-  const sortedCompletedTodos = completedTodos.sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  )
+  
+  // 완료된 할일 정렬 (완료 시간 기준 최신순)
+  const sortedCompletedTodos = allCompletedItems.sort((a, b) => {
+    const getCompletedTime = (item: any) => {
+      // 서브태스크인 경우 completedAt 사용
+      if ((item as any).isSubTask && item.completedAt) {
+        try {
+          return new Date(item.completedAt).getTime()
+        } catch {
+          return 0
+        }
+      }
+      // 일반 할일인 경우 completedAt 또는 updatedAt 사용
+      if (item.completedAt) {
+        try {
+          return new Date(item.completedAt).getTime()
+        } catch {
+          return new Date(item.updatedAt).getTime()
+        }
+      }
+      return new Date(item.updatedAt).getTime()
+    }
+    
+    return getCompletedTime(b) - getCompletedTime(a) // 최신순 정렬
+  })
 
   if (filteredTodos.length === 0 && vacationsForDate.length === 0) {
     return (
@@ -246,9 +310,52 @@ const TodoList = memo(({
             완료된 할일 ({sortedCompletedTodos.length})
           </h3>
           <div className="space-y-2">
-            {sortedCompletedTodos.map(todo => (
-              <TodoItem key={todo.id} todo={todo} />
-            ))}
+            {sortedCompletedTodos.map(todo => {
+              // 서브태스크인 경우 특별한 컴팩트 표시
+              if ((todo as any).isSubTask) {
+                const subTask = todo as any
+                const completedTime = subTask.completedAt ? new Date(subTask.completedAt) : new Date(subTask.updatedAt)
+                
+                return (
+                  <div 
+                    key={`subtask-${todo.id}`} 
+                    className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
+                  >
+                    <div className="flex-shrink-0">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-green-800 dark:text-green-200 line-through">
+                          {todo.title}
+                        </span>
+                        <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded border">
+                          하위작업
+                        </span>
+                      </div>
+                      
+                      <div className="text-xs text-green-700 dark:text-green-300">
+                        <span className="font-medium">상위 프로젝트:</span> {subTask.parentTitle}
+                        {subTask.parentDescription && (
+                          <span className="ml-2 opacity-75">• {subTask.parentDescription}</span>
+                        )}
+                      </div>
+                      
+                      <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        완료시간: {completedTime.toLocaleTimeString('ko-KR', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              
+              // 일반 할일
+              return <TodoItem key={todo.id} todo={todo} />
+            })}
           </div>
         </div>
       )}
