@@ -54,8 +54,8 @@ interface TodoContextType extends TodoState {
   getTomorrowTodos: (targetDate?: Date) => Todo[]
   getYesterdayIncompleteTodos: (targetDate?: Date) => Todo[]
   isYesterdayIncompleteTodo: (todo: Todo) => boolean
-  updateTodoOrder: (todoId: string, newOrder: number) => void
-  reorderTodos: (sourceIndex: number, destinationIndex: number, todos: Todo[]) => void
+  updateTodoOrder: (todoId: string, newOrder: number) => Promise<void>
+  reorderTodos: (sourceIndex: number, destinationIndex: number, todos: Todo[]) => Promise<void>
   getFilteredTodos: (filters: {
     searchTerm?: string
     priorityFilter?: Priority | 'all'
@@ -1668,7 +1668,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     return dueDate.getTime() < today.getTime()
   }
 
-  const updateTodoOrder = (todoId: string, newOrder: number) => {
+  const updateTodoOrder = async (todoId: string, newOrder: number) => {
+    // 로컬 state 즉시 업데이트
     dispatch({
       type: 'UPDATE_TODO',
       payload: {
@@ -1676,17 +1677,35 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         updates: { order: newOrder, updatedAt: new Date() }
       }
     })
+
+    // Firestore에도 저장 (인증된 사용자만)
+    if (currentUser?.uid) {
+      try {
+        await firestoreService.updateTodo(todoId, { order: newOrder }, currentUser.uid)
+        debug.log('할일 순서 Firestore 저장 성공', { todoId, newOrder })
+      } catch (error) {
+        debug.error('할일 순서 Firestore 저장 실패:', error)
+        // 에러가 발생해도 로컬 state는 유지
+      }
+    }
   }
 
-  const reorderTodos = (sourceIndex: number, destinationIndex: number, todos: Todo[]) => {
+  const reorderTodos = async (sourceIndex: number, destinationIndex: number, todos: Todo[]) => {
     const reorderedTodos = Array.from(todos)
     const [removed] = reorderedTodos.splice(sourceIndex, 1)
     reorderedTodos.splice(destinationIndex, 0, removed)
 
-    // 새로운 순서로 order 값 업데이트
-    reorderedTodos.forEach((todo, index) => {
+    // 새로운 순서로 order 값 업데이트 (병렬 처리)
+    const updatePromises = reorderedTodos.map((todo, index) => 
       updateTodoOrder(todo.id, index)
-    })
+    )
+    
+    try {
+      await Promise.all(updatePromises)
+      debug.log('모든 할일 순서 업데이트 완료', { count: updatePromises.length })
+    } catch (error) {
+      debug.error('할일 순서 업데이트 중 일부 실패:', error)
+    }
   }
 
   const getFilteredTodos = (filters: {

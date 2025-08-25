@@ -127,13 +127,17 @@ const TodoList = memo(({
     e.dataTransfer.dropEffect = 'move'
   }
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
     if (draggedIndex === null) return
     
     // 오늘 뷰에서만 드래그 앤 드롭 허용
     if (currentView === 'today') {
-      reorderTodos(draggedIndex, dropIndex, sortedIncompleteTodos)
+      try {
+        await reorderTodos(draggedIndex, dropIndex, sortedIncompleteTodos)
+      } catch (error) {
+        console.error('드래그 앤 드롭 순서 저장 실패:', error)
+      }
     }
     
     setDraggedIndex(null)
