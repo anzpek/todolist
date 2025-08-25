@@ -5,6 +5,7 @@ import { generateId } from '../utils/helpers'
 import { firestoreService } from '../services/firestoreService'
 import { useAuth } from '../contexts/AuthContext'
 import { debug } from '../utils/debug'
+import { deleteField } from '../config/firebase'
 
 interface ProjectTemplateManagerProps {
   isOpen: boolean
@@ -259,7 +260,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                           const now = new Date()
                           updateSubTaskInTemplate(newTemplate, index, { 
                             completed: e.target.checked,
-                            completedAt: e.target.checked ? now : undefined
+                            completedAt: e.target.checked ? now : deleteField()
                           }, setNewTemplate)
                         }}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
@@ -383,7 +384,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                           const now = new Date()
                           updateSubTaskInTemplate(editingTemplate, index, { 
                             completed: e.target.checked,
-                            completedAt: e.target.checked ? now : undefined
+                            completedAt: e.target.checked ? now : deleteField()
                           }, setEditingTemplate)
                         }}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"

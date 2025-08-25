@@ -1301,7 +1301,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const isCompleting = !subTask.completed
     const updates = {
       completed: isCompleting,
-      completedAt: isCompleting ? new Date() : undefined
+      completedAt: isCompleting ? new Date() : deleteField()
     }
 
     await updateSubTask(todoId, subTaskId, updates)
