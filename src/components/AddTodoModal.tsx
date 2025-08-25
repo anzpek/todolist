@@ -561,32 +561,32 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
               </>
             )}
 
-            {/* 타입과 우선순위 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 유형과 우선순위 */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <FolderPlus className="w-4 h-4 inline mr-1" />
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
+                  <FolderPlus className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                   유형
                 </label>
                 <select
                   value={formData.type}
                   onChange={(e) => handleChange('type', e.target.value as TaskType)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full px-2 py-1.5 sm:px-3 sm:py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                 >
-                  <option value="simple">간단한 할일</option>
+                  <option value="simple">단일 태스크</option>
                   <option value="project">프로젝트</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Flag className="w-4 h-4 inline mr-1" />
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
+                  <Flag className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                   우선순위
                 </label>
                 <select
                   value={formData.priority}
                   onChange={(e) => handleChange('priority', e.target.value as Priority)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full px-2 py-1.5 sm:px-3 sm:py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                 >
                   <option value="low">낮음</option>
                   <option value="medium">보통</option>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Plus, Minus } from 'lucide-react'
+import { X, Plus, Minus, Flag } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import type { SimpleRecurringTemplate, RecurrenceException, ConflictException } from '../utils/simpleRecurring'
 import { getWeekLabel } from '../utils/helpers'
@@ -220,13 +220,14 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
 
           {/* 우선순위 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
+              <Flag className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
               우선순위
             </label>
             <select
               value={formData.priority}
               onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-2 py-1.5 sm:px-3 sm:py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             >
               <option value="low">낮음</option>
               <option value="medium">보통</option>
