@@ -760,5 +760,119 @@ export const firestoreService = {
       callback([])
       return () => {}
     }
+  },
+
+  // 프로젝트 템플릿 관련 함수들
+  getProjectTemplates: async (uid: string): Promise<any[]> => {
+    try {
+      debug.log('프로젝트 템플릿 조회 시작', { uid })
+      const templatesRef = collection(db, `users/${uid}/projectTemplates`)
+      const q = query(templatesRef, orderBy('createdAt', 'desc'))
+      const snapshot = await getDocs(q)
+      
+      const templates = snapshot.docs.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: safeToDate(data.createdAt) || new Date(),
+          updatedAt: safeToDate(data.updatedAt) || new Date()
+        }
+      })
+      
+      debug.log('프로젝트 템플릿 조회 성공', { count: templates.length })
+      return templates
+    } catch (error) {
+      debug.error('프로젝트 템플릿 조회 실패:', error)
+      throw handleFirestoreError(error, 'getProjectTemplates')
+    }
+  },
+
+  addProjectTemplate: async (template: any, uid: string): Promise<string> => {
+    try {
+      debug.log('프로젝트 템플릿 추가 시작', { uid, template })
+      const templatesRef = collection(db, `users/${uid}/projectTemplates`)
+      
+      const cleanTemplate = removeUndefinedValues(template)
+      const templateData = {
+        name: '',
+        description: '',
+        category: 'general',
+        subtasks: [],
+        ...cleanTemplate,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+      
+      const docRef = await addDoc(templatesRef, templateData)
+      debug.log('프로젝트 템플릿 추가 성공', { id: docRef.id })
+      return docRef.id
+    } catch (error) {
+      debug.error('프로젝트 템플릿 추가 실패:', error)
+      throw handleFirestoreError(error, 'addProjectTemplate')
+    }
+  },
+
+  updateProjectTemplate: async (id: string, updates: any, uid: string): Promise<void> => {
+    try {
+      debug.log('프로젝트 템플릿 수정 시작', { id, uid })
+      const templateRef = doc(db, `users/${uid}/projectTemplates`, id)
+      
+      const cleanUpdates = removeUndefinedValues(updates)
+      const updateData = {
+        ...cleanUpdates,
+        updatedAt: serverTimestamp()
+      }
+      
+      await updateDoc(templateRef, updateData)
+      debug.log('프로젝트 템플릿 수정 성공', { id })
+    } catch (error) {
+      debug.error('프로젝트 템플릿 수정 실패:', error)
+      throw handleFirestoreError(error, 'updateProjectTemplate')
+    }
+  },
+
+  deleteProjectTemplate: async (id: string, uid: string): Promise<void> => {
+    try {
+      debug.log('프로젝트 템플릿 삭제 시작', { id, uid })
+      const templateRef = doc(db, `users/${uid}/projectTemplates`, id)
+      await deleteDoc(templateRef)
+      debug.log('프로젝트 템플릿 삭제 성공', { id })
+    } catch (error) {
+      debug.error('프로젝트 템플릿 삭제 실패:', error)
+      throw handleFirestoreError(error, 'deleteProjectTemplate')
+    }
+  },
+
+  subscribeProjectTemplates: (uid: string, callback: (templates: any[]) => void) => {
+    try {
+      debug.log('프로젝트 템플릿 구독 시작', { uid })
+      const templatesRef = collection(db, `users/${uid}/projectTemplates`)
+      const q = query(templatesRef, orderBy('createdAt', 'desc'))
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const templates = snapshot.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date()
+          }
+        })
+        
+        debug.log('프로젝트 템플릿 구독 업데이트', { count: templates.length })
+        callback(templates)
+      }, (error) => {
+        debug.error('프로젝트 템플릿 구독 오류:', error)
+        callback([])
+      })
+      
+      return unsubscribe
+    } catch (error) {
+      debug.error('프로젝트 템플릿 구독 초기화 실패:', error)
+      callback([])
+      return () => {}
+    }
   }
 }

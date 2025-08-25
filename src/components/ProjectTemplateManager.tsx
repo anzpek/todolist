@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { Plus, Save, X, Copy, Trash2, Edit2 } from 'lucide-react'
 import type { ProjectTemplate, SubTask, Priority } from '../types/todo'
 import { generateId } from '../utils/helpers'
+import { firestoreService } from '../services/firestoreService'
+import { useAuth } from '../contexts/AuthContext'
+import { debug } from '../utils/debug'
 
 interface ProjectTemplateManagerProps {
   isOpen: boolean
@@ -10,9 +13,11 @@ interface ProjectTemplateManagerProps {
 }
 
 const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTemplateManagerProps) => {
+  const { currentUser } = useAuth()
   const [templates, setTemplates] = useState<ProjectTemplate[]>([])
   const [isCreating, setIsCreating] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<ProjectTemplate | null>(null)
+  const [loading, setLoading] = useState(false)
   const [newTemplate, setNewTemplate] = useState<Omit<ProjectTemplate, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
     description: '',
@@ -22,24 +27,21 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
     tags: []
   })
 
-  // 로컬 스토리지에서 템플릿 로드
+  // Firestore에서 템플릿 로드 및 실시간 구독
   useEffect(() => {
-    const savedTemplates = localStorage.getItem('projectTemplates')
-    if (savedTemplates) {
-      try {
-        const parsed = JSON.parse(savedTemplates).map((template: any) => ({
-          ...template,
-          createdAt: new Date(template.createdAt),
-          updatedAt: new Date(template.updatedAt)
-        }))
-        console.log('로드된 템플릿들:', parsed) // 디버깅용
-        console.log('editingTemplate 상태:', editingTemplate) // 디버깅용
-        setTemplates(parsed)
-      } catch (error) {
-        console.error('Failed to load templates:', error)
+    if (!currentUser?.uid) return
+
+    debug.log('프로젝트 템플릿 구독 시작', { uid: currentUser.uid })
+    const unsubscribe = firestoreService.subscribeProjectTemplates(
+      currentUser.uid,
+      (templates) => {
+        debug.log('프로젝트 템플릿 업데이트 수신', { count: templates.length })
+        setTemplates(templates)
       }
-    }
-  }, [])
+    )
+
+    return () => unsubscribe()
+  }, [currentUser?.uid])
 
   // 모달이 닫힐 때 편집 상태 초기화
   useEffect(() => {
@@ -57,64 +59,82 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
     }
   }, [isOpen])
 
-  // 템플릿 저장
-  const saveTemplates = (updatedTemplates: ProjectTemplate[]) => {
-    setTemplates(updatedTemplates)
-    localStorage.setItem('projectTemplates', JSON.stringify(updatedTemplates))
-  }
+  const handleCreateTemplate = async () => {
+    if (!newTemplate.name.trim() || !currentUser?.uid) return
 
-  const handleCreateTemplate = () => {
-    if (!newTemplate.name.trim()) return
-
-    const template: ProjectTemplate = {
-      ...newTemplate,
-      id: generateId(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-
-    console.log('새 템플릿 저장:', template) // 디버깅용
-    saveTemplates([...templates, template])
-    setNewTemplate({
-      name: '',
-      description: '',
-      category: 'shortterm',
-      subTasks: [],
-      defaultPriority: 'medium',
-      tags: []
-    })
-    setIsCreating(false)
-  }
-
-  const handleUpdateTemplate = () => {
-    if (!editingTemplate) return
-
-    console.log('업데이트할 템플릿:', editingTemplate) // 디버깅용
-    const updatedTemplates = templates.map(t => 
-      t.id === editingTemplate.id 
-        ? { ...editingTemplate, updatedAt: new Date() }
-        : t
-    )
-    console.log('업데이트된 템플릿 목록:', updatedTemplates) // 디버깅용
-    saveTemplates(updatedTemplates)
-    setEditingTemplate(null)
-  }
-
-  const handleDeleteTemplate = (templateId: string) => {
-    if (confirm('이 템플릿을 삭제하시겠습니까?')) {
-      saveTemplates(templates.filter(t => t.id !== templateId))
+    setLoading(true)
+    try {
+      debug.log('새 템플릿 생성', { template: newTemplate })
+      await firestoreService.addProjectTemplate(newTemplate, currentUser.uid)
+      
+      setNewTemplate({
+        name: '',
+        description: '',
+        category: 'shortterm',
+        subTasks: [],
+        defaultPriority: 'medium',
+        tags: []
+      })
+      setIsCreating(false)
+    } catch (error) {
+      debug.error('템플릿 생성 실패:', error)
+      alert('템플릿 생성 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleDuplicateTemplate = (template: ProjectTemplate) => {
-    const duplicated: ProjectTemplate = {
-      ...template,
-      id: generateId(),
-      name: `${template.name} (복사본)`,
-      createdAt: new Date(),
-      updatedAt: new Date()
+  const handleUpdateTemplate = async () => {
+    if (!editingTemplate || !currentUser?.uid) return
+
+    setLoading(true)
+    try {
+      debug.log('템플릿 업데이트', { template: editingTemplate })
+      const { id, createdAt, updatedAt, ...updateData } = editingTemplate
+      await firestoreService.updateProjectTemplate(id, updateData, currentUser.uid)
+      setEditingTemplate(null)
+    } catch (error) {
+      debug.error('템플릿 업데이트 실패:', error)
+      alert('템플릿 업데이트 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
     }
-    saveTemplates([...templates, duplicated])
+  }
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm('이 템플릿을 삭제하시겠습니까?') || !currentUser?.uid) return
+
+    setLoading(true)
+    try {
+      debug.log('템플릿 삭제', { templateId })
+      await firestoreService.deleteProjectTemplate(templateId, currentUser.uid)
+    } catch (error) {
+      debug.error('템플릿 삭제 실패:', error)
+      alert('템플릿 삭제 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDuplicateTemplate = async (template: ProjectTemplate) => {
+    if (!currentUser?.uid) return
+
+    setLoading(true)
+    try {
+      const { id, createdAt, updatedAt, ...templateData } = template
+      const duplicated = {
+        ...templateData,
+        name: `${template.name} (복사본)`
+      }
+      
+      debug.log('템플릿 복사', { duplicated })
+      await firestoreService.addProjectTemplate(duplicated, currentUser.uid)
+    } catch (error) {
+      debug.error('템플릿 복사 실패:', error)
+      alert('템플릿 복사 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const addSubTaskToTemplate = (template: Omit<ProjectTemplate, 'id' | 'createdAt' | 'updatedAt'>, setter: (template: any) => void) => {
@@ -269,10 +289,15 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                 </button>
                 <button
                   onClick={handleCreateTemplate}
-                  className="btn-primary flex items-center gap-2"
+                  disabled={loading}
+                  className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-4 h-4" />
-                  저장
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {loading ? '저장 중...' : '저장'}
                 </button>
               </div>
             </div>
@@ -371,10 +396,15 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                 </button>
                 <button
                   onClick={handleUpdateTemplate}
-                  className="btn-primary flex items-center gap-2"
+                  disabled={loading}
+                  className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-4 h-4" />
-                  수정 완료
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {loading ? '수정 중...' : '수정 완료'}
                 </button>
               </div>
             </div>
@@ -398,24 +428,26 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   <div className="flex gap-1">
                     <button
                       onClick={() => {
-                        console.log('수정할 템플릿:', template) // 디버깅용
                         setEditingTemplate(template)
                       }}
-                      className="p-1 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded"
+                      disabled={loading}
+                      className="p-1 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                       title="수정"
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => handleDuplicateTemplate(template)}
-                      className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20 rounded"
+                      disabled={loading}
+                      className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                       title="복사"
                     >
                       <Copy className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => handleDeleteTemplate(template.id)}
-                      className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded"
+                      disabled={loading}
+                      className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                       title="삭제"
                     >
                       <Trash2 className="w-3 h-3" />
