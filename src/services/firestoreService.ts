@@ -78,7 +78,14 @@ export const firestoreService = {
             updatedAt: safeToDate(data.updatedAt) || new Date(),
             dueDate: safeToDate(data.dueDate),
             startDate: safeToDate(data.startDate),
-            completedAt: safeToDate(data.completedAt)
+            completedAt: safeToDate(data.completedAt),
+            // 서브태스크 배열의 날짜 필드 안전 처리
+            subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
+              ...subTask,
+              createdAt: safeToDate(subTask.createdAt) || new Date(),
+              updatedAt: safeToDate(subTask.updatedAt) || new Date(),
+              completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
+            })) : []
           }
         }) as Todo[]
         
@@ -274,7 +281,14 @@ export const firestoreService = {
               updatedAt: safeToDate(data.updatedAt) || new Date(),
               dueDate: safeToDate(data.dueDate),
               startDate: processedStartDate,
-              completedAt: safeToDate(data.completedAt)
+              completedAt: safeToDate(data.completedAt),
+              // 서브태스크 배열의 날짜 필드 안전 처리
+              subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
+                ...subTask,
+                createdAt: safeToDate(subTask.createdAt) || new Date(),
+                updatedAt: safeToDate(subTask.updatedAt) || new Date(),
+                completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
+              })) : []
             }
             
             // ID 일치 확인 (중요한 디버깅 정보)
@@ -331,6 +345,8 @@ export const firestoreService = {
 
   updateSubTask: async (subTaskId: string, updates: Partial<SubTask>, uid: string, todoId: string): Promise<void> => {
     try {
+      console.log('🔄 Firestore updateSubTask 시작:', { subTaskId, updates, uid, todoId })
+      
       const todoRef = doc(db, `users/${uid}/todos`, todoId)
       const todoSnapshot = await getDoc(todoRef)
       
@@ -341,20 +357,52 @@ export const firestoreService = {
       const todoData = todoSnapshot.data()
       const currentSubTasks = todoData.subTasks || []
       
-      const updatedSubTasks = currentSubTasks.map((subTask: SubTask) =>
-        subTask.id === subTaskId
-          ? { ...subTask, ...updates, updatedAt: new Date() }
-          : subTask
-      )
+      // deleteField() 처리를 위한 안전한 업데이트 로직
+      const updatedSubTasks = currentSubTasks.map((subTask: SubTask) => {
+        if (subTask.id === subTaskId) {
+          const updatedSubTask = { ...subTask, updatedAt: new Date() }
+          
+          // updates의 각 필드를 처리
+          Object.keys(updates).forEach(key => {
+            const value = updates[key as keyof SubTask]
+            
+            // deleteField()인 경우 해당 필드를 제거하거나 null로 설정
+            if (value && typeof value === 'object' && value.constructor.name === 'FieldValue') {
+              // completedAt 필드는 null로 설정 (완전 제거 대신)
+              if (key === 'completedAt') {
+                updatedSubTask[key as keyof SubTask] = null as any
+              }
+              // 다른 deleteField() 필드는 undefined로 설정하여 제거
+              else {
+                delete updatedSubTask[key as keyof SubTask]
+              }
+            } else {
+              // 일반 값 설정 - Date 객체 특별 처리
+              if (key === 'completedAt' && value instanceof Date) {
+                console.log('📅 completedAt Date 객체 설정:', value)
+                updatedSubTask[key as keyof SubTask] = value as any
+              } else {
+                updatedSubTask[key as keyof SubTask] = value as any
+              }
+            }
+          })
+          
+          console.log('🔧 서브태스크 업데이트 결과:', updatedSubTask)
+          return updatedSubTask
+        }
+        return subTask
+      })
+      
+      console.log('📝 전체 서브태스크 배열 업데이트:', updatedSubTasks)
       
       await updateDoc(todoRef, {
         subTasks: updatedSubTasks,
         updatedAt: serverTimestamp()
       })
       
-      console.log('Firestore updateSubTask 성공:', subTaskId)
+      console.log('✅ Firestore updateSubTask 성공:', subTaskId)
     } catch (error) {
-      console.error('Firestore updateSubTask 실패:', error)
+      console.error('❌ Firestore updateSubTask 실패:', error)
       throw error
     }
   },

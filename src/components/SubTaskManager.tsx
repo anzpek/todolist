@@ -135,9 +135,21 @@ const SubTaskManager = ({ todoId, subTasks }: SubTaskManagerProps) => {
                   <span className={`text-sm ${subTask.completed ? 'line-through text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
                     {subTask.title}
                   </span>
-                  {subTask.completed && subTask.completedAt && (
+                  {subTask.completed && subTask.completedAt && subTask.completedAt !== null && (
                     <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                      완료: {new Date(subTask.completedAt).toLocaleString()}
+                      완료: {(() => {
+                        try {
+                          const date = new Date(subTask.completedAt)
+                          if (isNaN(date.getTime())) {
+                            console.warn('Invalid Date detected for subtask:', subTask.id, subTask.completedAt)
+                            return '날짜 오류'
+                          }
+                          return date.toLocaleString('ko-KR')
+                        } catch (error) {
+                          console.error('Date parsing error:', error, subTask.completedAt)
+                          return '날짜 오류'
+                        }
+                      })()}
                     </div>
                   )}
                 </div>

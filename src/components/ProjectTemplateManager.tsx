@@ -5,7 +5,7 @@ import { generateId } from '../utils/helpers'
 import { firestoreService } from '../services/firestoreService'
 import { useAuth } from '../contexts/AuthContext'
 import { debug } from '../utils/debug'
-import { deleteField } from '../config/firebase'
+// import { deleteField } from '../config/firebase' // 배열 내부에서 사용 불가로 주석 처리
 
 interface ProjectTemplateManagerProps {
   isOpen: boolean
@@ -260,7 +260,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                           const now = new Date()
                           updateSubTaskInTemplate(newTemplate, index, { 
                             completed: e.target.checked,
-                            completedAt: e.target.checked ? now : deleteField()
+                            completedAt: e.target.checked ? now : null as any
                           }, setNewTemplate)
                         }}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
@@ -384,7 +384,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                           const now = new Date()
                           updateSubTaskInTemplate(editingTemplate, index, { 
                             completed: e.target.checked,
-                            completedAt: e.target.checked ? now : deleteField()
+                            completedAt: e.target.checked ? now : null as any
                           }, setEditingTemplate)
                         }}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"

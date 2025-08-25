@@ -1294,15 +1294,29 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   // 서브태스크 토글
   const toggleSubTask = async (todoId: string, subTaskId: string) => {
+    console.log('🔄 서브태스크 토글 시작:', { todoId, subTaskId })
+    
     const todo = state.todos.find(t => t.id === todoId)
     const subTask = todo?.subTasks?.find(st => st.id === subTaskId)
-    if (!subTask) return
+    if (!subTask) {
+      console.error('❌ 서브태스크를 찾을 수 없음:', { todoId, subTaskId })
+      return
+    }
 
     const isCompleting = !subTask.completed
+    console.log('📊 서브태스크 상태:', { 
+      현재완료상태: subTask.completed,
+      변경후상태: isCompleting,
+      기존완료시간: subTask.completedAt
+    })
+
+    // deleteField() 대신 null 사용으로 Firestore 배열 내부 오류 해결
     const updates = {
       completed: isCompleting,
-      completedAt: isCompleting ? new Date() : deleteField()
+      completedAt: isCompleting ? new Date() : null as any
     }
+
+    console.log('📝 업데이트 데이터:', updates)
 
     await updateSubTask(todoId, subTaskId, updates)
   }
@@ -1320,14 +1334,39 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       console.log(`  dueDate: ${todo.dueDate ? new Date(todo.dueDate).toDateString() : 'null'}`)
       console.log(`  completed: ${todo.completed}`)
       
-      // 완료된 할일의 경우: 오늘 완료된 것만 표시
+      // 완료된 할일의 경우: 메인 할일이 오늘 완료되었거나, 서브태스크 중 오늘 완료된 것이 있으면 표시
       if (todo.completed) {
+        // 메인 할일이 오늘 완료된 경우
         if (todo.completedAt) {
           const completedDate = new Date(todo.completedAt)
           completedDate.setHours(0, 0, 0, 0)
-          return completedDate.getTime() === today.getTime()
+          if (completedDate.getTime() === today.getTime()) {
+            return true
+          }
         }
-        return false // 완료날짜가 없는 완료된 할일은 표시하지 않음
+        
+        // 서브태스크 중 오늘 완료된 것이 있는지 확인
+        if (todo.subTasks && todo.subTasks.length > 0) {
+          const hasSubTaskCompletedToday = todo.subTasks.some(subTask => {
+            if (subTask.completed && subTask.completedAt && subTask.completedAt !== null) {
+              try {
+                const subTaskCompletedDate = new Date(subTask.completedAt)
+                subTaskCompletedDate.setHours(0, 0, 0, 0)
+                return subTaskCompletedDate.getTime() === today.getTime()
+              } catch {
+                return false
+              }
+            }
+            return false
+          })
+          
+          if (hasSubTaskCompletedToday) {
+            console.log(`📋 "${todo.title}" - 오늘 완료된 서브태스크 있음`)
+            return true
+          }
+        }
+        
+        return false // 메인할일도 서브태스크도 오늘 완료되지 않은 경우
       }
       
       // 미완료 할일의 경우 - 기간 기반 로직
