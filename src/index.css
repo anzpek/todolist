@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* 접근성 - 스크린 리더 전용 텍스트 */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* 포커스 시에만 보이는 요소 (건너뛰기 링크 등) */
+  .sr-only.focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  /* 고대비 포커스 표시 */
+  .focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-800;
+  }
+
+  /* 건너뛰기 링크 스타일 */
+  .skip-link {
+    @apply fixed top-0 left-0 z-50 -translate-y-full;
+    @apply px-4 py-2 bg-blue-600 text-white font-medium;
+    @apply transition-transform duration-200;
+  }
+
+  .skip-link:focus {
+    @apply translate-y-0;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-105 active:scale-95;
+    @apply focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-105 active:scale-95 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+    @apply focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:shadow-md;
+    @apply focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2;
+  }
+
+  /* 접근성 - 포커스 트랩 컨테이너 */
+  .focus-trap {
+    @apply relative;
+  }
+
+  /* 접근성 - 고대비 모드 지원 */
+  @media (prefers-contrast: high) {
+    .btn-primary {
+      @apply border-2 border-blue-800;
+    }
+    
+    .btn-secondary {
+      @apply border-2 border-gray-800 dark:border-gray-200;
+    }
+    
+    .card {
+      @apply border-2 border-gray-800 dark:border-gray-200;
+    }
+  }
+
+  /* 접근성 - 모션 감소 설정 지원 */
+  @media (prefers-reduced-motion: reduce) {
+    .todo-item,
+    .btn-primary,
+    .btn-secondary,
+    .card,
+    .progress-bar,
+    .modal-backdrop,
+    .fade-in,
+    .slide-in {
+      @apply transition-none;
+      animation: none;
+      transform: none;
+    }
+    
+    .todo-item:hover {
+      transform: none;
+    }
+    
+    .btn-primary:hover,
+    .btn-secondary:hover {
+      transform: none;
+    }
+  }
+  
+  .todo-item {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .todo-item:hover {
+    @apply transform translate-x-1 shadow-lg;
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  .progress-bar {
+    @apply transition-all duration-500 ease-out;
+  }
+  
+  .modal-backdrop {
+    @apply transition-opacity duration-300;
+  }
+  
+  .modal-content {
+    @apply transition-all duration-300 transform;
+  }
+  
+  .checkbox-animation {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  .checkbox-animation:hover {
+    @apply transform scale-110;
+  }
+  
+  .priority-badge {
+    @apply transition-all duration-200 hover:scale-105;
+  }
+  
+  .nav-item {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  .nav-item:hover {
+    @apply transform translate-x-1;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .glass-effect {
+    @apply backdrop-blur-sm bg-white/80 dark:bg-gray-800/80;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-custom {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
