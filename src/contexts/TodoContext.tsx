@@ -1083,15 +1083,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('📋 최종 업데이트 데이터:', updateData)
             
-            // 먼저 낙관적 업데이트 (즉각적인 UI 반응성)
-            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
-            dispatch({ 
-              type: 'SET_RECURRING_INSTANCES', 
-              payload: updatedInstances
-            })
-            console.log('✅ 낙관적 로컬 상태 업데이트 완료')
-            
-            // Firebase 업데이트 실행
+            // Firebase 업데이트를 먼저 실행 (데이터 일관성 보장)
             console.log(`🔄 Firestore 업데이트 실행 - instanceId: ${instanceId}`)
             console.log(`📋 전송할 데이터:`, updateData)
             console.log(`⏰ 업데이트 시작 시각: ${new Date().toISOString()}`)
@@ -1100,6 +1092,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
             console.log(`⏰ 업데이트 완료 시각: ${new Date().toISOString()}`)
+            
+            // Firebase 저장 후 로컬 상태 업데이트 (일관성 보장)
+            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
+            dispatch({ 
+              type: 'SET_RECURRING_INSTANCES', 
+              payload: updatedInstances
+            })
+            console.log('✅ Firebase 저장 후 로컬 상태 동기화 완료')
             
             // 주간업무보고 특별 로깅
             if (instanceId.includes('weekly_work_report')) {

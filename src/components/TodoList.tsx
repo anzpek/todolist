@@ -239,13 +239,21 @@ const TodoList = memo(({
       }
       
       // 같은 우선순위 내에서는 order 값으로 정렬 (사용자가 조정한 순서 유지)
-      // order 값이 있는 할일들은 order 순으로, 없는 할일들은 뒤쪽에 배치
-      const orderA = a.order ?? 9999
-      const orderB = b.order ?? 9999
+      // 하지만 order 값이 없는 경우에는 다른 기준을 사용
+      const orderA = a.order
+      const orderB = b.order
       
-      if (orderA !== orderB) {
-        return orderA - orderB
+      // 둘 다 order 값이 있는 경우에만 order로 정렬
+      if (orderA !== undefined && orderB !== undefined) {
+        if (orderA !== orderB) {
+          console.log(`📊 order 정렬: ${a.title}(${orderA}) vs ${b.title}(${orderB}) → ${orderA - orderB}`)
+          return orderA - orderB
+        }
       }
+      
+      // 한쪽만 order가 있는 경우, order가 있는 것이 우선
+      if (orderA !== undefined && orderB === undefined) return -1
+      if (orderA === undefined && orderB !== undefined) return 1
       
       // order가 같은 경우(둘 다 없거나 같은 값)에만 추가 정렬 기준 적용
       
