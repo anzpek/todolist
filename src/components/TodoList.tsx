@@ -252,7 +252,28 @@ const TodoList = memo(({
     })
   }
 
-  const sortedIncompleteTodos = sortByPriority(incompleteTodos)
+  // 휴가 정보를 가상 Todo로 변환 (최우선순위)
+  const vacationTodos: Todo[] = vacationsForDate.map(vacation => {
+    const employee = employees.find(emp => emp.id === vacation.employeeId)
+    return {
+      id: `vacation_${vacation.id}`,
+      title: `${employee?.name || 'Unknown'} - ${vacation.type} (${vacation.reason || '사유 없음'})`,
+      description: `시작: ${new Date(vacation.startDate).toLocaleDateString()} ~ 종료: ${new Date(vacation.endDate).toLocaleDateString()}`,
+      completed: false,
+      priority: 'urgent' as const, // 가장 높은 우선순위
+      type: 'single' as const,
+      createdAt: new Date(vacation.createdAt),
+      updatedAt: new Date(vacation.updatedAt || vacation.createdAt),
+      tags: ['휴가', vacation.type],
+      order: -1000, // 다른 모든 할일보다 위에 표시
+      // 휴가임을 표시하는 메타데이터
+      _isVacation: true,
+      _vacationData: vacation,
+      _employeeName: employee?.name || 'Unknown'
+    } as Todo & { _isVacation: boolean; _vacationData: any; _employeeName: string }
+  })
+
+  const sortedIncompleteTodos = sortByPriority([...vacationTodos, ...incompleteTodos])
   
   // 정렬된 할일 사용
   const displayTodos = sortedIncompleteTodos
@@ -293,33 +314,16 @@ const TodoList = memo(({
 
   return (
     <div className="space-y-6 relative">
-      {/* 휴가 정보 섹션 */}
-      {vacationsForDate.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-300 mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            오늘의 휴가 ({vacationsForDate.length})
-          </h3>
-          <div className="space-y-2">
-            {vacationsForDate.map(vacation => {
-              const employee = employees.find(emp => emp.id === vacation.employeeId)
-              return (
-                <VacationItem
-                  key={vacation.id}
-                  vacation={vacation}
-                  employee={employee}
-                  compact={true}
-                />
-              )
-            })}
-          </div>
-        </div>
-      )}
-
+      {/* 진행 중인 할일 섹션 (휴가 정보 포함) */}
       {sortedIncompleteTodos.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             진행 중인 할일 ({sortedIncompleteTodos.length})
+            {vacationsForDate.length > 0 && (
+              <span className="text-purple-600 dark:text-purple-300 text-sm ml-2">
+                (휴가 정보 {vacationsForDate.length}개 포함)
+              </span>
+            )}
           </h3>
           <div 
             className="relative"
@@ -388,16 +392,27 @@ const TodoList = memo(({
                   {/* 할일 아이템 */}
                   <div 
                     data-todo-index={index}
-                    draggable 
+                    draggable={!(todo as any)._isVacation} // 휴가는 드래그 불가
                     onDragStart={(e) => handleDragStart(e, index)}
                     onDragEnd={handleDragEnd}
                     className={`
-                      cursor-grab active:cursor-grabbing transition-all duration-200 relative
+                      ${(todo as any)._isVacation ? '' : 'cursor-grab active:cursor-grabbing'} 
+                      transition-all duration-200 relative
                       ${draggedIndex === index ? 'scale-105 shadow-lg z-20' : ''}
                       mb-1
                     `}
                   >
-                    <TodoItem todo={todo} />
+                    {(todo as any)._isVacation ? (
+                      // 휴가 아이템 렌더링
+                      <VacationItem
+                        vacation={(todo as any)._vacationData}
+                        employee={employees.find(emp => emp.id === (todo as any)._vacationData.employeeId)}
+                        compact={true}
+                      />
+                    ) : (
+                      // 일반 할일 아이템 렌더링
+                      <TodoItem todo={todo} />
+                    )}
                   </div>
                   
                   {/* 마지막 아이템 후 드롭 인디케이터 */}
