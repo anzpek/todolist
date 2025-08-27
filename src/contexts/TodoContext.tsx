@@ -445,26 +445,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           console.log('✅ 반복 인스턴스 실시간 구독 설정 성공')
           instanceUnsubscribeRef.current = instanceUnsubscribe
           
-          // 강제로 한 번 더 데이터 가져오기 (실시간 구독이 안 될 경우 대비)
-          setTimeout(async () => {
-            try {
-              console.log('🔄 강제 반복 인스턴스 데이터 새로고침 실행...')
-              const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
-              console.log('📊 강제 새로고침된 인스턴스 개수:', freshInstances.length)
-              
-              const weeklyReport = freshInstances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
-              if (weeklyReport) {
-                console.log('🔍🔍🔍 강제 새로고침 주간업무보고 데이터:')
-                console.log('  completed:', weeklyReport.completed, typeof weeklyReport.completed)
-                console.log('  전체 객체:', JSON.stringify(weeklyReport, null, 2))
-              }
-              
-              dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
-              console.log('✅ 강제 새로고침 완료')
-            } catch (error) {
-              console.error('❌ 강제 새로고침 실패:', error)
-            }
-          }, 1000)
+          // ✨ 강제 새로고침 비활성화 - 실시간 구독만 사용하여 completion state 충돌 방지
+          console.log('🔄 강제 새로고침 비활성화 - 실시간 구독으로만 데이터 동기화')
         } else {
           console.error('❌ 반복 인스턴스 실시간 구독 설정 실패')
         }
@@ -1083,7 +1065,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('📋 최종 업데이트 데이터:', updateData)
             
-            // Firebase 업데이트를 먼저 실행 (데이터 일관성 보장)
+            // 먼저 로컬 상태를 즉시 업데이트 (UI 반응성)
+            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
+            dispatch({ 
+              type: 'SET_RECURRING_INSTANCES', 
+              payload: updatedInstances
+            })
+            console.log('✅ 즉시 로컬 상태 업데이트 완료')
+            
+            // Firebase 업데이트 실행
             console.log(`🔄 Firestore 업데이트 실행 - instanceId: ${instanceId}`)
             console.log(`📋 전송할 데이터:`, updateData)
             console.log(`⏰ 업데이트 시작 시각: ${new Date().toISOString()}`)
@@ -1092,14 +1082,6 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
             console.log(`⏰ 업데이트 완료 시각: ${new Date().toISOString()}`)
-            
-            // Firebase 저장 후 로컬 상태 업데이트 (일관성 보장)
-            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
-            dispatch({ 
-              type: 'SET_RECURRING_INSTANCES', 
-              payload: updatedInstances
-            })
-            console.log('✅ Firebase 저장 후 로컬 상태 동기화 완료')
             
             // 주간업무보고 특별 로깅
             if (instanceId.includes('weekly_work_report')) {
@@ -1183,18 +1165,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
                 }, currentUser.uid)
                 console.log('✅ 새 반복 할일 인스턴스 Firebase에 생성 완료')
                 
-                // Firestore 업데이트 완료 후 약간의 지연 후 수동 새로고침
-                console.log('🔄 새 인스턴스 Firestore 업데이트 반영 대기 중 (500ms)...')
-                setTimeout(async () => {
-                  try {
-                    console.log('🔄 새 인스턴스 수동 새로고침 실행...')
-                    const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
-                    dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
-                    console.log('✅ 수동 새로고침으로 새 인스턴스 상태 동기화 완료')
-                  } catch (error) {
-                    console.error('❌ 새 인스턴스 수동 새로고침 실패:', error)
-                  }
-                }, 500)
+                // ✨ 수동 새로고침 비활성화 - 실시간 구독으로만 동기화 (completion state 충돌 방지)
+                console.log('🔄 새 인스턴스 수동 새로고침 비활성화 - 실시간 구독 의존')
                 
               } catch (error) {
                 console.error('❌ 새 인스턴스 Firebase 생성 실패:', error)

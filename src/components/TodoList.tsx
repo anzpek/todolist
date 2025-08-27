@@ -227,11 +227,49 @@ const TodoList = memo(({
     
     console.log('🔥 정렬 전 할일 목록:')
     todos.forEach((todo, index) => {
-      console.log(`  ${index}: ${todo.title} - 우선순위: ${todo.priority}, order: ${todo.order}`)
+      console.log(`  ${index}: ${todo.title} - 우선순위: ${todo.priority}, order: ${todo.order}, 반복할일: ${!!(todo as any)._isRecurringInstance}`)
     })
     
     const sorted = todos.sort((a, b) => {
-      // 먼저 우선순위로 정렬 (긴급 > 높음 > 보통 > 낮음)
+      // **최우선 처리**: 월간업무보고와 업무보고는 무조건 최상단 (더 넓은 패턴 매칭)
+      const aIsMonthlyReport = a.title.includes('월간업무보고') || a.title.includes('월간 업무보고') || 
+                               a.title.includes('업무보고') || a.title.includes('업무 보고')
+      const bIsMonthlyReport = b.title.includes('월간업무보고') || b.title.includes('월간 업무보고') || 
+                               b.title.includes('업무보고') || b.title.includes('업무 보고')
+      
+      if (aIsMonthlyReport && !bIsMonthlyReport) {
+        console.log(`🔥 월간업무보고 강제 최상단 배치: ${a.title}`)
+        return -1
+      }
+      if (!aIsMonthlyReport && bIsMonthlyReport) {
+        console.log(`🔥 월간업무보고 강제 최상단 배치: ${b.title}`)
+        return 1
+      }
+      
+      // 긴급 우선순위 할일을 최상단에 배치 (업무보고 다음)
+      if (a.priority === 'urgent' && b.priority !== 'urgent') {
+        console.log(`🚨 긴급 우선순위 우선 배치: ${a.title}`)
+        return -1
+      }
+      if (a.priority !== 'urgent' && b.priority === 'urgent') {
+        console.log(`🚨 긴급 우선순위 우선 배치: ${b.title}`)
+        return 1
+      }
+      
+      // 반복할일을 우선적으로 상단 배치 (긴급 우선순위 다음)
+      const aIsRecurring = !!(a as any)._isRecurringInstance
+      const bIsRecurring = !!(b as any)._isRecurringInstance
+      
+      if (aIsRecurring && !bIsRecurring) {
+        console.log(`🔄 반복할일 우선 배치: ${a.title}`)
+        return -1
+      }
+      if (!aIsRecurring && bIsRecurring) {
+        console.log(`🔄 반복할일 우선 배치: ${b.title}`)
+        return 1
+      }
+      
+      // 우선순위로 정렬 (긴급 > 높음 > 보통 > 낮음)
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
       if (priorityDiff !== 0) {
         console.log(`📊 우선순위 정렬: ${a.title}(${a.priority}) vs ${b.title}(${b.priority}) → ${priorityDiff}`)
