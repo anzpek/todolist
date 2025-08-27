@@ -605,6 +605,13 @@ class SimpleRecurringSystem {
       console.log('  템플릿 제목:', template.title)
     }
     
+    // 월간업무보고 템플릿 정보 확인
+    if (template.title.includes('월간업무보고')) {
+      console.log('🔥🔥🔥 월간업무보고 템플릿 발견!')
+      console.log('  템플릿 우선순위:', template.priority)
+      console.log('  템플릿 전체 정보:', JSON.stringify(template, null, 2))
+    }
+
     const todo = {
       id: todoId,
       title: template.title,

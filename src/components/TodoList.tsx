@@ -224,10 +224,19 @@ const TodoList = memo(({
   // 우선순위별로 정렬 (긴급 > 높음 > 보통 > 낮음)
   const sortByPriority = (todos: Todo[]): Todo[] => {
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
-    return todos.sort((a, b) => {
+    
+    console.log('🔥 정렬 전 할일 목록:')
+    todos.forEach((todo, index) => {
+      console.log(`  ${index}: ${todo.title} - 우선순위: ${todo.priority}, order: ${todo.order}`)
+    })
+    
+    const sorted = todos.sort((a, b) => {
       // 먼저 우선순위로 정렬 (긴급 > 높음 > 보통 > 낮음)
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
-      if (priorityDiff !== 0) return priorityDiff
+      if (priorityDiff !== 0) {
+        console.log(`📊 우선순위 정렬: ${a.title}(${a.priority}) vs ${b.title}(${b.priority}) → ${priorityDiff}`)
+        return priorityDiff
+      }
       
       // 같은 우선순위 내에서는 order 값으로 정렬 (사용자가 조정한 순서 유지)
       // order 값이 있는 할일들은 order 순으로, 없는 할일들은 뒤쪽에 배치
@@ -250,6 +259,13 @@ const TodoList = memo(({
       // 둘 다 order가 없고 마감일도 없으면 생성일 역순 (최신이 위쪽)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
+    
+    console.log('✅ 정렬 후 할일 목록:')
+    sorted.forEach((todo, index) => {
+      console.log(`  ${index}: ${todo.title} - 우선순위: ${todo.priority}, order: ${todo.order}`)
+    })
+    
+    return sorted
   }
 
   const sortedIncompleteTodos = sortByPriority(incompleteTodos)
