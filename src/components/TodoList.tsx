@@ -306,6 +306,8 @@ const TodoList = memo(({
             className="relative"
             onDragOver={(e) => {
               e.preventDefault()
+              if (draggedIndex === null) return
+              
               // 전체 컨테이너에서 위치 계산
               const container = e.currentTarget
               const rect = container.getBoundingClientRect()
@@ -313,24 +315,37 @@ const TodoList = memo(({
               
               // 각 아이템의 위치를 찾아서 드롭 인덱스 결정
               const items = container.querySelectorAll('[data-todo-index]')
-              let dropIndex = 0
+              let newDropIndex = 0
               
+              // 각 아이템을 순회하며 마우스 위치와 비교
               for (let i = 0; i < items.length; i++) {
                 const itemRect = items[i].getBoundingClientRect()
-                const itemMidY = itemRect.top + itemRect.height / 2 - rect.top
+                const itemTop = itemRect.top - rect.top
+                const itemBottom = itemRect.bottom - rect.top
+                const itemMidY = itemTop + (itemBottom - itemTop) / 2
                 
-                if (y < itemMidY) {
-                  dropIndex = i
+                if (y <= itemMidY) {
+                  // 아이템의 상반부에 마우스가 있으면 해당 아이템 위에 삽입
+                  newDropIndex = i
                   break
                 } else if (i === items.length - 1) {
-                  dropIndex = i + 1
+                  // 마지막 아이템의 하반부에 있으면 맨 끝에 삽입
+                  newDropIndex = i + 1
                   break
                 } else {
-                  dropIndex = i + 1
+                  // 다음 아이템을 계속 확인
+                  continue
                 }
               }
               
-              setDragOverIndex(dropIndex)
+              // 변경이 없는 경우는 스킵
+              if (newDropIndex === draggedIndex || 
+                  (newDropIndex === draggedIndex + 1 && newDropIndex <= items.length)) {
+                setDragOverIndex(null)
+                return
+              }
+              
+              setDragOverIndex(newDropIndex)
             }}
             onDrop={(e) => {
               e.preventDefault()
