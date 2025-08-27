@@ -180,12 +180,31 @@ const TodoList = memo(({
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
     console.log('🎯 드롭 시도:', draggedIndex, '→', dropIndex)
+    console.log('📋 드래그된 할일:', sortedIncompleteTodos[draggedIndex!]?.title)
+    console.log('📋 드롭될 위치:', dropIndex, dropIndex < sortedIncompleteTodos.length ? `${sortedIncompleteTodos[dropIndex]?.title} 위` : '맨 끝')
     
     if (draggedIndex === null) return
     
     try {
       if (draggedIndex !== dropIndex) {
-        await reorderTodos(draggedIndex, dropIndex, sortedIncompleteTodos)
+        // 아래로 드래그하는 경우 배열 조작 특성상 dropIndex를 1 감소시켜야 함
+        let adjustedDropIndex = dropIndex
+        if (dropIndex > draggedIndex) {
+          adjustedDropIndex = dropIndex - 1
+          console.log(`⬇️ 아래로 드래그: dropIndex ${dropIndex} → ${adjustedDropIndex}`)
+        }
+        
+        // 예상 결과 미리 계산해서 로그
+        const testArray = Array.from(sortedIncompleteTodos)
+        const [removed] = testArray.splice(draggedIndex, 1)
+        testArray.splice(adjustedDropIndex, 0, removed)
+        
+        console.log('🔄 예상 결과:')
+        testArray.forEach((todo, index) => {
+          console.log(`  ${index}: ${todo.title}`)
+        })
+        
+        await reorderTodos(draggedIndex, adjustedDropIndex, sortedIncompleteTodos)
         console.log('✅ 드래그 앤 드롭 성공')
       }
     } catch (error) {
@@ -315,7 +334,10 @@ const TodoList = memo(({
               
               // 각 아이템의 위치를 찾아서 드롭 인덱스 결정
               const items = container.querySelectorAll('[data-todo-index]')
-              let newDropIndex = 0
+              let newDropIndex = items.length // 기본값: 맨 끝
+              
+              // 디버깅을 위한 로그
+              console.log('🖱️ 마우스 Y 위치:', y, '전체 아이템:', items.length, '드래그 중인 인덱스:', draggedIndex)
               
               // 각 아이템을 순회하며 마우스 위치와 비교
               for (let i = 0; i < items.length; i++) {
@@ -324,23 +346,21 @@ const TodoList = memo(({
                 const itemBottom = itemRect.bottom - rect.top
                 const itemMidY = itemTop + (itemBottom - itemTop) / 2
                 
-                if (y <= itemMidY) {
+                console.log(`📋 아이템 ${i}: top=${itemTop.toFixed(1)}, mid=${itemMidY.toFixed(1)}, bottom=${itemBottom.toFixed(1)}`)
+                
+                if (y < itemMidY) {
                   // 아이템의 상반부에 마우스가 있으면 해당 아이템 위에 삽입
                   newDropIndex = i
+                  console.log(`✅ 아이템 ${i} 상반부에서 드롭 인덱스 결정: ${newDropIndex}`)
                   break
-                } else if (i === items.length - 1) {
-                  // 마지막 아이템의 하반부에 있으면 맨 끝에 삽입
-                  newDropIndex = i + 1
-                  break
-                } else {
-                  // 다음 아이템을 계속 확인
-                  continue
                 }
               }
               
+              console.log(`🎯 최종 드롭 인덱스: ${newDropIndex} (draggedIndex: ${draggedIndex})`)
+              
               // 변경이 없는 경우는 스킵
-              if (newDropIndex === draggedIndex || 
-                  (newDropIndex === draggedIndex + 1 && newDropIndex <= items.length)) {
+              if (newDropIndex === draggedIndex) {
+                console.log('❌ 자기 자신의 위치이므로 스킵')
                 setDragOverIndex(null)
                 return
               }
