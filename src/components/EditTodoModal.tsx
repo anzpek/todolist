@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Calendar, Clock, Flag, FolderPlus, FileText, Save, Minus, Plus } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import SubTaskManager from './SubTaskManager'
@@ -223,8 +224,8 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
     { value: 0, label: '일요일' },
   ]
 
-  return (
-    <div className={`fixed inset-0 bg-black bg-opacity-50 z-50 ${isMobile ? '' : 'flex items-center justify-center p-4'}`}>
+  return createPortal(
+    <div className={`fixed inset-0 bg-black bg-opacity-50 z-[9999] ${isMobile ? '' : 'flex items-center justify-center p-4'}`}>
       <div className={`bg-white dark:bg-gray-800 shadow-xl overflow-y-auto ${
         isMobile 
           ? 'w-full h-full fixed inset-0' 
@@ -603,7 +604,8 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

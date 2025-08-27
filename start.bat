@@ -7,7 +7,8 @@ echo.
 echo Starting development server on port 4000...
 echo.
 
-npm run dev -- --port 4000
+call npm install
+call npm run dev -- --port 4000
 
 echo.
 echo Server stopped. Press any key to exit...

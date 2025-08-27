@@ -35,6 +35,7 @@ type TodoAction =
   | { type: 'UPDATE_RECURRING_TEMPLATE'; payload: { id: string; updates: Partial<SimpleRecurringTemplate> } }
   | { type: 'DELETE_RECURRING_TEMPLATE'; payload: string }
   | { type: 'SET_RECURRING_INSTANCES'; payload: SimpleRecurringInstance[] }
+  | { type: 'UPDATE_RECURRING_INSTANCE'; payload: { id: string; updates: Partial<SimpleRecurringInstance> } }
   | { type: 'GENERATE_RECURRING_INSTANCES' }
 
 interface TodoContextType extends TodoState {
@@ -74,6 +75,7 @@ interface TodoContextType extends TodoState {
   cleanupDuplicateTemplates: () => void
   forceRefresh: () => Promise<void>
   manualRefresh: () => Promise<void>
+  initializeOrderValues: () => void
 }
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined)
@@ -223,6 +225,15 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
       }
     case 'SET_RECURRING_INSTANCES':
       return { ...state, recurringInstances: action.payload }
+    case 'UPDATE_RECURRING_INSTANCE':
+      return {
+        ...state,
+        recurringInstances: state.recurringInstances.map(instance =>
+          instance.id === action.payload.id
+            ? { ...instance, ...action.payload.updates, updatedAt: new Date() }
+            : instance
+        )
+      }
     case 'GENERATE_RECURRING_INSTANCES': {
       // 모든 활성 템플릿에 대해 인스턴스 생성
       let allInstances: SimpleRecurringInstance[] = []
@@ -748,6 +759,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       const todos = await firestoreService.getTodos(currentUser.uid)
       dispatch({ type: 'SET_TODOS', payload: todos })
       dispatch({ type: 'SET_ERROR', payload: null })
+      
+      // 데이터 로드 후 order 값이 없는 할일들 초기화
+      setTimeout(() => {
+        initializeOrderValues()
+      }, 500)
+      
+      // 디버그용: window 객체에 함수 노출
+      if (typeof window !== 'undefined') {
+        (window as any).initializeOrderValues = initializeOrderValues
+      }
     } catch (error) {
       console.error('Firestore 동기화 실패:', error)
       dispatch({ type: 'SET_ERROR', payload: '동기화 중 오류가 발생했습니다.' })
@@ -762,11 +783,29 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const addTodo = async (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => {
     console.log('addTodo 호출됨:', todoData, '사용자:', currentUser?.uid)
     
+    // 새로 추가되는 할일이 같은 우선순위 그룹의 맨 위에 오도록 order 계산
+    const getNewTodoOrder = (priority: string): number => {
+      const samePriorityTodos = state.todos.filter(todo => 
+        todo.priority === priority && !todo.completed
+      )
+      
+      if (samePriorityTodos.length === 0) {
+        // 해당 우선순위의 첫 번째 할일인 경우
+        const priorityOrder = { urgent: 0, high: 1000, medium: 2000, low: 3000 }
+        return priorityOrder[priority as keyof typeof priorityOrder] || 2000
+      }
+      
+      // 같은 우선순위 할일들의 최소 order 값을 찾아서 그보다 작게 설정
+      const minOrder = Math.min(...samePriorityTodos.map(todo => todo.order || 999))
+      return Math.max(0, minOrder - 1)
+    }
+    
     const newTodo: Todo = {
       ...todoData,
       id: generateId(),
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      order: getNewTodoOrder(todoData.priority)
     }
 
     try {
@@ -1224,6 +1263,20 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       } else if (isRecurringTodo) {
         // 반복 할일은 로컬 상태에서만 관리
         console.log('반복 할일 상태 업데이트:', id)
+        
+        // 반복 할일의 order 값 업데이트도 지원
+        if (updates.order !== undefined) {
+          console.log('반복 할일 order 업데이트:', id, '새 order:', updates.order)
+          
+          // 반복 인스턴스 업데이트
+          dispatch({
+            type: 'UPDATE_RECURRING_INSTANCE',
+            payload: {
+              id: id,
+              updates: { order: updates.order } // order를 인스턴스에 추가
+            }
+          })
+        }
       } else {
         // 비로그인 사용자: 메모리에서만 관리
         console.log('비로그인 모드: 메모리에서 할일 토글')
@@ -1714,23 +1767,41 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const updateTodoOrder = async (todoId: string, newOrder: number) => {
-    // 로컬 state 즉시 업데이트
-    dispatch({
-      type: 'UPDATE_TODO',
-      payload: {
-        id: todoId,
-        updates: { order: newOrder, updatedAt: new Date() }
-      }
-    })
+    // 반복 할일인지 확인
+    const isRecurringTodo = todoId.startsWith('recurring_')
+    
+    if (isRecurringTodo) {
+      // 반복 할일의 경우: instanceId 추출하고 UPDATE_RECURRING_INSTANCE 사용
+      const instanceId = todoId.replace('recurring_', '')
+      
+      dispatch({
+        type: 'UPDATE_RECURRING_INSTANCE',
+        payload: {
+          id: instanceId,
+          updates: { order: newOrder }
+        }
+      })
+      
+      debug.log('반복 할일 순서 업데이트 성공', { todoId, instanceId, newOrder })
+    } else {
+      // 일반 할일의 경우: 기존 로직 사용
+      dispatch({
+        type: 'UPDATE_TODO',
+        payload: {
+          id: todoId,
+          updates: { order: newOrder, updatedAt: new Date() }
+        }
+      })
 
-    // Firestore에도 저장 (인증된 사용자만)
-    if (currentUser?.uid) {
-      try {
-        await firestoreService.updateTodo(todoId, { order: newOrder }, currentUser.uid)
-        debug.log('할일 순서 Firestore 저장 성공', { todoId, newOrder })
-      } catch (error) {
-        debug.error('할일 순서 Firestore 저장 실패:', error)
-        // 에러가 발생해도 로컬 state는 유지
+      // Firestore에도 저장 (인증된 사용자만)
+      if (currentUser?.uid) {
+        try {
+          await firestoreService.updateTodo(todoId, { order: newOrder }, currentUser.uid)
+          debug.log('할일 순서 Firestore 저장 성공', { todoId, newOrder })
+        } catch (error) {
+          debug.error('할일 순서 Firestore 저장 실패:', error)
+          // 에러가 발생해도 로컬 state는 유지
+        }
       }
     }
   }
@@ -2047,12 +2118,18 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           })
         }
         
-        // 중복 키 검사 및 방지
+        // 중복 키 검사 및 방지 (반복할일은 인스턴스 ID를 기반으로 고유성 보장)
+        const expectedId = `recurring_${instance.id}`
+        if (todo.id !== expectedId) {
+          console.warn(`⚠️ 반복 할일 ID 불일치 발견: ${todo.id} ≠ ${expectedId}`)
+          todo.id = expectedId
+          console.log(`✅ 반복 할일 ID 수정: ${todo.id}`)
+        }
+        
         if (seenIds.has(todo.id)) {
           console.warn(`⚠️ 반복 할일 중복 키 발견: ${todo.id}, 인스턴스: ${instance.id}`)
-          // 고유한 ID로 재생성
-          todo.id = `recurring_${instance.id}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-          console.log(`✅ 중복 키 해결: ${todo.id}`)
+          // 스킵하여 중복 제거
+          return
         }
         
         seenIds.add(todo.id)
@@ -2075,6 +2152,86 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     }
     
     return uniqueRecurringTodos
+  }
+
+  // 기존 할일들에 order 값을 초기화하는 함수
+  const initializeOrderValues = () => {
+    // 일반 할일들
+    const todosNeedingOrder = state.todos.filter(todo => 
+      !todo.completed && (todo.order === undefined || todo.order === null)
+    )
+    
+    // 반복할일들도 포함
+    const recurringTodos = getRecurringTodos().filter(todo =>
+      !todo.completed && (todo.order === undefined || todo.order === null)
+    )
+    
+    const allTodosNeedingOrder = [...todosNeedingOrder, ...recurringTodos]
+    
+    if (allTodosNeedingOrder.length === 0) return
+    
+    console.log('🔧 Order 값 초기화 대상:', allTodosNeedingOrder.length, '개')
+    
+    // 우선순위별로 그룹화
+    const priorityGroups = {
+      urgent: allTodosNeedingOrder.filter(t => t.priority === 'urgent'),
+      high: allTodosNeedingOrder.filter(t => t.priority === 'high'),
+      medium: allTodosNeedingOrder.filter(t => t.priority === 'medium'),
+      low: allTodosNeedingOrder.filter(t => t.priority === 'low')
+    }
+    
+    // 각 그룹별로 생성일 순으로 정렬한 후 order 값 할당
+    const updatedTodos: Todo[] = []
+    const updatedRecurringInstances: string[] = []
+    
+    Object.entries(priorityGroups).forEach(([priority, todos], priorityIndex) => {
+      if (todos.length === 0) return
+      
+      // 생성일 순으로 정렬 (오래된 것부터)
+      const sortedTodos = todos.sort((a, b) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )
+      
+      // order 값 할당 (우선순위별 베이스 값 + 인덱스)
+      const baseOrder = priorityIndex * 1000
+      sortedTodos.forEach((todo, index) => {
+        const orderValue = baseOrder + index * 10
+        
+        if ((todo as any)._isRecurringInstance) {
+          // 반복할일인 경우
+          console.log('🔄 반복할일 order 초기화:', todo.title, '→', orderValue)
+          const instanceId = (todo as any)._instanceId
+          updatedRecurringInstances.push(instanceId)
+          dispatch({
+            type: 'UPDATE_RECURRING_INSTANCE',
+            payload: {
+              id: instanceId,
+              updates: { order: orderValue }
+            }
+          })
+        } else {
+          // 일반 할일인 경우
+          updatedTodos.push({
+            ...todo,
+            order: orderValue
+          })
+        }
+      })
+    })
+    
+    // 일반 할일들을 Firestore와 로컬 상태에 반영
+    updatedTodos.forEach(async (todo) => {
+      try {
+        if (currentUser) {
+          await firestoreService.updateTodo(todo.id, { order: todo.order }, currentUser.uid)
+        }
+        dispatch({ type: 'UPDATE_TODO', payload: { id: todo.id, updates: { order: todo.order } } })
+      } catch (error) {
+        console.error('Order 값 초기화 실패:', todo.id, error)
+      }
+    })
+    
+    console.log('✅ Order 초기화 완료:', updatedTodos.length, '개 일반 할일,', updatedRecurringInstances.length, '개 반복할일')
   }
 
   // 강제 새로고침 함수 추가
@@ -2146,7 +2303,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     getRecurringTodos,
     cleanupDuplicateTemplates,
     forceRefresh,
-    manualRefresh
+    manualRefresh,
+    initializeOrderValues
   }
 
   return (

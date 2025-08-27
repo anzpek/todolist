@@ -57,6 +57,7 @@ export interface SimpleRecurringInstance {
   completedAt?: Date
   createdAt: Date
   updatedAt: Date
+  order?: number
 }
 
 class SimpleRecurringSystem {
@@ -616,6 +617,7 @@ class SimpleRecurringSystem {
       updatedAt: instance.updatedAt,
       completedAt: instance.completedAt,
       tags: [...(template.tags || [])],
+      order: instance.order, // 반복할일의 order 값 포함
       
       // 메타데이터 - 반복 할일 식별용
       _isRecurringInstance: true,

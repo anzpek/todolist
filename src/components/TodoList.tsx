@@ -1,5 +1,5 @@
 import { CheckCircle2, Calendar } from 'lucide-react'
-import { useState, memo, useMemo } from 'react'
+import { useState, memo, useMemo, useEffect } from 'react'
 import { useTodos } from '../contexts/TodoContext'
 import { useVacation } from '../contexts/VacationContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -34,6 +34,7 @@ const TodoList = memo(({
   const { currentUser } = useAuth()
   const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
 
   // Memoized todo retrieval based on current view
@@ -158,64 +159,84 @@ const TodoList = memo(({
   const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
   const vacationsForDate = shouldShowVacations ? getVacationsForDate(getDisplayDate()) : []
 
-  // 드래그 앤 드롭 핸들러
   const handleDragStart = (e: React.DragEvent, index: number) => {
+    console.log('🔥 드래그 시작:', index, sortedIncompleteTodos[index]?.title)
+    
     setDraggedIndex(index)
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index.toString())
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, hoverIndex?: number) => {
     e.preventDefault()
+    e.stopPropagation()
     e.dataTransfer.dropEffect = 'move'
+    
+    if (hoverIndex !== undefined && hoverIndex !== dragOverIndex) {
+      setDragOverIndex(hoverIndex)
+    }
   }
 
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
+    console.log('🎯 드롭 시도:', draggedIndex, '→', dropIndex)
+    
     if (draggedIndex === null) return
     
-    // 오늘 뷰에서만 드래그 앤 드롭 허용
-    if (currentView === 'today') {
-      try {
+    try {
+      if (draggedIndex !== dropIndex) {
         await reorderTodos(draggedIndex, dropIndex, sortedIncompleteTodos)
-      } catch (error) {
-        console.error('드래그 앤 드롭 순서 저장 실패:', error)
+        console.log('✅ 드래그 앤 드롭 성공')
       }
+    } catch (error) {
+      console.error('❌ 드래그 앤 드롭 저장 실패:', error)
     }
     
+    // 상태 초기화
     setDraggedIndex(null)
+    setDragOverIndex(null)
   }
 
   const handleDragEnd = () => {
     setDraggedIndex(null)
+    setDragOverIndex(null)
   }
 
   // 우선순위별로 정렬 (긴급 > 높음 > 보통 > 낮음)
   const sortByPriority = (todos: Todo[]): Todo[] => {
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
     return todos.sort((a, b) => {
-      // 오늘 뷰에서는 order 값으로 정렬 (드래그 앤 드롭 순서 유지)
-      if (currentView === 'today') {
-        const orderA = a.order ?? 999
-        const orderB = b.order ?? 999
-        if (orderA !== orderB) return orderA - orderB
-      }
-      
+      // 먼저 우선순위로 정렬 (긴급 > 높음 > 보통 > 낮음)
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
       if (priorityDiff !== 0) return priorityDiff
       
-      // 우선순위가 같으면 마감일 순으로 정렬
+      // 같은 우선순위 내에서는 order 값으로 정렬 (사용자가 조정한 순서 유지)
+      // order 값이 있는 할일들은 order 순으로, 없는 할일들은 뒤쪽에 배치
+      const orderA = a.order ?? 9999
+      const orderB = b.order ?? 9999
+      
+      if (orderA !== orderB) {
+        return orderA - orderB
+      }
+      
+      // order가 같은 경우(둘 다 없거나 같은 값)에만 추가 정렬 기준 적용
+      
+      // 마감일이 있는 것 우선
       if (a.dueDate && b.dueDate) {
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
       }
       if (a.dueDate) return -1
       if (b.dueDate) return 1
       
-      // 마감일이 없으면 생성일 순으로 정렬
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      // 둘 다 order가 없고 마감일도 없으면 생성일 역순 (최신이 위쪽)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
   }
 
   const sortedIncompleteTodos = sortByPriority(incompleteTodos)
+  
+  // 정렬된 할일 사용
+  const displayTodos = sortedIncompleteTodos
   
   // 완료된 할일 정렬 (완료 시간 기준 최신순)
   const sortedCompletedTodos = allCompletedItems.sort((a, b) => {
@@ -252,7 +273,7 @@ const TodoList = memo(({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* 휴가 정보 섹션 */}
       {vacationsForDate.length > 0 && (
         <div>
@@ -281,24 +302,76 @@ const TodoList = memo(({
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             진행 중인 할일 ({sortedIncompleteTodos.length})
           </h3>
-          <div className="space-y-2">
-            {sortedIncompleteTodos.map((todo, index) => (
-              <div
-                key={todo.id}
-                draggable={currentView === 'today'}
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                onDragEnd={handleDragEnd}
-                className={`
-                  ${currentView === 'today' ? 'cursor-move' : ''}
-                  ${draggedIndex === index ? 'opacity-50' : ''}
-                  transition-opacity duration-200
-                `}
-              >
-                <TodoItem todo={todo} />
-              </div>
-            ))}
+          <div 
+            className="relative"
+            onDragOver={(e) => {
+              e.preventDefault()
+              // 전체 컨테이너에서 위치 계산
+              const container = e.currentTarget
+              const rect = container.getBoundingClientRect()
+              const y = e.clientY - rect.top
+              
+              // 각 아이템의 위치를 찾아서 드롭 인덱스 결정
+              const items = container.querySelectorAll('[data-todo-index]')
+              let dropIndex = 0
+              
+              for (let i = 0; i < items.length; i++) {
+                const itemRect = items[i].getBoundingClientRect()
+                const itemMidY = itemRect.top + itemRect.height / 2 - rect.top
+                
+                if (y < itemMidY) {
+                  dropIndex = i
+                  break
+                } else if (i === items.length - 1) {
+                  dropIndex = i + 1
+                  break
+                } else {
+                  dropIndex = i + 1
+                }
+              }
+              
+              setDragOverIndex(dropIndex)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (dragOverIndex !== null) {
+                handleDrop(e, dragOverIndex)
+              }
+            }}
+            style={{
+              background: draggedIndex !== null ? 'linear-gradient(to bottom, #dbeafe 0%, #dbeafe 100%)' : 'transparent'
+            }}
+          >
+            {sortedIncompleteTodos.map((todo, index) => {
+              return (
+                <div key={todo.id} className="relative">
+                  {/* 드롭 인디케이터 */}
+                  {draggedIndex !== null && dragOverIndex === index && (
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 z-30" />
+                  )}
+                  
+                  {/* 할일 아이템 */}
+                  <div 
+                    data-todo-index={index}
+                    draggable 
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className={`
+                      cursor-grab active:cursor-grabbing transition-all duration-200 relative
+                      ${draggedIndex === index ? 'scale-105 shadow-lg z-20' : ''}
+                      mb-1
+                    `}
+                  >
+                    <TodoItem todo={todo} />
+                  </div>
+                  
+                  {/* 마지막 아이템 후 드롭 인디케이터 */}
+                  {draggedIndex !== null && dragOverIndex === index + 1 && index === sortedIncompleteTodos.length - 1 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 z-30" />
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -359,6 +432,7 @@ const TodoList = memo(({
           </div>
         </div>
       )}
+
     </div>
   )
 })
