@@ -224,6 +224,17 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
         recurringInstances: state.recurringInstances.filter(instance => instance.templateId !== action.payload)
       }
     case 'SET_RECURRING_INSTANCES':
+      // Firebase 데이터 우선 병합 (Firebase 데이터가 로컬 데이터를 덮어씀)
+      console.log('🔄 SET_RECURRING_INSTANCES - Firebase 데이터로 state 업데이트')
+      console.log(`   기존 인스턴스 수: ${state.recurringInstances.length}`)
+      console.log(`   새 Firebase 인스턴스 수: ${action.payload.length}`)
+      
+      // 월간업무보고 상태 확인
+      const newMonthlyReport = action.payload.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
+      if (newMonthlyReport) {
+        console.log(`   🔧 Firebase 월간업무보고 상태: completed=${newMonthlyReport.completed}`)
+      }
+      
       return { ...state, recurringInstances: action.payload }
     case 'UPDATE_RECURRING_INSTANCE':
       return {
@@ -266,40 +277,44 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
         console.error('❌ localStorage 인스턴스 로드 실패:', error)
       }
       
-      state.recurringTemplates.filter(template => template.isActive).forEach(template => {
-        try {
-          const instances = simpleRecurringSystem.generateInstances(template)
-          
-          // 기존 완료 상태 복원 (로그인 사용자는 Firebase에서, 비로그인은 localStorage에서)
-          const restoredInstances = instances.map(instance => {
-            // Firebase에서 인스턴스가 이미 로드되었다면 현재 상태 사용
-            const existing = state.recurringInstances.find(s => s.id === instance.id)
-            if (existing) {
-              console.log(`🔄 Firebase 인스턴스 상태 유지: ${instance.id} (완료: ${existing.completed})`)
-              return existing
-            }
+      // 🔥 로그인 사용자와 비로그인 사용자 분리 처리
+      if (currentUser) {
+        // 로그인 사용자: Firebase 인스턴스만 사용, 로컬 생성 비활성화
+        console.log('🔗 로그인 사용자 - Firebase 인스턴스만 사용, 로컬 생성 건너뛰기')
+        return state // Firebase 인스턴스는 실시간 구독에서 처리
+      } else {
+        // 비로그인 사용자: 로컬 인스턴스 생성 + localStorage 복원
+        console.log('👤 비로그인 사용자 - 로컬 인스턴스 생성 시작')
+        
+        let allInstances: SimpleRecurringInstance[] = []
+        
+        state.recurringTemplates.filter(template => template.isActive).forEach(template => {
+          try {
+            const instances = simpleRecurringSystem.generateInstances(template)
             
-            // 비로그인 사용자: localStorage에서 복원
-            const saved = savedInstances.find(s => s.id === instance.id)
-            if (saved) {
-              console.log(`🔄 localStorage 인스턴스 상태 복원: ${instance.id} (완료: ${saved.completed})`)
-              return {
-                ...instance,
-                completed: saved.completed,
-                completedAt: saved.completedAt,
-                updatedAt: saved.updatedAt
+            // localStorage에서 상태 복원
+            const restoredInstances = instances.map(instance => {
+              const saved = savedInstances.find(s => s.id === instance.id)
+              if (saved) {
+                console.log(`🔄 localStorage 인스턴스 상태 복원: ${instance.id} (완료: ${saved.completed})`)
+                return {
+                  ...instance,
+                  completed: saved.completed,
+                  completedAt: saved.completedAt,
+                  updatedAt: saved.updatedAt
+                }
               }
-            }
-            return instance
-          })
+              return instance
+            })
           
-          allInstances = [...allInstances, ...restoredInstances]
-        } catch (error) {
-          console.error(`템플릿 ${template.id} 인스턴스 생성 실패:`, error)
-        }
-      })
-      
-      return { ...state, recurringInstances: allInstances }
+            allInstances = [...allInstances, ...restoredInstances]
+          } catch (error) {
+            console.error(`템플릿 ${template.id} 인스턴스 생성 실패:`, error)
+          }
+        })
+        
+        return { ...state, recurringInstances: allInstances }
+      }
     }
     default:
       return state
@@ -323,11 +338,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (!currentUser) {
-      // 로그인하지 않은 경우 - localStorage에서 데이터 로드
-      console.log('비로그인 상태: localStorage에서 데이터 로드 시도')
+      console.log('❌ 비로그인 상태')
       loadFromLocalStorage()
       return
     }
+    
+    console.log('✅ 로그인 상태 - 사용자:', currentUser.uid)
 
     dispatch({ type: 'SET_LOADING', payload: true })
     
@@ -403,41 +419,44 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           console.log('  completedAt:', directWeeklyReport.completedAt)
           console.log('  전체 객체:', JSON.stringify(directWeeklyReport, null, 2))
           console.log('📍 해당 문서의 전체 경로: users/' + currentUser.uid + '/recurringInstances/PUH4xT3lVY5aK2vuQyUe_2025-08-21')
-          
+        }
+        
+        // 🔥 월간업무보고 직접 조회 추가
+        const directMonthlyReport = directInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
+        if (directMonthlyReport) {
+          console.log('🔥🔥🔥 직접 조회한 월간업무보고 데이터:')
+          console.log('  ID:', directMonthlyReport.id)
+          console.log('  completed:', directMonthlyReport.completed, typeof directMonthlyReport.completed)
+          console.log('  completedAt:', directMonthlyReport.completedAt)
+          console.log('  updatedAt:', directMonthlyReport.updatedAt)
+        } else {
+          console.log('❌ 직접 조회에서 월간업무보고를 찾을 수 없음')
+          console.log('📋 전체 직접 조회 인스턴스:', directInstances.map(i => i.id))
         }
         
         const instanceUnsubscribe = firestoreService.subscribeRecurringInstances(
           currentUser.uid,
           (instances) => {
-            console.log('🚨🚨🚨 FIRESTORE 실시간 구독 데이터 수신 🚨🚨🚨')
-            console.log('⏰ 타임스탬프:', new Date().toISOString())
-            console.log('📊 받은 인스턴스 개수:', instances.length)
+            console.log('🔄 실시간 구독 데이터 수신 - 개수:', instances.length)
+            console.log('⏰ 구독 수신 시각:', new Date().toISOString())
             
-            // 주간업무보고 찾아서 상태 확인
-            const weeklyReportInstance = instances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
-            if (weeklyReportInstance) {
-              console.log('🔍🔍🔍 주간업무보고 Firestore 원본 데이터:')
-              console.log('  ID:', weeklyReportInstance.id)
-              console.log('  completed:', weeklyReportInstance.completed, typeof weeklyReportInstance.completed)
-              console.log('  completedAt:', weeklyReportInstance.completedAt)
-              console.log('  전체 객체:', JSON.stringify(weeklyReportInstance, null, 2))
-              
-              // 직접 조회 결과와 비교
-              if (directWeeklyReport) {
-                console.log('📊📊📊 데이터 비교:')
-                console.log('  직접 조회 completed:', directWeeklyReport.completed)
-                console.log('  실시간 구독 completed:', weeklyReportInstance.completed)
-                if (directWeeklyReport.completed !== weeklyReportInstance.completed) {
-                  console.log('⚠️⚠️⚠️ 직접 조회와 실시간 구독 데이터가 다름!')
+            // 🔍 월간업무보고 완료 상태 확인 (간소화)
+            const monthlyReports = instances.filter(i => i.templateId === 'vCyWLYn3LuDq1nVUPSyE')
+            if (monthlyReports.length > 0) {
+              console.log('🔄 Firebase 구독 - 월간업무보고:')
+              monthlyReports.forEach(report => {
+                console.log(`   ID: ${report.id}, 완료: ${report.completed}`)
+                
+                // 현재 로컬 상태와 비교
+                const currentLocal = state.recurringInstances.find(i => i.id === report.id)
+                if (currentLocal && currentLocal.completed !== report.completed) {
+                  console.log(`   ⚠️ 상태 불일치: 로컬(${currentLocal.completed}) vs Firebase(${report.completed})`)
                 }
-              }
-            } else {
-              console.log('❌ 주간업무보고 인스턴스를 찾을 수 없음!')
-              console.log('📋 받은 인스턴스 ID 목록:', instances.map(i => i.id))
+              })
             }
             
             dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
-            console.log('✅ dispatch 완료')
+            console.log('✅ Firebase 구독 데이터 dispatch 완료')
           }
         )
         
@@ -445,8 +464,26 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           console.log('✅ 반복 인스턴스 실시간 구독 설정 성공')
           instanceUnsubscribeRef.current = instanceUnsubscribe
           
-          // ✨ 강제 새로고침 비활성화 - 실시간 구독만 사용하여 completion state 충돌 방지
-          console.log('🔄 강제 새로고침 비활성화 - 실시간 구독으로만 데이터 동기화')
+          // 🔧 간소화된 Firebase 강제 동기화
+          setTimeout(async () => {
+            try {
+              console.log('🔧 Firebase 강제 동기화 실행...')
+              const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
+              
+              // 월간업무보고 상태 확인
+              const monthlyReport = freshInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
+              if (monthlyReport) {
+                console.log(`🔧 Firebase 월간업무보고: ID=${monthlyReport.id}, 완료=${monthlyReport.completed}`)
+              }
+              
+              // 강제 동기화 (Firebase 데이터를 최종 진실로 사용)
+              dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
+              console.log('✅ Firebase 강제 동기화 완료')
+              
+            } catch (error) {
+              console.error('❌ Firebase 강제 동기화 실패:', error)
+            }
+          }, 3000) // 3초 후 실행
         } else {
           console.error('❌ 반복 인스턴스 실시간 구독 설정 실패')
         }
@@ -713,8 +750,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   
   // 반복 템플릿이 변경될 때마다 simpleRecurringSystem에 동기화
   useEffect(() => {
+    // 🔥 로그인 사용자는 simpleRecurringSystem 사용 금지!
+    if (currentUser) {
+      console.log('🚫 로그인 사용자 - simpleRecurringSystem 동기화 차단!')
+      return
+    }
+    
     simpleRecurringSystem.setTemplates(state.recurringTemplates)
-  }, [state.recurringTemplates])
+  }, [state.recurringTemplates, currentUser])
 
   // 비로그인 상태에서 todos가 변경될 때마다 localStorage에 저장
   useEffect(() => {
@@ -750,6 +793,40 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       // 디버그용: window 객체에 함수 노출
       if (typeof window !== 'undefined') {
         (window as any).initializeOrderValues = initializeOrderValues
+        
+        // 강제 Firebase 동기화 함수 추가
+        (window as any).forceFirebaseSync = async () => {
+          if (!currentUser) {
+            console.log('❌ 로그인이 필요합니다')
+            return
+          }
+          
+          try {
+            console.log('🔧 수동 Firebase 강제 동기화 시작...')
+            const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
+            
+            const monthlyReport = freshInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
+            if (monthlyReport) {
+              console.log('🔧 수동 동기화 - Firebase 월간업무보고 상태:', monthlyReport.completed)
+            }
+            
+            dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
+            console.log('✅ 수동 Firebase 동기화 완료!')
+            
+            // 결과 확인
+            setTimeout(() => {
+              const afterSync = freshInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
+              if (afterSync) {
+                console.log('🔍 수동 동기화 후 확인:', afterSync.completed)
+              }
+            }, 1000)
+            
+          } catch (error) {
+            console.error('❌ 수동 Firebase 동기화 실패:', error)
+          }
+        }
+        
+        console.log('🔧 디버그 함수 등록됨: window.forceFirebaseSync()')
       }
     } catch (error) {
       console.error('Firestore 동기화 실패:', error)
@@ -975,6 +1052,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const toggleTodo = async (id: string) => {
     console.log('📝 할일 토글 시작:', id)
     
+    // 🔥 월간업무보고 토글 특별 추적
+    if (id.includes('월간업무보고') || id.includes('vCyWLYn3LuDq1nVUPSyE')) {
+      console.log('🔥🔥🔥 월간업무보고 토글 시작!')
+      console.log('  토글 대상 ID:', id)
+    }
+    
     // 반복 인스턴스인지 확인 (_isRecurringInstance 메타데이터 사용)
     const allTodos = [...state.todos, ...getRecurringTodos()]
     const targetTodo = allTodos.find(t => t.id === id)
@@ -1065,13 +1148,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('📋 최종 업데이트 데이터:', updateData)
             
-            // 먼저 로컬 상태를 즉시 업데이트 (UI 반응성)
+            // 🔧 즉시 UI 반응을 위한 임시 로컬 업데이트 (Firebase 구독이 곧 덮어씀)
+            console.log('⚡ 즉시 UI 반응을 위한 임시 로컬 업데이트')
             const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
             dispatch({ 
               type: 'SET_RECURRING_INSTANCES', 
               payload: updatedInstances
             })
-            console.log('✅ 즉시 로컬 상태 업데이트 완료')
+            console.log('✅ 임시 로컬 상태 업데이트 완료 (Firebase 구독이 최종 확인)')
             
             // Firebase 업데이트 실행
             console.log(`🔄 Firestore 업데이트 실행 - instanceId: ${instanceId}`)
@@ -1083,16 +1167,18 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
             console.log(`⏰ 업데이트 완료 시각: ${new Date().toISOString()}`)
             
+            // 월간업무보고 완료 상태 간단 확인
+            if (targetTodo?.title.includes('월간업무보고')) {
+              console.log('✅ 월간업무보고 완료 변경:', updatedInstance.completed)
+            }
+            
             // 주간업무보고 특별 로깅
             if (instanceId.includes('weekly_work_report')) {
               console.log(`🔍 주간업무보고 Firestore 업데이트: completed=${updateData.completed}`)
             }
             
-            // 업데이트 완료 후 짧은 지연을 두어 실시간 구독이 새 데이터를 받을 시간을 줌
-            console.log('⏳ Firestore 동기화 완료 대기 중 (1초)...')
-            setTimeout(() => {
-              console.log('✅ Firestore 동기화 대기 완료')
-            }, 1000)
+            // ✨ Firestore 동기화 대기 제거 - 실시간 구독으로만 동기화 (completion state 충돌 방지)
+            console.log('✅ Firestore 업데이트 완료 - 실시간 구독 의존')
             
           } catch (error) {
             console.error('❌ Firebase 저장 실패:', error)
@@ -1471,6 +1557,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     today.setHours(0, 0, 0, 0)
     console.log('📅 getWeekTodos 호출됨')
     
+    // 월간업무보고 디버깅 (간단)
+    const allRecurring = getRecurringTodos()
+    const monthlyReports = allRecurring.filter(t => t.title.includes('월간업무보고'))
+    if (monthlyReports.length > 0) {
+      console.log('📅 getWeekTodos - 월간업무보고:', monthlyReports[0]?.priority || 'none')
+    }
+    
     // 이번 주의 시작일 (일요일)
     const startOfWeek = new Date(today)
     startOfWeek.setDate(today.getDate() - today.getDay())
@@ -1529,53 +1622,89 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     // 반복 할일 추가 - 기간 기반 로직 적용
     const weeklyRecurringTodos = getRecurringTodos()
     const weekRecurringTodos = weeklyRecurringTodos.filter(todo => {
-      // 완료된 반복 할일의 경우: 이번 주에 완료된 것만 표시
-      if (todo.completed && todo.completedAt) {
-        const completedDate = new Date(todo.completedAt)
-        completedDate.setHours(0, 0, 0, 0)
-        return completedDate >= startOfWeek && completedDate <= endOfWeek
+      // 월간업무보고 특별 디버깅
+      if (todo.title.includes('월간업무보고')) {
+        console.log(`🔍 주간뷰 - 월간업무보고 필터링: completed=${todo.completed}, completedAt=${todo.completedAt}`)
       }
       
-      // 미완료 반복 할일의 경우 - 기간 기반 로직
-      if (!todo.completed) {
-        const startDate = todo.startDate ? new Date(todo.startDate) : null
-        const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
-        
-        if (startDate) startDate.setHours(0, 0, 0, 0)
-        if (dueDate) dueDate.setHours(0, 0, 0, 0)
-        
-        // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 주와 겹치는지 확인
-        if (startDate && dueDate) {
-          // 반복 할일: 할일 기간과 주간 범위가 겹치면 표시
-          const overlapsWeek = dueDate.getTime() >= startOfWeek.getTime() && startDate.getTime() <= endOfWeek.getTime()
-          console.log(`🔄 주간 반복 기간 할일 체크: "${todo.title}"`)
-          console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
-          console.log(`  주간 범위: ${startOfWeek.toDateString()} ~ ${endOfWeek.toDateString()}`)
-          console.log(`  겹침 여부: ${overlapsWeek}`)
-          return overlapsWeek
+      // ✅ 완료된 반복 할일: 이번 주에 완료된 것만 표시 
+      if (todo.completed) {
+        if (todo.completedAt) {
+          const completedDate = new Date(todo.completedAt)
+          completedDate.setHours(0, 0, 0, 0)
+          const isInThisWeek = completedDate >= startOfWeek && completedDate <= endOfWeek
+          
+          if (todo.title.includes('월간업무보고')) {
+            console.log(`   ✅ 완료된 월간업무보고: 완료일=${completedDate.toDateString()}, 이번주포함=${isInThisWeek}`)
+          }
+          
+          return isInThisWeek
         }
         
-        // 2. 시작일만 있는 경우: 시작일이 이번 주 이전이거나 이번 주에 시작
-        if (startDate && !dueDate) {
-          return startDate <= endOfWeek
+        if (todo.title.includes('월간업무보고')) {
+          console.log(`   ❌ 완료된 월간업무보고: 완료일 없음 - 표시 안함`)
         }
         
-        // 3. 마감일만 있는 경우: 마감일이 이번 주 시작일 이후면 지속적으로 표시
-        if (!startDate && dueDate) {
-          // 마감일이 이번 주 시작일 이후면 표시 (마감일까지 지속적으로)
-          return dueDate >= startOfWeek
-        }
-        
-        // 4. 날짜가 없는 반복 할일
-        if (!startDate && !dueDate) {
-          return true
-        }
+        return false // 완료되었지만 완료일이 없으면 표시 안함
+      }
+      
+      // 🔥 미완료 반복 할일만 처리 - 기간 기반 로직
+      // (완료된 할일은 위에서 이미 처리하여 여기 도달하지 않음)
+      const startDate = todo.startDate ? new Date(todo.startDate) : null
+      const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+      
+      if (startDate) startDate.setHours(0, 0, 0, 0)
+      if (dueDate) dueDate.setHours(0, 0, 0, 0)
+      
+      // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 주와 겹치는지 확인
+      if (startDate && dueDate) {
+        // 반복 할일: 할일 기간과 주간 범위가 겹치면 표시
+        const overlapsWeek = dueDate.getTime() >= startOfWeek.getTime() && startDate.getTime() <= endOfWeek.getTime()
+        console.log(`🔄 주간 반복 기간 할일 체크: "${todo.title}"`)
+        console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
+        console.log(`  주간 범위: ${startOfWeek.toDateString()} ~ ${endOfWeek.toDateString()}`)
+        console.log(`  겹침 여부: ${overlapsWeek}`)
+        return overlapsWeek
+      }
+      
+      // 2. 시작일만 있는 경우: 시작일이 이번 주 이전이거나 이번 주에 시작
+      if (startDate && !dueDate) {
+        return startDate <= endOfWeek
+      }
+      
+      // 3. 마감일만 있는 경우: 마감일이 이번 주 시작일 이후면 지속적으로 표시
+      if (!startDate && dueDate) {
+        // 마감일이 이번 주 시작일 이후면 표시 (마감일까지 지속적으로)
+        return dueDate >= startOfWeek
+      }
+      
+      // 4. 날짜가 없는 반복 할일
+      if (!startDate && !dueDate) {
+        return true
       }
       
       return false
     })
 
-    return [...regularTodos, ...weekRecurringTodos]
+    const allWeekTodos = [...regularTodos, ...weekRecurringTodos]
+    
+    // 🔥 오늘 할일과 동일한 정렬 적용
+    console.log('📊 getWeekTodos 정렬 전 월간업무보고 개수:', allWeekTodos.filter(t => t.title.includes('월간업무보고')).length)
+    
+    // 우선순위별 정렬 (urgent → high → medium → low)
+    const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
+    const sortedWeekTodos = allWeekTodos.sort((a, b) => {
+      const priorityDiff = priorityOrder[a.priority as keyof typeof priorityOrder] - priorityOrder[b.priority as keyof typeof priorityOrder]
+      if (priorityDiff !== 0) {
+        return priorityDiff
+      }
+      // 같은 우선순위면 날짜순 정렬
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    })
+    
+    console.log('📊 getWeekTodos 정렬 후 월간업무보고:', sortedWeekTodos.filter(t => t.title.includes('월간업무보고')).map(t => `${t.title}: ${t.priority}`))
+    
+    return sortedWeekTodos
   }
 
   const getMonthTodos = () => {
@@ -1639,53 +1768,73 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     // 반복 할일 추가 - 기간 기반 로직 적용
     const monthlyRecurringTodos = getRecurringTodos()
     const monthRecurringTodos = monthlyRecurringTodos.filter(todo => {
-      // 완료된 반복 할일의 경우: 이번 달에 완료된 것만 표시
-      if (todo.completed && todo.completedAt) {
-        const completedDate = new Date(todo.completedAt)
-        completedDate.setHours(0, 0, 0, 0)
-        return completedDate >= startOfMonth && completedDate <= endOfMonth
+      // ✅ 완료된 반복 할일: 이번 달에 완료된 것만 표시
+      if (todo.completed) {
+        if (todo.completedAt) {
+          const completedDate = new Date(todo.completedAt)
+          completedDate.setHours(0, 0, 0, 0)
+          return completedDate >= startOfMonth && completedDate <= endOfMonth
+        }
+        return false // 완료되었지만 완료일이 없으면 표시 안함
       }
       
-      // 미완료 반복 할일의 경우 - 기간 기반 로직
-      if (!todo.completed) {
-        const startDate = todo.startDate ? new Date(todo.startDate) : null
-        const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
-        
-        if (startDate) startDate.setHours(0, 0, 0, 0)
-        if (dueDate) dueDate.setHours(0, 0, 0, 0)
-        
-        // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 달과 겹치는지 확인
-        if (startDate && dueDate) {
-          // 반복 할일: 할일 기간과 월간 범위가 겹치면 표시
-          const overlapsMonth = dueDate.getTime() >= startOfMonth.getTime() && startDate.getTime() <= endOfMonth.getTime()
-          console.log(`🔄 월간 반복 기간 할일 체크: "${todo.title}"`)
-          console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
-          console.log(`  월간 범위: ${startOfMonth.toDateString()} ~ ${endOfMonth.toDateString()}`)
-          console.log(`  겹침 여부: ${overlapsMonth}`)
-          return overlapsMonth
-        }
-        
-        // 2. 시작일만 있는 경우: 시작일이 이번 달 이전이거나 이번 달에 시작
-        if (startDate && !dueDate) {
-          return startDate <= endOfMonth
-        }
-        
-        // 3. 마감일만 있는 경우: 마감일이 이번 달 시작일 이후면 지속적으로 표시
-        if (!startDate && dueDate) {
-          // 마감일이 이번 달 시작일 이후면 표시 (마감일까지 지속적으로)
-          return dueDate >= startOfMonth
-        }
-        
-        // 4. 날짜가 없는 반복 할일
-        if (!startDate && !dueDate) {
-          return true
-        }
+        // 🔥 미완료 반복 할일만 처리 - 기간 기반 로직
+      // (완료된 할일은 위에서 이미 처리하여 여기 도달하지 않음)
+      const startDate = todo.startDate ? new Date(todo.startDate) : null
+      const dueDate = todo.dueDate ? new Date(todo.dueDate) : null
+      
+      if (startDate) startDate.setHours(0, 0, 0, 0)
+      if (dueDate) dueDate.setHours(0, 0, 0, 0)
+      
+      // 1. 시작일과 마감일이 모두 있는 경우: 기간이 이번 달과 겹치는지 확인
+      if (startDate && dueDate) {
+        // 반복 할일: 할일 기간과 월간 범위가 겹치면 표시
+        const overlapsMonth = dueDate.getTime() >= startOfMonth.getTime() && startDate.getTime() <= endOfMonth.getTime()
+        console.log(`🔄 월간 반복 기간 할일 체크: "${todo.title}"`)
+        console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
+        console.log(`  월간 범위: ${startOfMonth.toDateString()} ~ ${endOfMonth.toDateString()}`)
+        console.log(`  겹침 여부: ${overlapsMonth}`)
+        return overlapsMonth
+      }
+      
+      // 2. 시작일만 있는 경우: 시작일이 이번 달 이전이거나 이번 달에 시작
+      if (startDate && !dueDate) {
+        return startDate <= endOfMonth
+      }
+      
+      // 3. 마감일만 있는 경우: 마감일이 이번 달 시작일 이후면 지속적으로 표시
+      if (!startDate && dueDate) {
+        // 마감일이 이번 달 시작일 이후면 표시 (마감일까지 지속적으로)
+        return dueDate >= startOfMonth
+      }
+      
+      // 4. 날짜가 없는 반복 할일
+      if (!startDate && !dueDate) {
+        return true
       }
       
       return false
     })
 
-    return [...regularTodos, ...monthRecurringTodos]
+    const allMonthTodos = [...regularTodos, ...monthRecurringTodos]
+    
+    // 🔥 오늘 할일과 동일한 정렬 적용
+    console.log('📊 getMonthTodos 정렬 전 월간업무보고 개수:', allMonthTodos.filter(t => t.title.includes('월간업무보고')).length)
+    
+    // 우선순위별 정렬 (urgent → high → medium → low)
+    const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
+    const sortedMonthTodos = allMonthTodos.sort((a, b) => {
+      const priorityDiff = priorityOrder[a.priority as keyof typeof priorityOrder] - priorityOrder[b.priority as keyof typeof priorityOrder]
+      if (priorityDiff !== 0) {
+        return priorityDiff
+      }
+      // 같은 우선순위면 날짜순 정렬
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    })
+    
+    console.log('📊 getMonthTodos 정렬 후 월간업무보고:', sortedMonthTodos.filter(t => t.title.includes('월간업무보고')).map(t => `${t.title}: ${t.priority}`))
+    
+    return sortedMonthTodos
   }
 
   const getOverdueTodos = () => {
@@ -1902,6 +2051,36 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         console.log('Firestore 모드로 저장 시도')
         const firestoreId = await firestoreService.addRecurringTemplate(templateData, currentUser.uid)
         console.log('반복 템플릿 Firestore 저장 성공:', firestoreId)
+        
+        // 🔥 새 템플릿에 대한 인스턴스 생성 + Firebase 저장
+        console.log('🔥 새 템플릿 인스턴스 생성 시작')
+        const newTemplate: SimpleRecurringTemplate = {
+          ...templateData,
+          id: firestoreId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+        
+        // simpleRecurringSystem을 사용해서 인스턴스 생성
+        const newInstances = simpleRecurringSystem.generateInstances(newTemplate)
+        console.log('🔥 새 템플릿 인스턴스 생성 완료:', newInstances.length, '개')
+        
+        // 생성된 각 인스턴스를 Firebase에 저장
+        for (const instance of newInstances) {
+          try {
+            await firestoreService.updateRecurringInstance(instance.id, {
+              templateId: instance.templateId,
+              date: instance.date,
+              completed: instance.completed,
+              completedAt: instance.completedAt,
+            }, currentUser.uid)
+            console.log('✅ 인스턴스 Firebase 저장:', instance.id)
+          } catch (error) {
+            console.error('❌ 인스턴스 Firebase 저장 실패:', instance.id, error)
+          }
+        }
+        
+        console.log('🔥 새 템플릿 인스턴스 Firebase 저장 완료')
       } else {
         // 비로그인 사용자: 메모리에 저장 후 localStorage에 자동 저장
         console.log('비로그인 모드: 메모리에 반복 템플릿 추가')
@@ -1984,16 +2163,20 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       // 정리된 템플릿으로 상태 업데이트
       dispatch({ type: 'SET_RECURRING_TEMPLATES', payload: templatesToKeep })
       
-      // 템플릿 정리 후 인스턴스도 재생성
-      const newInstances: SimpleRecurringInstance[] = []
-      for (const template of templatesToKeep) {
-        const instances = simpleRecurringSystem.generateInstances(template)
-        newInstances.push(...instances)
-      }
-      dispatch({ type: 'SET_RECURRING_INSTANCES', payload: newInstances })
-      
-      // 로그인 사용자는 localStorage 사용 안함
-      if (!currentUser) {
+      // 🔥 로그인/비로그인 사용자 분리 처리
+      if (currentUser) {
+        // 로그인 사용자: Firebase에서만 관리, 로컬 인스턴스 재생성 안함
+        console.log('🔗 로그인 사용자 - 템플릿 정리 완료, Firebase 인스턴스 유지')
+      } else {
+        // 비로그인 사용자: 인스턴스 재생성 + localStorage 저장
+        console.log('👤 비로그인 사용자 - 인스턴스 재생성 시작')
+        const newInstances: SimpleRecurringInstance[] = []
+        for (const template of templatesToKeep) {
+          const instances = simpleRecurringSystem.generateInstances(template)
+          newInstances.push(...instances)
+        }
+        dispatch({ type: 'SET_RECURRING_INSTANCES', payload: newInstances })
+        
         try {
           localStorage.setItem('recurringTemplates', JSON.stringify(templatesToKeep))
           localStorage.setItem('recurringInstances', JSON.stringify(newInstances))
@@ -2001,8 +2184,6 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
           console.error('❌ 정리 후 저장 실패:', error)
         }
-      } else {
-        console.log('🚫 로그인된 사용자 - localStorage 저장 비활성화, 중복 정리 완료 - 남은 템플릿:', templatesToKeep.length, '인스턴스:', newInstances.length)
       }
     } else {
       console.log('✅ 중복된 템플릿이 없습니다.')
@@ -2034,6 +2215,18 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const generateRecurringInstances = () => {
+    // 🔥 로그인 사용자는 Firebase에서만 데이터 관리 (로컬 생성 완전 비활성화)
+    if (currentUser) {
+      console.log('🚫🚫🚫 로그인 사용자 - 로컬 인스턴스 생성 완전 차단!')
+      return
+    }
+    
+    // 🔥 추가 보호: authLoading 중일 때도 차단
+    if (authLoading) {
+      console.log('⏳ 인증 로딩 중 - 인스턴스 생성 대기')
+      return
+    }
+    
     let allInstances: SimpleRecurringInstance[] = []
     
     state.recurringTemplates.filter(template => template.isActive).forEach(template => {
@@ -2052,22 +2245,79 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   // 반복 인스턴스를 일반 할일로 변환하여 반환 (중복 키 방지)
   const getRecurringTodos = (): Todo[] => {
-    console.log('🔍 getRecurringTodos 호출됨')
-    console.log(`📋 현재 recurringInstances 개수: ${state.recurringInstances.length}`)
+    // 🔥🔥🔥 로그인 사용자는 Firebase 데이터만 사용, 로컬 생성 완전 금지!
+    if (currentUser) {
+      console.log('🚫🚫🚫 로그인 사용자 - 반복 할일 로컬 생성 완전 차단! Firebase만 사용!')
+      
+      // Firebase state.recurringInstances만 직접 변환
+      const recurringTodos: Todo[] = []
+      const seenIds = new Set<string>()
+      
+      console.log('📊 Firebase state.recurringInstances 개수:', state.recurringInstances.length)
+      console.log('📋 Firebase 인스턴스 ID:', state.recurringInstances.map(i => `${i.id}(완료:${i.completed})`))
+      
+      state.recurringInstances.forEach(instance => {
+        const template = state.recurringTemplates.find(t => t.id === instance.templateId)
+        if (template) {
+          // 🔥 Firebase 데이터를 직접 Todo로 변환 (simpleRecurringSystem 사용 안함)
+          const todo: Todo = {
+            id: `recurring_${instance.id}`,
+            title: template.title,
+            description: template.description,
+            completed: instance.completed, // ✅ Firebase 완료 상태 그대로 사용
+            priority: template.title.includes('월간업무보고') ? 'urgent' : template.priority,
+            type: template.type,
+            dueDate: instance.date,
+            createdAt: instance.createdAt,
+            updatedAt: instance.updatedAt,
+            completedAt: instance.completedAt, // ✅ Firebase 완료 시간 그대로 사용
+            tags: [...(template.tags || [])],
+            
+            // 메타데이터
+            _isRecurringInstance: true,
+            _instanceId: instance.id,
+            _templateId: template.id
+          } as Todo & {
+            _isRecurringInstance: boolean
+            _instanceId: string
+            _templateId: string
+          }
+          
+          if (template.title.includes('월간업무보고')) {
+            console.log('🔥 Firebase 월간업무보고 직접 변환:', {
+              instanceCompleted: instance.completed,
+              todoCompleted: todo.completed,
+              instanceCompletedAt: instance.completedAt,
+              todoCompletedAt: todo.completedAt
+            })
+          }
+          
+          if (!seenIds.has(todo.id)) {
+            seenIds.add(todo.id)
+            recurringTodos.push(todo)
+          }
+        }
+      })
+      
+      console.log('✅ Firebase 직접 변환 완료:', recurringTodos.length, '개')
+      return recurringTodos
+    }
     
-    // 주간업무보고 특별 로깅
-    const weeklyReport = state.recurringInstances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
-    if (weeklyReport) {
-      console.log(`🔍 주간업무보고 인스턴스 발견:`, {
-        id: weeklyReport.id,
-        completed: weeklyReport.completed,
-        completedAt: weeklyReport.completedAt,
-        date: weeklyReport.date,
-        templateId: weeklyReport.templateId
+    // 비로그인 사용자만 기존 로직 사용
+    console.log('👤 비로그인 사용자 - 기존 로직 사용')
+    console.log('📊 현재 state.recurringInstances 개수:', state.recurringInstances.length)
+    console.log('📋 모든 인스턴스 ID:', state.recurringInstances.map(i => `${i.id}(완료:${i.completed})`))
+    
+    // 🔧 월간업무보고 상태 확인 (상세)
+    const monthlyReport = state.recurringInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
+    if (monthlyReport) {
+      console.log('🔧 getRecurringTodos - 현재 state에서 월간업무보고:', {
+        id: monthlyReport.id,
+        completed: monthlyReport.completed,
+        updatedAt: monthlyReport.updatedAt
       })
     } else {
-      console.log(`❌ 주간업무보고 인스턴스를 찾을 수 없음`)
-      console.log(`📋 전체 인스턴스 ID 목록:`, state.recurringInstances.map(i => i.id))
+      console.log('⚠️ getRecurringTodos - state에 월간업무보고가 없음. 전체 인스턴스 수:', state.recurringInstances.length)
     }
     
     const recurringTodos: Todo[] = []
@@ -2088,6 +2338,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             _isRecurringInstance: (todo as any)._isRecurringInstance,
             _instanceId: (todo as any)._instanceId
           })
+        }
+        
+        // 🔥 월간업무보고 변환 과정 추적
+        if (instance.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26') {
+          console.log(`🔥🔥🔥 월간업무보고 convertToTodo 전후 비교:`)
+          console.log(`  입력 instance.completed: ${instance.completed} (${typeof instance.completed})`)
+          console.log(`  입력 instance.completedAt: ${instance.completedAt}`)
+          console.log(`  출력 todo.completed: ${todo.completed} (${typeof todo.completed})`)
+          console.log(`  출력 todo.completedAt: ${todo.completedAt}`)
         }
         
         // 중복 키 검사 및 방지 (반복할일은 인스턴스 ID를 기반으로 고유성 보장)

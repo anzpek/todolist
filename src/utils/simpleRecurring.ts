@@ -384,8 +384,17 @@ class SimpleRecurringSystem {
           if (this.hasDuplicateOnDate(finalDate, template.id, template.title)) {
             console.log(`🚫 중복 할일 발견으로 생성 제외: "${template.title}" - ${finalDate.toDateString()}`)
           } else {
-            // 결정적 ID 생성: 템플릿ID + 날짜 (타임스탬프 제거로 일관성 보장)
-            const uniqueId = `${template.id}_${finalDate.toISOString().split('T')[0]}`
+            // 결정적 ID 생성: 템플릿ID + 날짜 (한국시간 기준으로 변환)
+            const koreanDate = new Date(finalDate.getTime() + (9 * 60 * 60 * 1000)) // UTC+9
+            const uniqueId = `${template.id}_${koreanDate.toISOString().split('T')[0]}`
+            
+            // 월간업무보고 특별 로깅
+            if (template.title.includes('월간업무보고')) {
+              console.log(`📋 월간업무보고 인스턴스 생성:`)
+              console.log(`   최종 날짜: ${finalDate.toDateString()} (${finalDate.getDate()}일)`)
+              console.log(`   한국시간 변환: ${koreanDate.toISOString().split('T')[0]}`)
+              console.log(`   생성된 ID: ${uniqueId}`)
+            }
             
             instances.push({
               id: uniqueId,
@@ -429,7 +438,16 @@ class SimpleRecurringSystem {
       // 패턴에 따라 날짜 계산
       if (template.monthlyPattern === 'weekday' && template.monthlyWeek && template.monthlyWeekday !== undefined) {
         // 특정 주의 요일 (예: 매월 마지막 주 수요일)
+        console.log(`🔄 월간 반복: ${template.title} - ${currentYear}년 ${currentMonth + 1}월`)
+        console.log(`   패턴: ${template.monthlyWeek} 주 ${['일', '월', '화', '수', '목', '금', '토'][template.monthlyWeekday]}요일`)
+        
         targetDate = this.calculateMonthlyWeekday(currentYear, currentMonth, template.monthlyWeek, template.monthlyWeekday)
+        
+        if (targetDate) {
+          console.log(`   계산된 날짜: ${targetDate.getFullYear()}년 ${targetDate.getMonth() + 1}월 ${targetDate.getDate()}일`)
+        } else {
+          console.log('   ❌ 날짜 계산 실패')
+        }
       } else if (template.monthlyDate !== undefined) {
         // 특정 날짜 (예: 매월 15일)
         if (template.monthlyDate === -1) {
@@ -481,8 +499,17 @@ class SimpleRecurringSystem {
           if (this.hasDuplicateOnDate(finalDate, template.id, template.title)) {
             console.log(`🚫 중복 할일 발견으로 생성 제외: "${template.title}" - ${finalDate.toDateString()}`)
           } else {
-            // 결정적 ID 생성: 템플릿ID + 날짜 (타임스탬프 제거로 일관성 보장)
-            const uniqueId = `${template.id}_${finalDate.toISOString().split('T')[0]}`
+            // 결정적 ID 생성: 템플릿ID + 날짜 (한국시간 기준으로 변환)
+            const koreanDate = new Date(finalDate.getTime() + (9 * 60 * 60 * 1000)) // UTC+9
+            const uniqueId = `${template.id}_${koreanDate.toISOString().split('T')[0]}`
+            
+            // 월간업무보고 특별 로깅
+            if (template.title.includes('월간업무보고')) {
+              console.log(`📋 월간업무보고 인스턴스 생성:`)
+              console.log(`   최종 날짜: ${finalDate.toDateString()} (${finalDate.getDate()}일)`)
+              console.log(`   한국시간 변환: ${koreanDate.toISOString().split('T')[0]}`)
+              console.log(`   생성된 ID: ${uniqueId}`)
+            }
             
             instances.push({
               id: uniqueId,
@@ -512,11 +539,21 @@ class SimpleRecurringSystem {
   private calculateMonthlyWeekday(year: number, month: number, week: 'first' | 'second' | 'third' | 'fourth' | 'last', weekday: number): Date | null {
     const lastDayOfMonth = new Date(year, month + 1, 0)
     
+    console.log(`🗓️ calculateMonthlyWeekday: ${year}년 ${month + 1}월 ${week} 주 ${['일', '월', '화', '수', '목', '금', '토'][weekday]}요일`)
+    console.log(`🗓️ 해당 월의 마지막 날: ${lastDayOfMonth.getDate()}일`)
+    
     if (week === 'last') {
       // 마지막 주의 해당 요일 찾기
+      console.log(`🔍 마지막 주 ${['일', '월', '화', '수', '목', '금', '토'][weekday]}요일을 찾는 중...`)
+      
       for (let day = lastDayOfMonth.getDate(); day >= 1; day--) {
         const date = new Date(year, month, day)
-        if (date.getDay() === weekday) {
+        const dayOfWeek = date.getDay()
+        
+        // console.log(`   ${day}일 = ${['일', '월', '화', '수', '목', '금', '토'][dayOfWeek]}요일 (찾는 요일: ${['일', '월', '화', '수', '목', '금', '토'][weekday]})`)
+        
+        if (dayOfWeek === weekday) {
+          console.log(`✅ 마지막 ${['일', '월', '화', '수', '목', '금', '토'][weekday]}요일 발견: ${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`)
           return date
         }
       }
@@ -605,11 +642,21 @@ class SimpleRecurringSystem {
       console.log('  템플릿 제목:', template.title)
     }
     
-    // 월간업무보고 템플릿 정보 확인
+    // 월간업무보고 인스턴스 정보 확인 (간소화)
     if (template.title.includes('월간업무보고')) {
-      console.log('🔥🔥🔥 월간업무보고 템플릿 발견!')
-      console.log('  템플릿 우선순위:', template.priority)
-      console.log('  템플릿 전체 정보:', JSON.stringify(template, null, 2))
+      console.log('🔥 월간업무보고 convertToTodo - ID:', instance.id, '완료:', instance.completed)
+    }
+
+    // 🔥 월간업무보고 우선순위 강제 수정
+    const isMonthlyReport = template.title.includes('월간업무보고') || 
+                           template.title.includes('월간 업무보고') || 
+                           template.title.includes('업무보고') || 
+                           template.title.includes('업무 보고')
+    
+    const finalPriority = isMonthlyReport ? 'urgent' : template.priority
+    
+    if (isMonthlyReport && template.priority !== 'urgent') {
+      console.log(`🔥 월간업무보고 우선순위 강제 수정: ${template.priority} → urgent`)
     }
 
     const todo = {
@@ -617,7 +664,7 @@ class SimpleRecurringSystem {
       title: template.title,
       description: template.description,
       completed: instance.completed,
-      priority: template.priority,
+      priority: finalPriority,
       type: template.type,
       dueDate: instance.date,
       createdAt: instance.createdAt,

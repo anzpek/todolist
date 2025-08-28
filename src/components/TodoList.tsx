@@ -39,16 +39,28 @@ const TodoList = memo(({
 
   // Memoized todo retrieval based on current view
   const currentTodos = useMemo((): Todo[] => {
+    let result: Todo[] = []
     switch (currentView) {
       case 'today':
-        return getTodayTodos(selectedDate)
+        result = getTodayTodos(selectedDate)
+        break
       case 'week': 
-        return getWeekTodos()
+        result = getWeekTodos()
+        break
       case 'month':
-        return getMonthTodos()
+        result = getMonthTodos()
+        break
       default:
-        return todos
+        result = todos
     }
+    
+    // 🔍 간단 디버깅: 각 뷰의 월간업무보고 데이터 확인
+    const monthlyReports = result.filter(t => t.title.includes('월간업무보고'))
+    if (monthlyReports.length > 0) {
+      console.log(`📊 ${currentView}뷰 - 월간업무보고:`, monthlyReports.length, '개, priority:', monthlyReports[0]?.priority)
+    }
+    
+    return result
   }, [currentView, selectedDate, getTodayTodos, getWeekTodos, getMonthTodos, todos])
 
   // Memoized filtering logic
@@ -225,71 +237,27 @@ const TodoList = memo(({
   const sortByPriority = (todos: Todo[]): Todo[] => {
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
     
-    console.log('🔥 정렬 전 할일 목록:')
-    todos.forEach((todo, index) => {
-      console.log(`  ${index}: ${todo.title} - 우선순위: ${todo.priority}, order: ${todo.order}, 반복할일: ${!!(todo as any)._isRecurringInstance}`)
-    })
-    
     const sorted = todos.sort((a, b) => {
-      // **최우선 처리**: 월간업무보고와 업무보고는 무조건 최상단 (더 넓은 패턴 매칭)
-      const aIsMonthlyReport = a.title.includes('월간업무보고') || a.title.includes('월간 업무보고') || 
-                               a.title.includes('업무보고') || a.title.includes('업무 보고')
-      const bIsMonthlyReport = b.title.includes('월간업무보고') || b.title.includes('월간 업무보고') || 
-                               b.title.includes('업무보고') || b.title.includes('업무 보고')
-      
-      if (aIsMonthlyReport && !bIsMonthlyReport) {
-        console.log(`🔥 월간업무보고 강제 최상단 배치: ${a.title}`)
-        return -1
-      }
-      if (!aIsMonthlyReport && bIsMonthlyReport) {
-        console.log(`🔥 월간업무보고 강제 최상단 배치: ${b.title}`)
-        return 1
-      }
-      
-      // 긴급 우선순위 할일을 최상단에 배치 (업무보고 다음)
-      if (a.priority === 'urgent' && b.priority !== 'urgent') {
-        console.log(`🚨 긴급 우선순위 우선 배치: ${a.title}`)
-        return -1
-      }
-      if (a.priority !== 'urgent' && b.priority === 'urgent') {
-        console.log(`🚨 긴급 우선순위 우선 배치: ${b.title}`)
-        return 1
-      }
-      
-      // 반복할일을 우선적으로 상단 배치 (긴급 우선순위 다음)
-      const aIsRecurring = !!(a as any)._isRecurringInstance
-      const bIsRecurring = !!(b as any)._isRecurringInstance
-      
-      if (aIsRecurring && !bIsRecurring) {
-        console.log(`🔄 반복할일 우선 배치: ${a.title}`)
-        return -1
-      }
-      if (!aIsRecurring && bIsRecurring) {
-        console.log(`🔄 반복할일 우선 배치: ${b.title}`)
-        return 1
-      }
-      
-      // 우선순위로 정렬 (긴급 > 높음 > 보통 > 낮음)
+      // 🔥 우선순위가 다르면 우선순위로만 정렬
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
       if (priorityDiff !== 0) {
-        console.log(`📊 우선순위 정렬: ${a.title}(${a.priority}) vs ${b.title}(${b.priority}) → ${priorityDiff}`)
+        console.log(`🎯 우선순위 정렬: ${a.title}(${a.priority}) vs ${b.title}(${b.priority}) → ${priorityDiff}`)
         return priorityDiff
       }
       
-      // 같은 우선순위 내에서는 order 값으로 정렬 (사용자가 조정한 순서 유지)
-      // 하지만 order 값이 없는 경우에는 다른 기준을 사용
+      // 🔥 같은 우선순위 내에서만 order 값으로 정렬
       const orderA = a.order
       const orderB = b.order
       
       // 둘 다 order 값이 있는 경우에만 order로 정렬
       if (orderA !== undefined && orderB !== undefined) {
         if (orderA !== orderB) {
-          console.log(`📊 order 정렬: ${a.title}(${orderA}) vs ${b.title}(${orderB}) → ${orderA - orderB}`)
+          console.log(`📊 같은 우선순위 내 order 정렬: ${a.title}(${orderA}) vs ${b.title}(${orderB})`)
           return orderA - orderB
         }
       }
       
-      // 한쪽만 order가 있는 경우, order가 있는 것이 우선
+      // 🔥 같은 우선순위에서 한쪽만 order가 있는 경우 - 우선순위가 같으므로 order 우선
       if (orderA !== undefined && orderB === undefined) return -1
       if (orderA === undefined && orderB !== undefined) return 1
       
@@ -304,11 +272,6 @@ const TodoList = memo(({
       
       // 둘 다 order가 없고 마감일도 없으면 생성일 역순 (최신이 위쪽)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    })
-    
-    console.log('✅ 정렬 후 할일 목록:')
-    sorted.forEach((todo, index) => {
-      console.log(`  ${index}: ${todo.title} - 우선순위: ${todo.priority}, order: ${todo.order}`)
     })
     
     return sorted
