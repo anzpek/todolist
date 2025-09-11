@@ -1,4 +1,4 @@
-# 🚀 Advanced TodoList Application
+# 🚀 고급 할일 관리 애플리케이션
 
 [![React](https://img.shields.io/badge/React-19.1.0-61DAFB?logo=react&logoColor=white)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -6,96 +6,96 @@
 [![Firebase](https://img.shields.io/badge/Firebase-12.0.0-FF6F00?logo=firebase&logoColor=white)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3.4.17-06B6D4?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-> **Enterprise-grade Todo List Application** with advanced features including vacation management, recurring tasks, Korean holiday integration, and comprehensive analytics.
+> **엔터프라이즈급 할일 관리 애플리케이션** - 휴가 관리, 반복 작업, 한국 공휴일 연동, 종합 분석 기능을 포함한 고급 기능 제공
 
-## ✨ Key Features
+## ✨ 주요 기능
 
-### 🎯 **Task Management**
-- **Single Tasks**: Quick and simple todos
-- **Project Tasks**: Complex tasks with multiple checklist items
-- **Priority Levels**: Low, Medium, High, Urgent
-- **Due Dates & Times**: Full scheduling with time precision
-- **Tags & Categories**: Flexible organization system
+### 🎯 **작업 관리**
+- **단일 작업**: 빠르고 간단한 할일
+- **프로젝트 작업**: 여러 체크리스트 항목을 포함한 복잡한 작업
+- **우선순위 레벨**: 낮음, 보통, 높음, 긴급
+- **마감일 및 시간**: 정확한 시간을 포함한 완전한 일정 관리
+- **태그 및 카테고리**: 유연한 조직 시스템
 
-### 🔄 **Advanced Scheduling**
-- **Recurring Tasks**: Daily, weekly, monthly, yearly patterns
-- **Holiday Integration**: Korean public holidays with smart rescheduling
-- **Holiday Handling**: Move tasks before/after holidays automatically
-- **Smart Reminders**: Browser notifications and deadline alerts
+### 🔄 **고급 스케줄링**
+- **반복 작업**: 일일, 주간, 월간, 연간 패턴
+- **공휴일 연동**: 한국 공휴일과 스마트 일정 조정
+- **공휴일 처리**: 공휴일 전/후로 작업 자동 이동
+- **스마트 알림**: 브라우저 알림 및 마감일 알림
 
-### 📊 **Multiple Views & Analytics**
-- **Today View**: Current tasks with tomorrow preview
-- **Weekly Calendar**: Full week overview with progress tracking
-- **Monthly Calendar**: Complete month visualization
-- **Statistics Dashboard**: Productivity metrics and completion rates
-- **Performance Analytics**: Detailed insights and trends
+### 📊 **다양한 보기 및 분석**
+- **오늘 보기**: 오늘 할일과 내일 미리보기
+- **주간 캘린더**: 진행 상황 추적을 포함한 전체 주 개요
+- **월간 캘린더**: 완전한 월 시각화
+- **통계 대시보드**: 생산성 지표 및 완료율
+- **성능 분석**: 상세한 인사이트 및 트렌드
 
-### 🏢 **Enterprise Features**
-- **Vacation Management**: Employee vacation tracking system
-- **Admin Dashboard**: Role-based access control
-- **Security Monitoring**: Real-time security checks
-- **Data Backup/Export**: Multiple export formats with cloud sync
+### 🏢 **엔터프라이즈 기능**
+- **휴가 관리**: 직원 휴가 추적 시스템
+- **관리자 대시보드**: 역할 기반 접근 제어
+- **보안 모니터링**: 실시간 보안 검사
+- **데이터 백업/내보내기**: 클라우드 동기화를 포함한 다중 내보내기 형식
 
-### 🔐 **Authentication & Security**
-- **Firebase Authentication**: Google OAuth, Email/Password, Anonymous
-- **Data Encryption**: Secure data handling and storage
-- **Role-based Access**: Admin and user permissions
-- **Security Monitoring**: Built-in threat detection
+### 🔐 **인증 및 보안**
+- **Firebase 인증**: Google OAuth, 이메일/비밀번호, 익명 로그인
+- **데이터 암호화**: 안전한 데이터 처리 및 저장
+- **역할 기반 접근**: 관리자 및 사용자 권한
+- **보안 모니터링**: 내장 위협 탐지
 
-### 🎨 **User Experience**
-- **Responsive Design**: Mobile-first with tablet and desktop optimization
-- **Dark/Light Theme**: System preference integration
-- **Keyboard Shortcuts**: Power user navigation
-- **Accessibility**: WCAG compliant with screen reader support
-- **Performance Optimized**: Code splitting and lazy loading
+### 🎨 **사용자 경험**
+- **반응형 디자인**: 태블릿 및 데스크톱 최적화를 포함한 모바일 우선
+- **다크/라이트 테마**: 시스템 설정 통합
+- **키보드 단축키**: 파워 유저 내비게이션
+- **접근성**: 스크린 리더 지원을 포함한 WCAG 호환
+- **성능 최적화**: 코드 분할 및 지연 로딩
 
-## 🛠️ Technology Stack
+## 🛠️ 기술 스택
 
-### **Frontend Core**
-- **React 19.1.0** - Latest React with concurrent features
-- **TypeScript 5.8.3** - Full type safety
-- **Vite 7.0.4** - Lightning-fast build tool
-- **Tailwind CSS 3.4.17** - Utility-first styling
+### **프론트엔드 핵심**
+- **React 19.1.0** - 동시성 기능을 포함한 최신 React
+- **TypeScript 5.8.3** - 완전한 타입 안전성
+- **Vite 7.0.4** - 번개처럼 빠른 빌드 도구
+- **Tailwind CSS 3.4.17** - 유틸리티 우선 스타일링
 
-### **Backend & Database**
-- **Firebase 12.0.0** - Authentication and Firestore database
-- **Firestore** - NoSQL document database with real-time sync
+### **백엔드 및 데이터베이스**
+- **Firebase 12.0.0** - 인증 및 Firestore 데이터베이스
+- **Firestore** - 실시간 동기화를 포함한 NoSQL 문서 데이터베이스
 
-### **Development & Testing**
-- **Vitest 3.2.4** - Modern unit testing framework
-- **Playwright 1.54.1** - End-to-end testing
-- **ESLint** - Code quality and linting
-- **TypeScript ESLint** - Type-aware linting
+### **개발 및 테스팅**
+- **Vitest 3.2.4** - 현대적인 단위 테스팅 프레임워크
+- **Playwright 1.54.1** - 엔드투엔드 테스팅
+- **ESLint** - 코드 품질 및 린팅
+- **TypeScript ESLint** - 타입 인식 린팅
 
-### **Additional Libraries**
-- **Lucide React** - Modern icon library
-- **Date-fns 4.1.0** - Date manipulation utilities
-- **Tailwind Forms** - Enhanced form styling
+### **추가 라이브러리**
+- **Lucide React** - 현대적인 아이콘 라이브러리
+- **Date-fns 4.1.0** - 날짜 조작 유틸리티
+- **Tailwind Forms** - 향상된 폼 스타일링
 
-## 🚀 Quick Start
+## 🚀 빠른 시작
 
-### Prerequisites
+### 사전 요구사항
 - **Node.js** 18+ 
-- **npm** or **yarn**
+- **npm** 또는 **yarn**
 - **Git**
 
-### Installation
+### 설치
 
-1. **Clone the repository**
+1. **저장소 클론**
 ```bash
 git clone <repository-url>
 cd todolist
 ```
 
-2. **Install dependencies**
+2. **의존성 설치**
 ```bash
 npm install
 ```
 
-3. **Environment Setup**
-Create a `.env` file in the root directory:
+3. **환경 설정**
+루트 디렉터리에 `.env` 파일 생성:
 ```env
-# Firebase Configuration
+# Firebase 설정
 VITE_FIREBASE_API_KEY=your_api_key_here
 VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
 VITE_FIREBASE_PROJECT_ID=your_project_id
@@ -104,86 +104,86 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 
-# Korean Holiday API
+# 한국 공휴일 API
 VITE_HOLIDAY_API_KEY=7BZDblK8NIBj32BvDQ5jWi%2FYyHJJfhDHESiBYljCaocAPUQZc8IG5ltkJvlVR8J1AinP5izo2WA2F68xWyUTKA%3D%3D
 ```
 
-4. **Start development server**
+4. **개발 서버 시작**
 ```bash
 npm run dev
 ```
 
-5. **Open in browser**
-Navigate to `http://localhost:3000`
+5. **브라우저에서 열기**
+`http://localhost:3000`으로 이동
 
-## 📋 Available Scripts
+## 📋 사용 가능한 스크립트
 
-### **Development**
+### **개발**
 ```bash
-npm run dev              # Start development server
-npm run build            # Production build
-npm run build:analyze    # Build with bundle analyzer
-npm run preview          # Preview production build
-npm run lint             # Run ESLint
+npm run dev              # 개발 서버 시작
+npm run build            # 프로덕션 빌드
+npm run build:analyze    # 번들 분석기와 함께 빌드
+npm run preview          # 프로덕션 빌드 미리보기
+npm run lint             # ESLint 실행
 ```
 
-### **Testing**
+### **테스팅**
 ```bash
-npm run test             # Run unit tests
-npm run test:ui          # Unit tests with UI
-npm run test:coverage    # Generate coverage report
-npm run test:e2e         # Run E2E tests
-npm run test:e2e:ui      # E2E tests with UI
-npm run test:e2e:report  # View E2E test report
+npm run test             # 단위 테스트 실행
+npm run test:ui          # UI와 함께 단위 테스트
+npm run test:coverage    # 커버리지 리포트 생성
+npm run test:e2e         # E2E 테스트 실행
+npm run test:e2e:ui      # UI와 함께 E2E 테스트
+npm run test:e2e:report  # E2E 테스트 리포트 보기
 ```
 
-### **Deployment**
+### **배포**
 ```bash
-npm run deploy          # Deploy to GitHub Pages
+npm run deploy          # GitHub Pages에 배포
 ```
 
-## 🏗️ Project Architecture
+## 🏗️ 프로젝트 아키텍처
 
-### **Directory Structure**
+### **디렉터리 구조**
 ```
 src/
-├── components/              # React components
-│   ├── VacationManagement/ # Vacation system module
-│   ├── TodoList/           # Todo components
-│   ├── Calendar/           # Calendar views
-│   └── UI/                 # Reusable UI components
-├── contexts/               # React Context providers
-│   ├── TodoContext.tsx     # Todo state management
-│   ├── AuthContext.tsx     # Authentication
-│   ├── ThemeContext.tsx    # Theme management
-│   └── VacationContext.tsx # Vacation management
-├── hooks/                  # Custom React hooks
-├── services/               # External services
-│   ├── firebase.ts         # Firebase configuration
-│   ├── firestoreService.ts # Database operations
-│   └── holidayService.ts   # Holiday API integration
-├── types/                  # TypeScript definitions
-├── utils/                  # Utility functions
-├── config/                 # Configuration files
-└── constants/              # Application constants
+├── components/              # React 컴포넌트
+│   ├── VacationManagement/ # 휴가 시스템 모듈
+│   ├── TodoList/           # 할일 컴포넌트
+│   ├── Calendar/           # 캘린더 보기
+│   └── UI/                 # 재사용 가능한 UI 컴포넌트
+├── contexts/               # React Context 제공자
+│   ├── TodoContext.tsx     # 할일 상태 관리
+│   ├── AuthContext.tsx     # 인증
+│   ├── ThemeContext.tsx    # 테마 관리
+│   └── VacationContext.tsx # 휴가 관리
+├── hooks/                  # 커스텀 React 훅
+├── services/               # 외부 서비스
+│   ├── firebase.ts         # Firebase 설정
+│   ├── firestoreService.ts # 데이터베이스 작업
+│   └── holidayService.ts   # 공휴일 API 통합
+├── types/                  # TypeScript 정의
+├── utils/                  # 유틸리티 함수
+├── config/                 # 설정 파일
+└── constants/              # 애플리케이션 상수
 ```
 
-### **Key Design Patterns**
-- **Context Pattern**: State management with React Context
-- **Component Composition**: Reusable and composable components
-- **Custom Hooks**: Business logic abstraction
-- **Error Boundaries**: Graceful error handling
-- **Lazy Loading**: Performance optimization
+### **주요 디자인 패턴**
+- **Context 패턴**: React Context를 사용한 상태 관리
+- **컴포넌트 구성**: 재사용 가능하고 구성 가능한 컴포넌트
+- **커스텀 훅**: 비즈니스 로직 추상화
+- **에러 바운더리**: 우아한 오류 처리
+- **지연 로딩**: 성능 최적화
 
-## 🔧 Configuration
+## 🔧 설정
 
-### **Firebase Setup**
-1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Authentication with Google, Email/Password, and Anonymous sign-in
-3. Create a Firestore database
-4. Copy configuration to `.env` file
+### **Firebase 설정**
+1. [Firebase 콘솔](https://console.firebase.google.com/)에서 Firebase 프로젝트 생성
+2. Google, 이메일/비밀번호, 익명 로그인으로 인증 활성화
+3. Firestore 데이터베이스 생성
+4. `.env` 파일에 설정 복사
 
-### **Security Rules (Firestore)**
+### **보안 규칙 (Firestore)**
 ```javascript
 rules_version = '2';
 service cloud.firestore {
@@ -198,31 +198,31 @@ service cloud.firestore {
 }
 ```
 
-## 📊 Testing
+## 📊 테스팅
 
-### **Unit Testing**
-- **Framework**: Vitest with JSDOM
-- **Coverage**: 80% minimum threshold
-- **Test Files**: `*.test.ts` or `*.test.tsx`
+### **단위 테스팅**
+- **프레임워크**: JSDOM을 포함한 Vitest
+- **커버리지**: 최소 80% 임계값
+- **테스트 파일**: `*.test.ts` 또는 `*.test.tsx`
 
-### **E2E Testing**
-- **Framework**: Playwright
-- **Browsers**: Chrome, Firefox, Safari
-- **Test Files**: `tests/*.spec.ts`
+### **E2E 테스팅**
+- **프레임워크**: Playwright
+- **브라우저**: Chrome, Firefox, Safari
+- **테스트 파일**: `tests/*.spec.ts`
 
-### **Running Tests**
+### **테스트 실행**
 ```bash
-# Unit tests with coverage
+# 커버리지와 함께 단위 테스트
 npm run test:coverage
 
-# E2E tests with UI
+# UI와 함께 E2E 테스트
 npm run test:e2e:ui
 
-# All tests
+# 모든 테스트
 npm test
 ```
 
-## 🚀 Deployment
+## 🚀 배포
 
 ### **GitHub Pages**
 ```bash
@@ -230,92 +230,92 @@ npm run deploy
 ```
 
 ### **Vercel**
-1. Connect GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push
+1. GitHub 저장소를 Vercel에 연결
+2. Vercel 대시보드에서 환경 변수 설정
+3. 푸시 시 자동 배포
 
 ### **Netlify**
-1. Connect GitHub repository to Netlify
-2. Build command: `npm run build`
-3. Publish directory: `dist`
-4. Set environment variables in Netlify dashboard
+1. GitHub 저장소를 Netlify에 연결
+2. 빌드 명령어: `npm run build`
+3. 게시 디렉터리: `dist`
+4. Netlify 대시보드에서 환경 변수 설정
 
-## 🔒 Security
+## 🔒 보안
 
-### **Data Protection**
-- All user data is encrypted in transit and at rest
-- Firebase security rules prevent unauthorized access
-- Input validation and sanitization
-- XSS protection mechanisms
+### **데이터 보호**
+- 모든 사용자 데이터는 전송 중 및 저장 시 암호화됨
+- Firebase 보안 규칙로 무단 접근 방지
+- 입력 유효성 검사 및 살균
+- XSS 보호 메커니즘
 
-### **Authentication**
-- Multi-factor authentication support
-- Session management with automatic expiration
-- Secure token handling
+### **인증**
+- 다중 인증 지원
+- 자동 만료를 포함한 세션 관리
+- 안전한 토큰 처리
 
-## 📈 Performance
+## 📈 성능
 
-### **Optimization Features**
-- **Code Splitting**: Automatic route-based splitting
-- **Lazy Loading**: Components loaded on demand
-- **Bundle Analysis**: Rollup visualizer for optimization
-- **Caching**: Intelligent caching strategies
-- **Memory Management**: Built-in memory monitoring
+### **최적화 기능**
+- **코드 분할**: 자동 라우트 기반 분할
+- **지연 로딩**: 필요 시 컴포넌트 로딩
+- **번들 분석**: 최적화를 위한 Rollup 시각화기
+- **캐싱**: 지능형 캐싱 전략
+- **메모리 관리**: 내장 메모리 모니터링
 
-### **Performance Metrics**
-- **Lighthouse Score**: 95+ across all categories
-- **Bundle Size**: < 500KB gzipped
-- **First Paint**: < 1.5s on 3G
-- **Interactive**: < 3s on 3G
+### **성능 지표**
+- **Lighthouse 점수**: 모든 카테고리에서 95+
+- **번들 크기**: gzip 압축 시 < 500KB
+- **첫 페인트**: 3G에서 < 1.5초
+- **상호작용**: 3G에서 < 3초
 
-## 🤝 Contributing
+## 🤝 기여하기
 
-### **Development Process**
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with tests
-4. Run linting and tests
-5. Submit a pull request
+### **개발 과정**
+1. 저장소 포크
+2. 기능 브랜치 생성
+3. 테스트와 함께 변경사항 작성
+4. 린팅 및 테스트 실행
+5. 풀 리퀘스트 제출
 
-### **Code Standards**
-- **TypeScript**: Strict mode enabled
-- **ESLint**: Enforced code style
-- **Prettier**: Code formatting
-- **Conventional Commits**: Commit message format
+### **코드 표준**
+- **TypeScript**: Strict 모드 활성화
+- **ESLint**: 코드 스타일 강제
+- **Prettier**: 코드 포맷팅
+- **Conventional Commits**: 커밋 메시지 형식
 
-## 📄 License
+## 📄 라이선스
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+이 프로젝트는 MIT 라이선스에 따라 라이선스가 부여됩니다 - 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 🆘 Support
+## 🆘 지원
 
-### **Documentation**
-- [User Manual](USER_MANUAL.md) - Complete user guide
-- [API Documentation](docs/API.md) - Developer reference
-- [Contributing Guide](CONTRIBUTING.md) - Development guide
+### **문서**
+- [사용자 매뉴얼](USER_MANUAL.md) - 완전한 사용자 가이드
+- [API 문서](docs/API.md) - 개발자 참조
+- [기여 가이드](CONTRIBUTING.md) - 개발 가이드
 
-### **Getting Help**
-- 📧 Email: support@todolist.com
-- 💬 Discussions: GitHub Discussions
-- 🐛 Issues: GitHub Issues
-- 📖 Wiki: Project Wiki
+### **도움 받기**
+- 📧 이메일: support@todolist.com
+- 💬 토론: GitHub Discussions
+- 🐛 이슈: GitHub Issues
+- 📖 위키: Project Wiki
 
-## 🎯 Roadmap
+## 🎯 로드맵
 
-### **Version 2.0**
-- [ ] Team collaboration features
-- [ ] Advanced reporting dashboard
-- [ ] Mobile app (React Native)
-- [ ] API integrations (Calendar, Slack)
+### **버전 2.0**
+- [ ] 팀 협업 기능
+- [ ] 고급 리포팅 대시보드
+- [ ] 모바일 앱 (React Native)
+- [ ] API 통합 (캘린더, Slack)
 
-### **Version 2.1**
-- [ ] AI-powered task suggestions
-- [ ] Voice commands
-- [ ] Offline-first architecture
-- [ ] Advanced automation rules
+### **버전 2.1**
+- [ ] AI 기반 작업 제안
+- [ ] 음성 명령
+- [ ] 오프라인 우선 아키텍처
+- [ ] 고급 자동화 규칙
 
 ---
 
-**Built with ❤️ using React, TypeScript, and Firebase**
+**React, TypeScript, Firebase로 ❤️를 담아 제작되었습니다**
 
-*For detailed usage instructions, please refer to the [User Manual](USER_MANUAL.md)*
+*자세한 사용 방법은 [사용자 매뉴얼](USER_MANUAL.md)을 참조하세요*
