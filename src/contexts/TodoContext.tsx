@@ -1698,7 +1698,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (priorityDiff !== 0) {
         return priorityDiff
       }
-      // 같은 우선순위면 날짜순 정렬
+      // 같은 우선순위면 order → 날짜순 정렬
+      const orderA = a.order || 0
+      const orderB = b.order || 0
+      if (orderA !== orderB) {
+        return orderA - orderB
+      }
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
     
@@ -1828,7 +1833,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (priorityDiff !== 0) {
         return priorityDiff
       }
-      // 같은 우선순위면 날짜순 정렬
+      // 같은 우선순위면 order → 날짜순 정렬
+      const orderA = a.order || 0
+      const orderB = b.order || 0
+      if (orderA !== orderB) {
+        return orderA - orderB
+      }
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
     
@@ -2108,18 +2118,51 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       if (currentUser) {
-        // Firestore 전용 업데이트
-        console.log('Firestore 모드로 업데이트 시도')
+        // 🔥 Firebase 사용자를 위한 새로운 처리 방식
+        console.log('🔥 Firebase 사용자 - regenerateRecurringInstances 함수 사용')
+        
+        // 1. Firestore 템플릿 업데이트
+        console.log('Firestore 모드로 템플릿 업데이트')
         await firestoreService.updateRecurringTemplate(id, updates, currentUser.uid)
         console.log('반복 템플릿 Firestore 업데이트 성공:', id)
         
-        // 로컬 상태도 업데이트
+        // 2. 로컬 상태 템플릿 업데이트
         dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: { id, updates } })
-        console.log('로컬 상태 업데이트 완료')
+        console.log('로컬 상태 템플릿 업데이트 완료')
+        
+        // 3. Firebase 인스턴스 재생성 (기존 삭제 + 새로 생성)
+        console.log('Firebase 인스턴스 재생성 시작')
+        await firestoreService.regenerateRecurringInstances(id, currentUser.uid)
+        console.log('Firebase 인스턴스 재생성 완료')
+        
+        // 4. 로컬 할일들도 정리 (Firebase 동기화 전까지 임시)
+        const todosToRemove = state.todos.filter((todo: any) => todo._templateId === id)
+        console.log(`로컬 할일 ${todosToRemove.length}개 정리`)
+        for (const todo of todosToRemove) {
+          dispatch({ type: 'DELETE_TODO', payload: todo.id })
+        }
+        
       } else {
         // 비로그인 사용자: 메모리에서 업데이트
         console.log('비로그인 모드: 메모리에서 반복 템플릿 업데이트')
+        
+        // 1. 기존 할일 중 해당 템플릿에서 생성된 것들 삭제
+        const todosToRemove = state.todos.filter((todo: any) => todo._templateId === id)
+        console.log(`템플릿 ${id}에서 생성된 할일 ${todosToRemove.length}개 발견`)
+        
+        for (const todo of todosToRemove) {
+          console.log(`할일 삭제: ${todo.title} (${todo.id})`)
+          dispatch({ type: 'DELETE_TODO', payload: todo.id })
+        }
+        
+        // 2. 템플릿 업데이트
         dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: { id, updates } })
+        
+        // 3. 새로운 할일들 생성
+        setTimeout(() => {
+          console.log('업데이트된 템플릿으로 새로운 할일 생성 시작')
+          generateRecurringInstances()
+        }, 100)
       }
       console.log('=== 반복 템플릿 수정 완료 ===')
     } catch (error) {
@@ -2272,6 +2315,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             updatedAt: instance.updatedAt,
             completedAt: instance.completedAt, // ✅ Firebase 완료 시간 그대로 사용
             tags: [...(template.tags || [])],
+            order: -1000, // 반복 할일을 같은 우선순위 내에서 최상단에 표시
             
             // 메타데이터
             _isRecurringInstance: true,

@@ -838,6 +838,8 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
                         <option key={day} value={day}>{day}일</option>
                       ))}
                       <option value={-1}>말일</option>
+                      <option value={-2}>첫 번째 근무일</option>
+                      <option value={-3}>마지막 근무일</option>
                     </select>
                   </div>
                 )}
@@ -1121,6 +1123,16 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
                       className="mr-2"
                     />
                     다음날로 이동
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="show"
+                      checked={formData.holidayHandling === 'show'}
+                      onChange={(e) => handleChange('holidayHandling', e.target.value)}
+                      className="mr-2"
+                    />
+                    공휴일날 표시
                   </label>
                 </div>
               </div>

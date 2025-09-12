@@ -4,7 +4,7 @@
  */
 
 import type { Todo } from '../types/todo'
-import { getHolidayInfoSync, isWeekend } from './holidays'
+import { getHolidayInfoSync, isWeekend, getFirstWorkdayOfMonth, getLastWorkdayOfMonth } from './holidays'
 
 // 중복 예외 설정 인터페이스
 export interface ConflictException {
@@ -27,7 +27,7 @@ export interface SimpleRecurringTemplate {
   type: 'simple' | 'project'
   
   // 반복 설정
-  recurrenceType: 'weekly' | 'monthly'
+  recurrenceType: 'daily' | 'weekly' | 'monthly'
   weekday?: number // 0=일, 1=월, ..., 6=토 (weekly용)
   monthlyDate?: number // 1-31 (monthly용)
   
@@ -122,6 +122,8 @@ class SimpleRecurringSystem {
     if (!template.isActive) return []
     
     switch (template.recurrenceType) {
+      case 'daily':
+        return this.generateDailyInstancesRaw(template)
       case 'weekly':
         return this.generateWeeklyInstancesRaw(template)
       case 'monthly':
@@ -330,6 +332,53 @@ class SimpleRecurringSystem {
     return false
   }
   
+  // 일간 반복 인스턴스 생성 - Raw (충돌 검사 제외)
+  private generateDailyInstancesRaw(template: SimpleRecurringTemplate): SimpleRecurringInstance[] {
+    if (template.recurrenceType !== 'daily') {
+      return []
+    }
+    
+    const instances: SimpleRecurringInstance[] = []
+    const today = new Date()
+    const startDate = new Date(template.createdAt)
+    const endOfYear = new Date(today.getFullYear(), 11, 31)
+    
+    // 시작일부터 연말까지 매일 인스턴스 생성
+    let currentDate = new Date(startDate)
+    
+    while (currentDate <= endOfYear) {
+      const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())
+      
+      if (currentDateOnly >= todayDateOnly) {
+        if (!this.isExceptionDate(currentDate, template.exceptions, template.id)) {
+          const holidayHandling = template.holidayHandling || 'before'
+          const finalDate = this.adjustForHolidays(currentDate, holidayHandling)
+          
+          if (!this.hasDuplicateOnDate(finalDate, template.id, template.title)) {
+            const koreanDate = new Date(finalDate.getTime() + (9 * 60 * 60 * 1000))
+            const uniqueId = `${template.id}_${koreanDate.toISOString().split('T')[0]}`
+            
+            instances.push({
+              id: uniqueId,
+              templateId: template.id,
+              date: finalDate,
+              completed: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              order: -1000 // 반복 할일을 맨 위에 표시
+            })
+          }
+        }
+      }
+      
+      // 다음날로 이동
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    return instances
+  }
+  
   // 주간 반복 인스턴스 생성 - Raw (충돌 검사 제외)
   private generateWeeklyInstancesRaw(template: SimpleRecurringTemplate): SimpleRecurringInstance[] {
     if (template.recurrenceType !== 'weekly' || template.weekday === undefined) {
@@ -402,7 +451,8 @@ class SimpleRecurringSystem {
               date: finalDate,
               completed: false,
               createdAt: new Date(),
-              updatedAt: new Date()
+              updatedAt: new Date(),
+              order: -1000 // 반복 할일을 맨 위에 표시
             })
           }
         }
@@ -453,6 +503,26 @@ class SimpleRecurringSystem {
         if (template.monthlyDate === -1) {
           // 말일
           targetDate = new Date(currentYear, currentMonth + 1, 0)
+        } else if (template.monthlyDate === -2) {
+          // 첫 번째 근무일
+          console.log(`🏢 첫 번째 근무일 계산: ${currentYear}년 ${currentMonth + 1}월`)
+          try {
+            targetDate = getFirstWorkdayOfMonth(currentYear, currentMonth + 1)
+            console.log(`✅ 첫 번째 근무일: ${targetDate.toDateString()}`)
+          } catch (error) {
+            console.error('첫 번째 근무일 계산 실패:', error)
+            targetDate = null
+          }
+        } else if (template.monthlyDate === -3) {
+          // 마지막 근무일
+          console.log(`🏢 마지막 근무일 계산: ${currentYear}년 ${currentMonth + 1}월`)
+          try {
+            targetDate = getLastWorkdayOfMonth(currentYear, currentMonth + 1)
+            console.log(`✅ 마지막 근무일: ${targetDate.toDateString()}`)
+          } catch (error) {
+            console.error('마지막 근무일 계산 실패:', error)
+            targetDate = null
+          }
         } else {
           // 특정 날짜
           targetDate = new Date(currentYear, currentMonth, template.monthlyDate)
@@ -517,7 +587,8 @@ class SimpleRecurringSystem {
               date: finalDate,
               completed: false,
               createdAt: new Date(),
-              updatedAt: new Date()
+              updatedAt: new Date(),
+              order: -1000 // 반복 할일을 맨 위에 표시
             })
           }
         }
@@ -577,6 +648,11 @@ class SimpleRecurringSystem {
     return null
   }
   
+  // 일간 반복 인스턴스 생성 (충돌 검사 포함)
+  generateDailyInstances(template: SimpleRecurringTemplate): SimpleRecurringInstance[] {
+    return this.generateDailyInstancesRaw(template)
+  }
+  
   // 주간 반복 인스턴스 생성 (충돌 검사 포함)
   generateWeeklyInstances(template: SimpleRecurringTemplate): SimpleRecurringInstance[] {
     return this.generateWeeklyInstancesRaw(template)
@@ -594,6 +670,9 @@ class SimpleRecurringSystem {
     let instances: SimpleRecurringInstance[] = []
     
     switch (template.recurrenceType) {
+      case 'daily':
+        instances = this.generateDailyInstances(template)
+        break
       case 'weekly':
         instances = this.generateWeeklyInstances(template)
         break
@@ -757,6 +836,15 @@ class SimpleRecurringSystem {
     console.log(`📊 중복 제거 결과: ${todos.length} → ${result.length} (${todos.length - result.length}개 제거)`)
     
     return result.sort((a, b) => {
+      // order 값이 있으면 order 우선 정렬
+      const orderA = a.order || 0
+      const orderB = b.order || 0
+      
+      if (orderA !== orderB) {
+        return orderA - orderB // order가 낮을수록 위에 표시
+      }
+      
+      // order가 같으면 날짜순 정렬
       const dateA = a.dueDate || new Date(0)
       const dateB = b.dueDate || new Date(0)
       return dateA.getTime() - dateB.getTime()

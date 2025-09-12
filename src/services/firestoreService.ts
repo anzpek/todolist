@@ -922,5 +922,202 @@ export const firestoreService = {
       callback([])
       return () => {}
     }
+  },
+
+  // 반복 템플릿 기반 인스턴스 재생성 (Firebase 전용)
+  regenerateRecurringInstances: async (templateId: string, uid: string): Promise<void> => {
+    return withRetry(async () => {
+      try {
+        if (!uid || !templateId) {
+          throw new Error('User ID and template ID are required')
+        }
+        
+        debug.log('반복 인스턴스 재생성 시작', { templateId, uid })
+        
+        const batch = writeBatch(db)
+        
+        // 1. 기존 템플릿 기반 인스턴스들 삭제
+        const instancesRef = collection(db, `users/${uid}/recurringInstances`)
+        const existingQuery = query(instancesRef)
+        const existingSnapshot = await getDocs(existingQuery)
+        
+        let deletedCount = 0
+        existingSnapshot.docs.forEach(doc => {
+          const data = doc.data()
+          if (data.templateId === templateId) {
+            batch.delete(doc.ref)
+            deletedCount++
+          }
+        })
+        
+        debug.log('기존 인스턴스 삭제 예정', { count: deletedCount })
+        
+        // 2. 템플릿 정보 조회
+        const templateRef = doc(db, `users/${uid}/recurringTemplates`, templateId)
+        const templateDoc = await getDoc(templateRef)
+        
+        if (!templateDoc.exists()) {
+          throw new Error(`Template ${templateId} not found`)
+        }
+        
+        const template = { id: templateDoc.id, ...templateDoc.data() } as any
+        debug.log('템플릿 조회 완료', { template: template.title })
+        
+        // 3. 새로운 인스턴스들 생성
+        const newInstances = await this.generateInstancesForTemplate(template, uid)
+        
+        newInstances.forEach(instance => {
+          const instanceRef = doc(instancesRef)
+          batch.set(instanceRef, {
+            ...instance,
+            id: instanceRef.id,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          })
+        })
+        
+        debug.log('새 인스턴스 생성 예정', { count: newInstances.length })
+        
+        // 4. 일괄 처리 실행
+        await batch.commit()
+        
+        debug.log('반복 인스턴스 재생성 성공', {
+          templateId,
+          deleted: deletedCount,
+          created: newInstances.length
+        })
+      } catch (error) {
+        debug.error('반복 인스턴스 재생성 실패:', error)
+        throw handleFirestoreError(error, 'regenerateRecurringInstances')
+      }
+    })
+  },
+
+  // 템플릿에 대한 인스턴스 생성 로직 (내부 함수)
+  generateInstancesForTemplate: async (template: any, uid: string): Promise<any[]> => {
+    try {
+      debug.log('템플릿 인스턴스 생성 시작', { templateId: template.id, title: template.title })
+      
+      const instances: any[] = []
+      const now = new Date()
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1) // 이번 달 1일
+      const endDate = new Date(now.getFullYear() + 1, now.getMonth(), 0) // 1년 후까지
+      
+      // 공휴일 API 데이터 가져오기 (간단한 구현)
+      const holidays = await this.fetchHolidays(now.getFullYear())
+      
+      const current = new Date(startDate)
+      while (current <= endDate) {
+        let targetDate = new Date(current)
+        
+        // 월간 반복 처리
+        if (template.recurring?.type === 'monthly') {
+          const interval = template.recurring.interval
+          
+          if (interval === -1) {
+            // 마지막 근무일
+            targetDate = this.getLastWorkingDay(current.getFullYear(), current.getMonth(), holidays)
+          } else if (interval >= 1 && interval <= 31) {
+            // 특정 날짜 (첫번째 근무일은 interval === 1로 처리)
+            if (interval === 1) {
+              // 첫번째 근무일
+              targetDate = this.getFirstWorkingDay(current.getFullYear(), current.getMonth(), holidays)
+            } else {
+              // 특정 날짜
+              targetDate = new Date(current.getFullYear(), current.getMonth(), interval)
+            }
+          }
+          
+          // 공휴일 처리
+          if (template.recurring.holidayOption === 'before') {
+            targetDate = this.getWorkingDayBefore(targetDate, holidays)
+          } else if (template.recurring.holidayOption === 'after') {
+            targetDate = this.getWorkingDayAfter(targetDate, holidays)
+          }
+          // 'show' 옵션은 날짜 그대로 사용
+          
+          // 인스턴스 생성
+          instances.push({
+            templateId: template.id,
+            date: targetDate,
+            completed: false,
+            completedAt: null
+          })
+        }
+        
+        // 다음 달로 이동
+        current.setMonth(current.getMonth() + 1)
+      }
+      
+      debug.log('템플릿 인스턴스 생성 완료', { count: instances.length })
+      return instances
+    } catch (error) {
+      debug.error('템플릿 인스턴스 생성 실패:', error)
+      return []
+    }
+  },
+
+  // 공휴일 데이터 가져오기 (간단한 구현)
+  fetchHolidays: async (year: number): Promise<Date[]> => {
+    try {
+      // 실제 구현에서는 공휴일 API를 호출
+      // 여기서는 간단한 예시만 제공
+      return []
+    } catch (error) {
+      debug.error('공휴일 조회 실패:', error)
+      return []
+    }
+  },
+
+  // 마지막 근무일 계산
+  getLastWorkingDay: (year: number, month: number, holidays: Date[]): Date => {
+    const lastDay = new Date(year, month + 1, 0) // 해당 월의 마지막 날
+    
+    // 토요일(6) 또는 일요일(0)이면 이전 근무일로 이동
+    while (lastDay.getDay() === 0 || lastDay.getDay() === 6 || 
+           holidays.some(h => h.getTime() === lastDay.getTime())) {
+      lastDay.setDate(lastDay.getDate() - 1)
+    }
+    
+    return lastDay
+  },
+
+  // 첫번째 근무일 계산
+  getFirstWorkingDay: (year: number, month: number, holidays: Date[]): Date => {
+    const firstDay = new Date(year, month, 1) // 해당 월의 첫날
+    
+    // 토요일(6) 또는 일요일(0)이면 다음 근무일로 이동
+    while (firstDay.getDay() === 0 || firstDay.getDay() === 6 || 
+           holidays.some(h => h.getTime() === firstDay.getTime())) {
+      firstDay.setDate(firstDay.getDate() + 1)
+    }
+    
+    return firstDay
+  },
+
+  // 특정 날짜 이전 근무일 찾기
+  getWorkingDayBefore: (date: Date, holidays: Date[]): Date => {
+    const result = new Date(date)
+    result.setDate(result.getDate() - 1)
+    
+    while (result.getDay() === 0 || result.getDay() === 6 || 
+           holidays.some(h => h.getTime() === result.getTime())) {
+      result.setDate(result.getDate() - 1)
+    }
+    
+    return result
+  },
+
+  // 특정 날짜 이후 근무일 찾기
+  getWorkingDayAfter: (date: Date, holidays: Date[]): Date => {
+    const result = new Date(date)
+    result.setDate(result.getDate() + 1)
+    
+    while (result.getDay() === 0 || result.getDay() === 6 || 
+           holidays.some(h => h.getTime() === result.getTime())) {
+      result.setDate(result.getDate() + 1)
+    }
+    
+    return result
   }
 }

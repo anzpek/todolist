@@ -9,7 +9,7 @@ export interface RecurringTemplate {
   type: TaskType
   recurrence: RecurrenceType
   recurrenceDay?: number // 매주 반복시 요일 (0=일요일, 6=토요일)
-  recurrenceDate?: number // 매달 반복시 날짜 (1-31, 또는 -1=말일)
+  recurrenceDate?: number // 매달 반복시 날짜 (1-31, -1=말일, -2=첫번째 근무일, -3=마지막 근무일)
   holidayHandling?: 'before' | 'after'
   dueTime?: string
   subTasks?: {
