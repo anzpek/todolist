@@ -96,6 +96,10 @@ const RecurringManagement = () => {
         return `매월 ${(weeks as any)[template.monthlyWeek]} 주 ${weekdays[template.monthlyWeekday]}요일`
       } else if (template.monthlyDate === -1) {
         return '매월 말일'
+      } else if (template.monthlyDate === -2) {
+        return '매월 첫 번째 근무일'
+      } else if (template.monthlyDate === -3) {
+        return '매월 마지막 근무일'
       } else {
         return `매월 ${template.monthlyDate}일`
       }
@@ -508,7 +512,7 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
     monthlyWeekday: template.monthlyWeekday || 3,
     tags: template.tags || [],
     exceptions: template.exceptions || [],
-    holidayHandling: template.holidayHandling || 'before'
+    holidayHandling: template.holidayHandling || 'show'
   })
   
   console.log('초기 formData.holidayHandling:', formData.holidayHandling)
@@ -533,7 +537,7 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
       monthlyWeekday: template.monthlyWeekday || 3,
       tags: template.tags || [],
       exceptions: template.exceptions || [],
-      holidayHandling: template.holidayHandling || 'before'
+      holidayHandling: template.holidayHandling || 'show'
     })
     
     console.log('업데이트된 formData.holidayHandling:', template.holidayHandling || 'before')
@@ -721,6 +725,7 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
               onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as any })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
+              <option value="daily">매일</option>
               <option value="weekly">매주</option>
               <option value="monthly">매월</option>
             </select>
@@ -770,14 +775,20 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     날짜
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
+                  <select
                     value={formData.monthlyDate}
                     onChange={(e) => setFormData({ ...formData, monthlyDate: parseInt(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      <option key={day} value={day}>
+                        {day}일
+                      </option>
+                    ))}
+                    <option value={-1}>말일</option>
+                    <option value={-2}>첫 번째 근무일</option>
+                    <option value={-3}>마지막 근무일</option>
+                  </select>
                 </div>
               )}
 
@@ -834,7 +845,7 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
                   name="holidayHandling"
                   value="before"
                   checked={formData.holidayHandling === 'before'}
-                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' })}
+                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' | 'show' })}
                   className="mr-2 text-blue-600"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">공휴일 이전으로 이동</span>
@@ -845,10 +856,21 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
                   name="holidayHandling"
                   value="after"
                   checked={formData.holidayHandling === 'after'}
-                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' })}
+                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' | 'show' })}
                   className="mr-2 text-blue-600"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">공휴일 이후로 이동</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="holidayHandling"
+                  value="show"
+                  checked={formData.holidayHandling === 'show'}
+                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' | 'show' })}
+                  className="mr-2 text-blue-600"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">공휴일날 표시</span>
               </label>
             </div>
           </div>

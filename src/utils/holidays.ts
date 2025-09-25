@@ -387,3 +387,50 @@ export async function preloadHolidays(years: number[]): Promise<void> {
     console.error('공휴일 데이터 사전 로드 실패:', error)
   }
 }
+
+// 월의 첫 번째 근무일 계산
+export function getFirstWorkdayOfMonth(year: number, month: number): Date {
+  const firstDay = new Date(year, month - 1, 1) // month는 0-based이므로 -1
+  let currentDay = new Date(firstDay)
+  
+  while (isNonWorkingDay(currentDay)) {
+    currentDay.setDate(currentDay.getDate() + 1)
+  }
+  
+  return currentDay
+}
+
+// 월의 마지막 근무일 계산
+export function getLastWorkdayOfMonth(year: number, month: number): Date {
+  const lastDay = new Date(year, month, 0) // 다음 달 0일 = 이번 달 마지막 날
+  let currentDay = new Date(lastDay)
+  
+  while (isNonWorkingDay(currentDay)) {
+    currentDay.setDate(currentDay.getDate() - 1)
+  }
+  
+  return currentDay
+}
+
+// 비동기 버전 - 공휴일 API 사용
+export async function getFirstWorkdayOfMonthAsync(year: number, month: number): Promise<Date> {
+  const firstDay = new Date(year, month - 1, 1)
+  let currentDay = new Date(firstDay)
+  
+  while (await isNonWorkingDayAsync(currentDay)) {
+    currentDay.setDate(currentDay.getDate() + 1)
+  }
+  
+  return currentDay
+}
+
+export async function getLastWorkdayOfMonthAsync(year: number, month: number): Promise<Date> {
+  const lastDay = new Date(year, month, 0)
+  let currentDay = new Date(lastDay)
+  
+  while (await isNonWorkingDayAsync(currentDay)) {
+    currentDay.setDate(currentDay.getDate() - 1)
+  }
+  
+  return currentDay
+}

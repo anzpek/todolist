@@ -94,7 +94,7 @@ const MonthlyCalendarView = ({
   }, [searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter, getFilteredTodos])
 
   const getTodosForDate = (date: Date) => {
-    return filteredTodos.filter(todo => {
+    const todosForDate = filteredTodos.filter(todo => {
       // 완료된 할일의 경우: 완료날짜가 해당 날짜인 것만 표시
       if (todo.completed && todo.completedAt) {
         return isSameDay(todo.completedAt, date)
@@ -133,6 +133,22 @@ const MonthlyCalendarView = ({
       }
       
       return false
+    })
+
+    // 🔥 일자별 할일도 오늘 할일과 동일한 정렬 적용
+    const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
+    return todosForDate.sort((a, b) => {
+      const priorityDiff = priorityOrder[a.priority as keyof typeof priorityOrder] - priorityOrder[b.priority as keyof typeof priorityOrder]
+      if (priorityDiff !== 0) {
+        return priorityDiff
+      }
+      // 같은 우선순위면 order → 날짜순 정렬
+      const orderA = a.order || 0
+      const orderB = b.order || 0
+      if (orderA !== orderB) {
+        return orderA - orderB
+      }
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
   }
 

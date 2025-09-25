@@ -30,7 +30,7 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
     // 기본 반복 설정 (호환성)
     recurrenceDay: 1, // 1=월요일, 7=일요일  
     recurrenceDate: 1, // 1-31, -1=말일
-    holidayHandling: 'before' as HolidayHandling,
+    holidayHandling: 'show' as HolidayHandling,
     // 고급 반복 설정
     weeklyRecurrenceType: 'every_week' as WeeklyRecurrenceType,
     monthlyRecurrenceType: 'by_date' as MonthlyRecurrenceType,
@@ -64,7 +64,7 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
     recurrence: 'none' as RecurrenceType,
     recurrenceDay: 1,
     recurrenceDate: 1,
-    holidayHandling: 'before' as HolidayHandling,
+    holidayHandling: 'show' as HolidayHandling,
     weeklyRecurrenceType: 'every_week' as WeeklyRecurrenceType,
     monthlyRecurrenceType: 'by_date' as MonthlyRecurrenceType,
     weekOfMonth: 1,
@@ -838,6 +838,8 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
                         <option key={day} value={day}>{day}일</option>
                       ))}
                       <option value={-1}>말일</option>
+                      <option value={-2}>첫 번째 근무일</option>
+                      <option value={-3}>마지막 근무일</option>
                     </select>
                   </div>
                 )}
@@ -1121,6 +1123,16 @@ const AddTodoModal = ({ isOpen, onClose }: AddTodoModalProps) => {
                       className="mr-2"
                     />
                     다음날로 이동
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="show"
+                      checked={formData.holidayHandling === 'show'}
+                      onChange={(e) => handleChange('holidayHandling', e.target.value)}
+                      className="mr-2"
+                    />
+                    공휴일날 표시
                   </label>
                 </div>
               </div>

@@ -17,7 +17,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     type: 'simple' as 'simple' | 'project',
-    recurrenceType: 'weekly' as 'weekly' | 'monthly',
+    recurrenceType: 'daily' as 'daily' | 'weekly' | 'monthly',
     weekday: 1, // 월요일
     monthlyDate: 1,
     monthlyPattern: 'date' as 'date' | 'weekday',
@@ -25,7 +25,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
     monthlyWeekday: 3, // 수요일
     tags: [] as string[],
     exceptions: [] as RecurrenceException[],
-    holidayHandling: 'before' as 'before' | 'after'
+    holidayHandling: 'show' as 'before' | 'after' | 'show'
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -151,7 +151,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
         description: '',
         priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
         type: 'simple' as 'simple' | 'project',
-        recurrenceType: 'weekly' as 'weekly' | 'monthly',
+        recurrenceType: 'daily' as 'daily' | 'weekly' | 'monthly',
         weekday: 1,
         monthlyDate: 1,
         monthlyPattern: 'date' as 'date' | 'weekday',
@@ -159,7 +159,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
         monthlyWeekday: 3,
         tags: [],
         exceptions: [],
-        holidayHandling: 'before' as 'before' | 'after'
+        holidayHandling: 'show' as 'before' | 'after' | 'show'
       })
       
       console.log('=== AddRecurringModal 템플릿 생성 완료 ===')
@@ -246,6 +246,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
               onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as any })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
+              <option value="daily">매일</option>
               <option value="weekly">매주</option>
               <option value="monthly">매월</option>
             </select>
@@ -295,14 +296,20 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     날짜
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
+                  <select
                     value={formData.monthlyDate}
                     onChange={(e) => setFormData({ ...formData, monthlyDate: parseInt(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      <option key={day} value={day}>
+                        {day}일
+                      </option>
+                    ))}
+                    <option value={-1}>말일</option>
+                    <option value={-2}>첫 번째 근무일</option>
+                    <option value={-3}>마지막 근무일</option>
+                  </select>
                 </div>
               )}
 
@@ -359,7 +366,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                   name="holidayHandling"
                   value="before"
                   checked={formData.holidayHandling === 'before'}
-                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' })}
+                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' | 'show' })}
                   className="mr-2 text-blue-600"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">공휴일 이전으로 이동</span>
@@ -370,10 +377,21 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                   name="holidayHandling"
                   value="after"
                   checked={formData.holidayHandling === 'after'}
-                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' })}
+                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' | 'show' })}
                   className="mr-2 text-blue-600"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">공휴일 이후로 이동</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="holidayHandling"
+                  value="show"
+                  checked={formData.holidayHandling === 'show'}
+                  onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as 'before' | 'after' | 'show' })}
+                  className="mr-2 text-blue-600"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">공휴일날 표시</span>
               </label>
             </div>
           </div>

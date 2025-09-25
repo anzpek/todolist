@@ -9,6 +9,15 @@ const safeToDate = (value: any): Date | undefined => {
   return undefined
 }
 
+// 안전한 Timestamp 변환 함수 (Firebase용)
+const safeToTimestamp = (value: any): any => {
+  if (!value) return null
+  if (value instanceof Date) return value
+  if (typeof value?.toDate === 'function') return value
+  if (typeof value === 'string') return new Date(value)
+  return null
+}
+
 // undefined 값을 제거하는 함수
 const removeUndefinedValues = (obj: any): any => {
   if (obj === null || obj === undefined) return obj
@@ -922,5 +931,493 @@ export const firestoreService = {
       callback([])
       return () => {}
     }
+  },
+
+  // 반복 템플릿 기반 인스턴스 재생성 (Firebase 전용)
+  regenerateRecurringInstances: async (templateId: string, uid: string): Promise<void> => {
+    return withRetry(async () => {
+      try {
+        if (!uid || !templateId) {
+          throw new Error('User ID and template ID are required')
+        }
+        
+        debug.log('반복 인스턴스 재생성 시작', { templateId, uid })
+        
+        const batch = writeBatch(db)
+        
+        // 1. 기존 템플릿 기반 인스턴스들 삭제
+        const instancesRef = collection(db, `users/${uid}/recurringInstances`)
+        const existingQuery = query(instancesRef)
+        const existingSnapshot = await getDocs(existingQuery)
+        
+        let deletedCount = 0
+        existingSnapshot.docs.forEach(doc => {
+          const data = doc.data()
+          if (data.templateId === templateId) {
+            batch.delete(doc.ref)
+            deletedCount++
+          }
+        })
+        
+        debug.log('기존 인스턴스 삭제 예정', { count: deletedCount })
+        
+        // 2. 템플릿 정보 조회
+        const templateRef = doc(db, `users/${uid}/recurringTemplates`, templateId)
+        const templateDoc = await getDoc(templateRef)
+        
+        if (!templateDoc.exists()) {
+          throw new Error(`Template ${templateId} not found`)
+        }
+        
+        const template = { id: templateDoc.id, ...templateDoc.data() } as any
+        debug.log('템플릿 조회 완료', { template: template.title })
+        
+        // 3. 새로운 인스턴스들 생성
+        const newInstances = await firestoreService.generateInstancesForTemplate(template, uid)
+        
+        // 중복 방지를 위한 유니크 ID 생성
+        const uniqueInstances = new Map()
+        newInstances.forEach(instance => {
+          const dateKey = instance.date.toISOString().split('T')[0] // YYYY-MM-DD 형식
+          const uniqueId = `${templateId}_${dateKey}`
+          
+          if (!uniqueInstances.has(uniqueId)) {
+            uniqueInstances.set(uniqueId, {
+              ...instance,
+              id: uniqueId
+            })
+          } else {
+            debug.log('중복 인스턴스 제거:', { uniqueId, date: dateKey })
+          }
+        })
+        
+        uniqueInstances.forEach((instance, uniqueId) => {
+          const instanceRef = doc(instancesRef, uniqueId)
+          batch.set(instanceRef, {
+            ...instance,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          })
+        })
+        
+        debug.log('새 인스턴스 생성 예정', { 
+          originalCount: newInstances.length,
+          uniqueCount: uniqueInstances.size 
+        })
+        
+        // 4. 일괄 처리 실행
+        await batch.commit()
+        
+        debug.log('반복 인스턴스 재생성 성공', {
+          templateId,
+          deleted: deletedCount,
+          created: newInstances.length
+        })
+      } catch (error) {
+        debug.error('반복 인스턴스 재생성 실패:', error)
+        throw handleFirestoreError(error, 'regenerateRecurringInstances')
+      }
+    })
+  },
+
+  // 반복 템플릿 기반 실제 할일 재생성 (Firebase 전용) - 실제 todos 컬렉션 처리
+  regenerateTemplateTodos: async (templateId: string, uid: string): Promise<void> => {
+    return withRetry(async () => {
+      try {
+        if (!uid || !templateId) {
+          throw new Error('User ID and template ID are required')
+        }
+        
+        debug.log('반복 템플릿 할일 재생성 시작', { templateId, uid })
+        
+        const batch = writeBatch(db)
+        
+        // 1. 기존 템플릿 기반 할일들 삭제 (_templateId 기준)
+        const todosRef = collection(db, `users/${uid}/todos`)
+        const existingQuery = query(todosRef)
+        const existingSnapshot = await getDocs(existingQuery)
+        
+        let deletedCount = 0
+        existingSnapshot.docs.forEach(doc => {
+          const data = doc.data()
+          if (data._templateId === templateId) {
+            batch.delete(doc.ref)
+            deletedCount++
+          }
+        })
+        
+        debug.log('기존 템플릿 기반 할일 삭제 예정', { count: deletedCount })
+        
+        // 2. 템플릿 정보 조회
+        const templateRef = doc(db, `users/${uid}/recurringTemplates`, templateId)
+        const templateDoc = await getDoc(templateRef)
+        
+        if (!templateDoc.exists()) {
+          throw new Error(`Template ${templateId} not found`)
+        }
+        
+        const template = { id: templateDoc.id, ...templateDoc.data() } as any
+        debug.log('템플릿 조회 완료', { template: template.title })
+        
+        // 3. 새로운 할일들 생성
+        const newInstances = await firestoreService.generateInstancesForTemplate(template, uid)
+        
+        // 4. 인스턴스를 실제 할일로 변환하여 생성
+        newInstances.forEach(instance => {
+          const todoRef = doc(todosRef)
+          const todoData = {
+            id: todoRef.id,
+            title: template.title,
+            description: template.description || '',
+            type: 'single' as const,
+            status: 'pending' as const,
+            dueDate: safeToTimestamp(instance.date),
+            createdDate: serverTimestamp(),
+            updatedDate: serverTimestamp(),
+            priority: template.priority || 'medium',
+            tags: template.tags || [],
+            _templateId: templateId, // 템플릿 연결
+            _instanceId: instance.id // 인스턴스 연결
+          }
+          
+          batch.set(todoRef, todoData)
+        })
+        
+        debug.log('새 할일 생성 예정', { count: newInstances.length })
+        
+        // 5. 일괄 처리 실행
+        await batch.commit()
+        
+        debug.log('반복 템플릿 할일 재생성 성공', {
+          templateId,
+          deleted: deletedCount,
+          created: newInstances.length
+        })
+      } catch (error) {
+        debug.error('반복 템플릿 할일 재생성 실패:', error)
+        throw handleFirestoreError(error, 'regenerateTemplateTodos')
+      }
+    })
+  },
+
+  // 템플릿에 대한 인스턴스 생성 로직 (내부 함수)
+  generateInstancesForTemplate: async (template: any, uid: string): Promise<any[]> => {
+    try {
+      debug.log('템플릿 인스턴스 생성 시작', { 
+        templateId: template.id, 
+        title: template.title,
+        recurrenceType: template.recurrenceType,
+        monthlyDate: template.monthlyDate 
+      })
+      
+      const instances: any[] = []
+      const now = new Date()
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1) // 이번 달 1일
+      const endDate = new Date(now.getFullYear() + 1, now.getMonth() + 1, 0) // 1년 후 같은 달 마지막날까지
+      
+      debug.log('날짜 범위', { 
+        startDate: startDate.toISOString(), 
+        endDate: endDate.toISOString() 
+      })
+      
+      // 공휴일 API 데이터 가져오기 (간단한 구현)
+      const holidays = await firestoreService.fetchHolidays(now.getFullYear())
+      
+      const current = new Date(startDate)
+      let monthCount = 0
+      
+      while (current <= endDate && monthCount < 15) { // 안전 장치
+        debug.log(`${monthCount + 1}번째 달 처리 중:`, { 
+          year: current.getFullYear(), 
+          month: current.getMonth() + 1
+        })
+        
+        let targetDate = new Date(current)
+        
+        // 월간 반복 처리
+        if (template.recurrenceType === 'monthly') {
+          const monthlyDate = template.monthlyDate
+          
+          if (monthlyDate === -1) {
+            // 말일
+            targetDate = new Date(current.getFullYear(), current.getMonth() + 1, 0)
+            debug.log('말일 계산:', targetDate.toISOString())
+          } else if (monthlyDate === -2) {
+            // 첫번째 근무일
+            debug.log('🔍 첫번째 근무일 요청:', { year: current.getFullYear(), jsMonth: current.getMonth(), displayMonth: current.getMonth() + 1 })
+            targetDate = firestoreService.getFirstWorkingDay(current.getFullYear(), current.getMonth(), holidays)
+            debug.log('🎯 첫번째 근무일 결과:', { date: targetDate.toISOString(), displayDate: targetDate.toDateString() })
+          } else if (monthlyDate === -3) {
+            // 마지막 근무일
+            debug.log('🔍 마지막 근무일 요청:', { year: current.getFullYear(), jsMonth: current.getMonth(), displayMonth: current.getMonth() + 1 })
+            targetDate = firestoreService.getLastWorkingDay(current.getFullYear(), current.getMonth(), holidays)
+            debug.log('🎯 마지막 근무일 결과:', { date: targetDate.toISOString(), displayDate: targetDate.toDateString() })
+          } else if (monthlyDate && monthlyDate >= 1 && monthlyDate <= 31) {
+            // 특정 날짜
+            debug.log('🔍 특정 날짜 요청:', {
+              year: current.getFullYear(),
+              jsMonth: current.getMonth(),
+              displayMonth: current.getMonth() + 1,
+              requestedDay: monthlyDate,
+              currentDate: current.toISOString()
+            })
+            targetDate = new Date(current.getFullYear(), current.getMonth(), monthlyDate)
+            debug.log('🎯 특정 날짜 생성 결과:', {
+              targetDate: targetDate.toISOString(),
+              displayDate: targetDate.toDateString(),
+              actualDay: targetDate.getDate(),
+              actualMonth: targetDate.getMonth() + 1
+            })
+          }
+          
+          // 공휴일 처리
+          debug.log('🔍 공휴일 처리 확인:', {
+            holidayHandling: template.holidayHandling,
+            targetDate: targetDate.toISOString(),
+            isWeekend: targetDate.getDay() === 0 || targetDate.getDay() === 6,
+            dayOfWeek: targetDate.getDay(),
+            holidaysCount: holidays.length
+          })
+
+          if (template.holidayHandling === 'before') {
+            const originalDate = new Date(targetDate)
+            debug.log('🚨 공휴일 처리 (before) 호출 전:', {
+              original: originalDate.toISOString(),
+              originalDisplayDate: originalDate.toDateString(),
+              originalDay: originalDate.getDate()
+            })
+            targetDate = firestoreService.getWorkingDayBefore(targetDate, holidays)
+            debug.log('🚨 공휴일 처리 (before) 호출 후:', {
+              adjusted: targetDate.toISOString(),
+              adjustedDisplayDate: targetDate.toDateString(),
+              adjustedDay: targetDate.getDate(),
+              daysDifference: originalDate.getDate() - targetDate.getDate()
+            })
+          } else if (template.holidayHandling === 'after') {
+            const originalDate = new Date(targetDate)
+            debug.log('🚨 공휴일 처리 (after) 호출 전:', {
+              original: originalDate.toISOString(),
+              originalDisplayDate: originalDate.toDateString(),
+              originalDay: originalDate.getDate()
+            })
+            targetDate = firestoreService.getWorkingDayAfter(targetDate, holidays)
+            debug.log('🚨 공휴일 처리 (after) 호출 후:', {
+              adjusted: targetDate.toISOString(),
+              adjustedDisplayDate: targetDate.toDateString(),
+              adjustedDay: targetDate.getDate(),
+              daysDifference: targetDate.getDate() - originalDate.getDate()
+            })
+          } else {
+            debug.log('✅ 공휴일 처리 없음 - 날짜 그대로 사용')
+          }
+          // 'show' 옵션은 날짜 그대로 사용
+          
+          // 인스턴스 생성
+          const instance = {
+            templateId: template.id,
+            date: targetDate,
+            completed: false,
+            completedAt: null
+          }
+          
+          instances.push(instance)
+          debug.log(`인스턴스 생성:`, { 
+            date: targetDate.toISOString(),
+            month: targetDate.getMonth() + 1,
+            day: targetDate.getDate()
+          })
+        } else {
+          debug.log('월간 반복이 아닌 템플릿:', template.recurrenceType)
+        }
+        
+        // 다음 달로 이동
+        current.setMonth(current.getMonth() + 1)
+        monthCount++
+      }
+      
+      debug.log('템플릿 인스턴스 생성 완료', { 
+        count: instances.length,
+        months: monthCount 
+      })
+      return instances
+    } catch (error) {
+      debug.error('템플릿 인스턴스 생성 실패:', error)
+      return []
+    }
+  },
+
+  // 공휴일 데이터 가져오기 (간단한 구현)
+  fetchHolidays: async (year: number): Promise<Date[]> => {
+    try {
+      // 실제 구현에서는 공휴일 API를 호출
+      // 여기서는 간단한 예시만 제공
+      return []
+    } catch (error) {
+      debug.error('공휴일 조회 실패:', error)
+      return []
+    }
+  },
+
+  // 마지막 근무일 계산
+  getLastWorkingDay: (year: number, month: number, holidays: Date[]): Date => {
+    // 새로운 Date 객체를 생성하여 원본을 보호
+    const lastDay = new Date(year, month + 1, 0) // 해당 월의 마지막 날
+    const workingDay = new Date(lastDay) // 복사본 생성
+    
+    debug.log(`🗓️ 마지막 근무일 계산 시작:`, { 
+      year, 
+      month: month + 1, 
+      originalLastDay: lastDay.toISOString(),
+      dayOfWeek: lastDay.getDay(),
+      holidaysCount: holidays.length
+    })
+    
+    let adjustmentCount = 0
+    // 토요일(6) 또는 일요일(0)이면 이전 근무일로 이동
+    while (workingDay.getDay() === 0 || workingDay.getDay() === 6 || 
+           holidays.some(h => h.getTime() === workingDay.getTime())) {
+      
+      const reason = workingDay.getDay() === 0 ? '일요일' : 
+                     workingDay.getDay() === 6 ? '토요일' : '공휴일'
+      debug.log(`날짜 조정: ${workingDay.toISOString()} (${reason})`)
+      
+      workingDay.setDate(workingDay.getDate() - 1)
+      adjustmentCount++
+      
+      if (adjustmentCount > 7) { // 안전 장치
+        debug.error('마지막 근무일 계산 무한루프 방지')
+        break
+      }
+    }
+    
+    debug.log(`🗓️ 마지막 근무일 계산 완료:`, { 
+      originalLastDay: lastDay.toISOString(),
+      finalWorkingDay: workingDay.toISOString(),
+      adjustments: adjustmentCount,
+      finalDayOfWeek: workingDay.getDay()
+    })
+    
+    return workingDay
+  },
+
+  // 첫번째 근무일 계산
+  getFirstWorkingDay: (year: number, month: number, holidays: Date[]): Date => {
+    const firstDay = new Date(year, month, 1) // 해당 월의 첫날
+    const workingDay = new Date(firstDay) // 복사본 생성하여 원본 보호
+
+    debug.log(`🗓️ 첫번째 근무일 계산 시작:`, {
+      year,
+      month: month + 1,
+      originalFirstDay: firstDay.toISOString(),
+      dayOfWeek: firstDay.getDay(),
+      holidaysCount: holidays.length
+    })
+
+    let adjustmentCount = 0
+    const maxAdjustments = 10
+
+    // 토요일(6) 또는 일요일(0)이면 다음 근무일로 이동
+    while ((workingDay.getDay() === 0 || workingDay.getDay() === 6 ||
+           holidays.some(h => h.getTime() === workingDay.getTime())) &&
+           adjustmentCount < maxAdjustments) {
+      debug.log(`  ${workingDay.toISOString()} - 비근무일 (주말=${workingDay.getDay() === 0 || workingDay.getDay() === 6}, 공휴일=${holidays.some(h => h.getTime() === workingDay.getTime())})`)
+      workingDay.setDate(workingDay.getDate() + 1)
+      adjustmentCount++
+    }
+
+    debug.log(`🎯 첫번째 근무일 계산 완료:`, {
+      year,
+      month: month + 1,
+      originalFirstDay: firstDay.toISOString(),
+      finalWorkingDay: workingDay.toISOString(),
+      adjustments: adjustmentCount,
+      finalDayOfWeek: workingDay.getDay()
+    })
+
+    return workingDay
+  },
+
+  // 특정 날짜 이전 근무일 찾기
+  getWorkingDayBefore: (date: Date, holidays: Date[]): Date => {
+    const result = new Date(date)
+
+    debug.log('🔍 getWorkingDayBefore 시작:', {
+      inputDate: date.toISOString(),
+      inputDisplayDate: date.toDateString(),
+      inputDay: date.getDate(),
+      inputDayOfWeek: date.getDay(),
+      isWeekend: date.getDay() === 0 || date.getDay() === 6,
+      isHoliday: holidays.some(h => h.getTime() === date.getTime())
+    })
+
+    // 🔥 핵심 수정: 이미 평일이고 공휴일이 아니면 그대로 반환
+    if (result.getDay() !== 0 && result.getDay() !== 6 &&
+        !holidays.some(h => h.getTime() === result.getTime())) {
+      debug.log('✅ 이미 근무일이므로 그대로 반환:', result.toDateString())
+      return result
+    }
+
+    // 주말이거나 공휴일인 경우만 이전 근무일 찾기
+    let adjustmentCount = 0
+    const maxAdjustments = 10
+
+    while ((result.getDay() === 0 || result.getDay() === 6 ||
+           holidays.some(h => h.getTime() === result.getTime())) &&
+           adjustmentCount < maxAdjustments) {
+      debug.log(`  ${result.toDateString()} - 비근무일, 하루 전으로`)
+      result.setDate(result.getDate() - 1)
+      adjustmentCount++
+    }
+
+    debug.log('🎯 getWorkingDayBefore 완료:', {
+      finalDate: result.toISOString(),
+      finalDisplayDate: result.toDateString(),
+      finalDay: result.getDate(),
+      adjustments: adjustmentCount
+    })
+
+    return result
+  },
+
+  // 특정 날짜 이후 근무일 찾기
+  getWorkingDayAfter: (date: Date, holidays: Date[]): Date => {
+    const result = new Date(date)
+
+    debug.log('🔍 getWorkingDayAfter 시작:', {
+      inputDate: date.toISOString(),
+      inputDisplayDate: date.toDateString(),
+      inputDay: date.getDate(),
+      inputDayOfWeek: date.getDay(),
+      isWeekend: date.getDay() === 0 || date.getDay() === 6,
+      isHoliday: holidays.some(h => h.getTime() === date.getTime())
+    })
+
+    // 🔥 핵심 수정: 이미 평일이고 공휴일이 아니면 그대로 반환
+    if (result.getDay() !== 0 && result.getDay() !== 6 &&
+        !holidays.some(h => h.getTime() === result.getTime())) {
+      debug.log('✅ 이미 근무일이므로 그대로 반환:', result.toDateString())
+      return result
+    }
+
+    // 주말이거나 공휴일인 경우만 다음 근무일 찾기
+    let adjustmentCount = 0
+    const maxAdjustments = 10
+
+    while ((result.getDay() === 0 || result.getDay() === 6 ||
+           holidays.some(h => h.getTime() === result.getTime())) &&
+           adjustmentCount < maxAdjustments) {
+      debug.log(`  ${result.toDateString()} - 비근무일, 하루 뒤로`)
+      result.setDate(result.getDate() + 1)
+      adjustmentCount++
+    }
+
+    debug.log('🎯 getWorkingDayAfter 완료:', {
+      finalDate: result.toISOString(),
+      finalDisplayDate: result.toDateString(),
+      finalDay: result.getDate(),
+      adjustments: adjustmentCount
+    })
+
+    return result
   }
 }

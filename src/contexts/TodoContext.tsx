@@ -76,6 +76,7 @@ interface TodoContextType extends TodoState {
   forceRefresh: () => Promise<void>
   manualRefresh: () => Promise<void>
   initializeOrderValues: () => void
+  fixRecurringInstances: () => Promise<void>
 }
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined)
@@ -505,11 +506,52 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentUser, authLoading])
 
-  // 반복 템플릿이 변경될 때마다 인스턴스 재생성 (완전 비활성화)
+  // 반복 템플릿이 변경될 때마다 인스턴스 재생성
   useEffect(() => {
-    console.log('🚫 반복 인스턴스 자동 재생성 완전 비활성화 (중복 생성 방지)')
-    // 로그인/비로그인 상관없이 자동 생성 비활성화
-    // Firebase에서 실시간 구독으로만 관리
+    if (state.recurringTemplates.length === 0) return
+    
+    console.log('🔄 반복 템플릿 변경 감지 - 인스턴스 재생성 시작')
+    console.log('📋 현재 템플릿 수:', state.recurringTemplates.length)
+    
+    const generateRecurringInstances = async () => {
+      try {
+        // 비로그인 사용자: 로컬 생성
+        if (!currentUser) {
+          const allInstances: RecurringInstance[] = []
+          
+          for (const template of state.recurringTemplates) {
+            try {
+              console.log(`📝 템플릿 처리 중: ${template.title}`)
+              const instances = await generateSimpleRecurringInstances(template)
+              allInstances.push(...instances)
+              console.log(`✅ 템플릿 ${template.title}: ${instances.length}개 인스턴스 생성`)
+            } catch (error) {
+              console.error(`❌ 템플릿 ${template.title} 인스턴스 생성 실패:`, error)
+            }
+          }
+          
+          console.log('📊 총 생성된 인스턴스:', allInstances.length)
+          dispatch({ type: 'SET_RECURRING_INSTANCES', payload: allInstances })
+          return
+        }
+
+        // Firebase 사용자: 각 템플릿별로 재생성
+        for (const template of state.recurringTemplates) {
+          try {
+            console.log(`🔥 Firebase 템플릿 재생성: ${template.title}`)
+            await firestoreService.regenerateRecurringInstances(template.id, currentUser.uid)
+          } catch (error) {
+            console.error(`❌ Firebase 템플릿 ${template.title} 재생성 실패:`, error)
+          }
+        }
+        
+        console.log('✅ 모든 템플릿 재생성 완료')
+      } catch (error) {
+        console.error('❌ 반복 인스턴스 재생성 실패:', error)
+      }
+    }
+    
+    generateRecurringInstances()
   }, [state.recurringTemplates, currentUser])
 
   // 새로운 반복 인스턴스를 Firebase에 동기화
@@ -1698,7 +1740,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (priorityDiff !== 0) {
         return priorityDiff
       }
-      // 같은 우선순위면 날짜순 정렬
+      // 같은 우선순위면 order → 날짜순 정렬
+      const orderA = a.order || 0
+      const orderB = b.order || 0
+      if (orderA !== orderB) {
+        return orderA - orderB
+      }
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
     
@@ -1828,7 +1875,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (priorityDiff !== 0) {
         return priorityDiff
       }
-      // 같은 우선순위면 날짜순 정렬
+      // 같은 우선순위면 order → 날짜순 정렬
+      const orderA = a.order || 0
+      const orderB = b.order || 0
+      if (orderA !== orderB) {
+        return orderA - orderB
+      }
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
     
@@ -2052,35 +2104,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         const firestoreId = await firestoreService.addRecurringTemplate(templateData, currentUser.uid)
         console.log('반복 템플릿 Firestore 저장 성공:', firestoreId)
         
-        // 🔥 새 템플릿에 대한 인스턴스 생성 + Firebase 저장
-        console.log('🔥 새 템플릿 인스턴스 생성 시작')
-        const newTemplate: SimpleRecurringTemplate = {
-          ...templateData,
-          id: firestoreId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-        
-        // simpleRecurringSystem을 사용해서 인스턴스 생성
-        const newInstances = simpleRecurringSystem.generateInstances(newTemplate)
-        console.log('🔥 새 템플릿 인스턴스 생성 완료:', newInstances.length, '개')
-        
-        // 생성된 각 인스턴스를 Firebase에 저장
-        for (const instance of newInstances) {
-          try {
-            await firestoreService.updateRecurringInstance(instance.id, {
-              templateId: instance.templateId,
-              date: instance.date,
-              completed: instance.completed,
-              completedAt: instance.completedAt,
-            }, currentUser.uid)
-            console.log('✅ 인스턴스 Firebase 저장:', instance.id)
-          } catch (error) {
-            console.error('❌ 인스턴스 Firebase 저장 실패:', instance.id, error)
-          }
-        }
-        
-        console.log('🔥 새 템플릿 인스턴스 Firebase 저장 완료')
+        // 🔥 인스턴스 생성은 useEffect에서 자동으로 처리됨 (중복 방지)
+        console.log('✅ 템플릿 저장 완료 - 인스턴스는 useEffect에서 자동 생성됨')
       } else {
         // 비로그인 사용자: 메모리에 저장 후 localStorage에 자동 저장
         console.log('비로그인 모드: 메모리에 반복 템플릿 추가')
@@ -2101,25 +2126,48 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const updateRecurringTemplate = async (id: string, updates: Partial<SimpleRecurringTemplate>) => {
-    console.log('=== 반복 템플릿 수정 시작 ===')
+    console.log('🔧 반복 템플릿 수정 시작')
     console.log('템플릿 ID:', id)
     console.log('수정 데이터:', updates)
-    console.log('currentUser:', currentUser)
-    
+
     try {
       if (currentUser) {
-        // Firestore 전용 업데이트
-        console.log('Firestore 모드로 업데이트 시도')
+        console.log('🔥 Firebase 사용자 - 템플릿만 업데이트 (인스턴스는 useEffect에서 자동 처리)')
+
+        // 1. Firestore 템플릿 업데이트 (인스턴스 재생성은 하지 않음)
+        console.log('1️⃣ Firestore 템플릿 업데이트만 수행')
         await firestoreService.updateRecurringTemplate(id, updates, currentUser.uid)
-        console.log('반복 템플릿 Firestore 업데이트 성공:', id)
-        
-        // 로컬 상태도 업데이트
+        console.log('✅ 반복 템플릿 Firestore 업데이트 완료:', id)
+
+        // 2. 로컬 상태 템플릿 업데이트
+        console.log('2️⃣ 로컬 상태 템플릿 업데이트')
         dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: { id, updates } })
-        console.log('로컬 상태 업데이트 완료')
+        console.log('✅ 로컬 상태 템플릿 업데이트 완료')
+
+        // 📝 NOTE: 인스턴스 재생성은 useEffect에서 템플릿 변경을 감지하여 자동으로 처리됩니다.
+        console.log('💡 인스턴스 재생성은 useEffect에서 자동 처리됩니다.')
+        
       } else {
         // 비로그인 사용자: 메모리에서 업데이트
         console.log('비로그인 모드: 메모리에서 반복 템플릿 업데이트')
+        
+        // 1. 기존 할일 중 해당 템플릿에서 생성된 것들 삭제
+        const todosToRemove = state.todos.filter((todo: any) => todo._templateId === id)
+        console.log(`템플릿 ${id}에서 생성된 할일 ${todosToRemove.length}개 발견`)
+        
+        for (const todo of todosToRemove) {
+          console.log(`할일 삭제: ${todo.title} (${todo.id})`)
+          dispatch({ type: 'DELETE_TODO', payload: todo.id })
+        }
+        
+        // 2. 템플릿 업데이트
         dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: { id, updates } })
+        
+        // 3. 새로운 할일들 생성
+        setTimeout(() => {
+          console.log('업데이트된 템플릿으로 새로운 할일 생성 시작')
+          generateRecurringInstances()
+        }, 100)
       }
       console.log('=== 반복 템플릿 수정 완료 ===')
     } catch (error) {
@@ -2272,6 +2320,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             updatedAt: instance.updatedAt,
             completedAt: instance.completedAt, // ✅ Firebase 완료 시간 그대로 사용
             tags: [...(template.tags || [])],
+            order: -1000, // 반복 할일을 같은 우선순위 내에서 최상단에 표시
             
             // 메타데이터
             _isRecurringInstance: true,
@@ -2489,6 +2538,66 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  // 🚨 긴급 수정: Firebase 반복 인스턴스 완전 재생성
+  const fixRecurringInstances = async () => {
+    if (!currentUser) {
+      console.log('❌ 로그인하지 않은 사용자')
+      return
+    }
+
+    console.log('🚨 긴급 수정: Firebase 반복 인스턴스 완전 재생성 시작')
+
+    try {
+      // 1. 모든 기존 반복 인스턴스 삭제
+      console.log('1️⃣ 모든 기존 반복 인스턴스 삭제 중...')
+      const existingInstances = await firestoreService.getRecurringInstances(currentUser.uid)
+      console.log(`삭제할 인스턴스 개수: ${existingInstances.length}`)
+
+      for (const instance of existingInstances) {
+        await firestoreService.deleteRecurringInstance(instance.id, currentUser.uid)
+        console.log(`✅ 인스턴스 삭제: ${instance.id}`)
+      }
+
+      // 2. 모든 활성 템플릿에 대해 새 인스턴스 생성
+      console.log('2️⃣ 새 인스턴스 생성 중...')
+      const activeTemplates = state.recurringTemplates.filter(t => t.isActive)
+      console.log(`활성 템플릿 개수: ${activeTemplates.length}`)
+
+      for (const template of activeTemplates) {
+        console.log(`🔄 템플릿 처리: ${template.title} (monthlyDate: ${template.monthlyDate})`)
+
+        // simpleRecurringSystem으로 새 인스턴스 생성
+        const newInstances = simpleRecurringSystem.generateInstances(template)
+        console.log(`생성된 인스턴스: ${newInstances.length}개`)
+
+        // Firebase에 저장
+        for (const instance of newInstances) {
+          const instanceData = {
+            templateId: instance.templateId,
+            date: instance.date,
+            completed: false,
+            createdAt: instance.createdAt,
+            updatedAt: instance.updatedAt
+          }
+
+          const savedId = await firestoreService.addRecurringInstance(instanceData, currentUser.uid)
+          console.log(`✅ 인스턴스 저장: ${savedId} - ${instance.date.toDateString()}`)
+        }
+      }
+
+      // 3. 로컬 상태 새로고침
+      console.log('3️⃣ 로컬 상태 새로고침 중...')
+      await forceRefresh()
+
+      console.log('✅ 긴급 수정 완료!')
+      alert('✅ 반복 할일 문제가 수정되었습니다!\n페이지를 새로고침해주세요.')
+
+    } catch (error) {
+      console.error('❌ 긴급 수정 실패:', error)
+      alert('❌ 수정 중 오류가 발생했습니다.')
+    }
+  }
+
   // 수동 새로고침 함수 (삭제 후 호출용)
   const manualRefresh = async () => {
     if (!currentUser) {
@@ -2535,8 +2644,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     cleanupDuplicateTemplates,
     forceRefresh,
     manualRefresh,
-    initializeOrderValues
+    initializeOrderValues,
+    fixRecurringInstances
   }
+
+  // 🚨 개발자 콘솔에서 사용할 수 있도록 전역 함수로 노출
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).fixRecurringInstances = fixRecurringInstances
+    }
+  }, [])
 
   return (
     <TodoContext.Provider value={value}>

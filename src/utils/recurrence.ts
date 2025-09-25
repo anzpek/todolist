@@ -1,5 +1,5 @@
 import type { Todo } from '../types/todo'
-import { adjustDateForHoliday, isNonWorkingDay } from './holidays'
+import { adjustDateForHoliday, isNonWorkingDay, getFirstWorkdayOfMonth, getLastWorkdayOfMonth } from './holidays'
 
 export function getNextRecurrenceDate(todo: Todo, fromDate: Date = new Date()): Date | null {
   if (todo.recurrence === 'none' || !todo.dueDate) {
@@ -29,6 +29,18 @@ export function getNextRecurrenceDate(todo: Todo, fromDate: Date = new Date()): 
         // 말일로 설정
         nextDate.setMonth(nextDate.getMonth() + 1)
         nextDate.setDate(0) // 이전 달의 마지막 날
+      } else if (targetDate === -2) {
+        // 첫 번째 근무일로 설정
+        const nextMonth = nextDate.getMonth() + 1
+        const nextYear = nextMonth > 11 ? nextDate.getFullYear() + 1 : nextDate.getFullYear()
+        const adjustedMonth = nextMonth > 11 ? 0 : nextMonth
+        return getFirstWorkdayOfMonth(nextYear, adjustedMonth + 1) // month는 1-based
+      } else if (targetDate === -3) {
+        // 마지막 근무일로 설정
+        const nextMonth = nextDate.getMonth() + 1
+        const nextYear = nextMonth > 11 ? nextDate.getFullYear() + 1 : nextDate.getFullYear()
+        const adjustedMonth = nextMonth > 11 ? 0 : nextMonth
+        return getLastWorkdayOfMonth(nextYear, adjustedMonth + 1) // month는 1-based
       } else {
         // 특정 날짜로 설정
         nextDate.setMonth(nextDate.getMonth() + 1)
@@ -116,6 +128,10 @@ export function getRecurrenceDescription(todo: Todo): string {
     case 'monthly':
       if (todo.recurrenceDate === -1) {
         description = '매월 말일'
+      } else if (todo.recurrenceDate === -2) {
+        description = '매월 첫 번째 근무일'
+      } else if (todo.recurrenceDate === -3) {
+        description = '매월 마지막 근무일'
       } else {
         description = `매월 ${todo.recurrenceDate || 1}일`
       }

@@ -7,7 +7,7 @@ export type WeeklyRecurrenceType = 'every_week' | 'first_week' | 'second_week' |
 
 export type MonthlyRecurrenceType = 'by_date' | 'by_weekday' // 날짜별 vs 요일별
 
-export type HolidayHandling = 'before' | 'after' | 'skip'
+export type HolidayHandling = 'before' | 'after' | 'show'
 
 export interface WeeklyRecurrenceOptions {
   type: WeeklyRecurrenceType
@@ -18,7 +18,7 @@ export interface WeeklyRecurrenceOptions {
 export interface MonthlyRecurrenceOptions {
   type: MonthlyRecurrenceType
   // 날짜별 반복 (by_date)
-  date?: number // 1-31, -1=말일
+  date?: number // 1-31, -1=말일, -2=첫번째 근무일, -3=마지막 근무일
   // 요일별 반복 (by_weekday)  
   weekOfMonth?: number // 1=첫째주, 2=둘째주, 3=셋째주, 4=넷째주, -1=마지막주
   weekday?: number // 0=일요일, 1=월요일, ..., 6=토요일
@@ -77,7 +77,7 @@ export interface Todo {
   dueTime?: string // 마감 시간 (HH:mm 형식)
   recurrence: RecurrenceType
   recurrenceDay?: number // 매주 반복시 요일 (0=일요일, 6=토요일)
-  recurrenceDate?: number // 매달 반복시 날짜 (1-31, 또는 -1=말일)
+  recurrenceDate?: number // 매달 반복시 날짜 (1-31, -1=말일, -2=첫번째 근무일, -3=마지막 근무일)
   holidayHandling?: 'before' | 'after' // 공휴일 처리 방식
   subTasks?: SubTask[] // 프로젝트 타입일 때만 사용
   project?: 'longterm' | 'shortterm' // 롱텀/숏텀 프로젝트 구분
