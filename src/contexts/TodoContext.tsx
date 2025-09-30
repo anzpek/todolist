@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useRef } from 'react'
+import { createContext, useContext, useReducer, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import type { Todo, SubTask, Priority, TaskType } from '../types/todo'
 import type { RecurringTemplate, RecurringInstance } from '../types/context'
@@ -6,6 +6,7 @@ import { generateId } from '../utils/helpers'
 import { simpleRecurringSystem, type SimpleRecurringTemplate, type SimpleRecurringInstance } from '../utils/simpleRecurring'
 import { useAuth } from './AuthContext'
 import { firestoreService } from '../services/firestoreService'
+import { cleanupService } from '../services/cleanupService'
 import { deleteField } from '../config/firebase'
 
 interface TodoState {
@@ -77,6 +78,10 @@ interface TodoContextType extends TodoState {
   manualRefresh: () => Promise<void>
   initializeOrderValues: () => void
   fixRecurringInstances: () => Promise<void>
+  cleanupOrphanedData: () => Promise<void>
+  validateDataConsistency: () => Promise<void>
+  massCleanupInstances: () => Promise<void>
+  smartCleanupInstances: () => Promise<void>
 }
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined)
@@ -2648,15 +2653,248 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     fixRecurringInstances
   }
 
+  // Firebase 고아 데이터 정리 함수
+  const cleanupOrphanedData = useCallback(async () => {
+    if (!currentUser?.uid) {
+      console.log('로그인 확인 중...')
+      return
+    }
+
+    try {
+      console.log('🧹 고아 데이터 정리 시작')
+      const result = await cleanupService.cleanupOrphanedInstances(currentUser.uid)
+
+      console.log('✅ 고아 데이터 정리 완료:', result)
+      alert(`✅ 정리 완료!\n- 고아 인스턴스: ${result.orphanedInstances}개\n- 고아 할일: ${result.orphanedTodos}개\n- 총 정리: ${result.totalCleaned}개`)
+
+      // 화면 새로고침
+      await forceRefresh()
+
+    } catch (error) {
+      console.error('❌ 고아 데이터 정리 실패:', error)
+      alert('❌ 정리 중 오류가 발생했습니다.')
+    }
+  }, [currentUser])
+
+  // 데이터 정합성 검증 함수
+  const validateDataConsistency = useCallback(async () => {
+    if (!currentUser?.uid) {
+      console.log('로그인 확인 중...')
+      return
+    }
+
+    try {
+      console.log('🔍 데이터 정합성 검증 시작')
+      const stats = await cleanupService.validateTemplateConsistency(currentUser.uid)
+
+      console.log('✅ 데이터 정합성 검증 완료 - 콘솔을 확인하세요')
+      alert(`✅ 검증 완료!\n총 ${stats.size}개 템플릿의 데이터 현황을 콘솔에서 확인하세요.`)
+
+    } catch (error) {
+      console.error('❌ 데이터 정합성 검증 실패:', error)
+      alert('❌ 검증 중 오류가 발생했습니다.')
+    }
+  }, [currentUser])
+
+  // 대량 인스턴스 정리 함수 (현재 활성 템플릿만 유지)
+  const massCleanupInstances = useCallback(async () => {
+    if (!currentUser?.uid) {
+      console.log('로그인 확인 중...')
+      return
+    }
+
+    const confirmation = window.confirm(
+      '⚠️ 경고: 모든 기존 인스턴스를 삭제하고 현재 활성 템플릿만의 새로운 인스턴스를 생성합니다.\n\n' +
+      '이 작업은 되돌릴 수 없으며, 기존 완료 상태가 초기화됩니다.\n\n' +
+      '계속하시겠습니까?'
+    )
+
+    if (!confirmation) {
+      console.log('❌ 사용자가 취소했습니다')
+      return
+    }
+
+    try {
+      console.log('🧹 대량 인스턴스 정리 시작')
+      const result = await cleanupService.massCleanupInstances(currentUser.uid)
+
+      console.log('✅ 대량 정리 완료:', result)
+      alert(`✅ 대량 정리 완료!\n\n` +
+            `- 활성 템플릿: ${result.activeTemplates}개\n` +
+            `- 삭제된 인스턴스: ${result.deletedInstances}개\n` +
+            `- 새로 생성된 인스턴스: ${result.createdInstances}개\n` +
+            `- 순 변화: ${result.netChange > 0 ? '+' : ''}${result.netChange}개\n\n` +
+            `페이지가 자동으로 새로고침됩니다.`)
+
+      // 화면 새로고침
+      await forceRefresh()
+
+      // 페이지 새로고침 (완전한 상태 초기화)
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+
+    } catch (error) {
+      console.error('❌ 대량 정리 실패:', error)
+      alert('❌ 대량 정리 중 오류가 발생했습니다.')
+    }
+  }, [currentUser])
+
+  // 스마트 인스턴스 정리 함수 (반복 관리 화면용 - 안전함)
+  const smartCleanupInstances = useCallback(async () => {
+    if (!currentUser?.uid) {
+      console.log('로그인 확인 중...')
+      return
+    }
+
+    const confirmation = window.confirm(
+      '🧹 안전한 정리를 실행합니다:\n\n' +
+      '🗑️ 삭제: 삭제된 템플릿의 고아 인스턴스만\n' +
+      '✅ 유지: 모든 활성 템플릿의 인스턴스\n\n' +
+      '반복 할일들은 그대로 보입니다. 계속하시겠습니까?'
+    )
+
+    if (!confirmation) {
+      console.log('❌ 사용자가 취소했습니다')
+      return
+    }
+
+    try {
+      console.log('🧹 스마트 정리 시작')
+      const result = await cleanupService.smartCleanupInstances(currentUser.uid)
+
+      console.log('✅ 스마트 정리 완료:', result)
+      alert(`✅ 안전 정리 완료!\n\n` +
+            `삭제: ${result.deletedInstances}개 고아 인스턴스\n` +
+            `유지: ${result.keptInstances}개 활성 인스턴스\n\n` +
+            `반복 할일들 그대로 보입니다! 🎉`)
+
+      // 화면 새로고침 (짧은 딜레이)
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+
+    } catch (error) {
+      console.error('❌ 스마트 정리 실패:', error)
+      alert('❌ 스마트 정리 중 오류가 발생했습니다.')
+    }
+  }, [currentUser])
+
   // 🚨 개발자 콘솔에서 사용할 수 있도록 전역 함수로 노출
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).fixRecurringInstances = fixRecurringInstances
+      (window as any).cleanupOrphanedData = cleanupOrphanedData
+      (window as any).validateDataConsistency = validateDataConsistency
+      (window as any).massCleanupInstances = massCleanupInstances
+      (window as any).smartCleanupInstances = smartCleanupInstances
+
+      // 간단 상태 확인
+      (window as any).checkLoginStatus = () => {
+        console.log('로그인 상태:', currentUser ? '✅ 로그인됨' : '❌ 로그인 안됨')
+        if (currentUser) console.log('사용자:', currentUser.email)
+      }
+
+      // 인스턴스 강제 재생성 함수
+      (window as any).forceRegenerateInstances = async () => {
+        if (!currentUser?.uid) {
+          console.log('로그인 상태 확인 필요')
+          return
+        }
+
+        console.log('🔄 반복 인스턴스 강제 재생성 시작...')
+        try {
+          // 모든 활성 템플릿에 대해 인스턴스 재생성
+          await Promise.all(
+            state.recurringTemplates
+              .filter(template => template.isActive !== false)
+              .map(template =>
+                firestoreService.regenerateRecurringInstances(template.id, currentUser.uid)
+              )
+          )
+
+          console.log('✅ 인스턴스 재생성 완료! 페이지를 새로고침하세요.')
+          setTimeout(() => window.location.reload(), 1000)
+
+        } catch (error) {
+          console.error('❌ 인스턴스 재생성 실패:', error)
+        }
+      }
+
+      // 🔥 출장비 지급 신청 템플릿 수정 함수
+      (window as any).fixBusinessTripTemplate = async () => {
+        if (!currentUser?.uid) {
+          console.log('로그인 상태 확인 필요')
+          return
+        }
+
+        try {
+          console.log('🔧 출장비 지급 신청 템플릿 수정 시작...')
+
+          // 출장비 지급 신청 템플릿 찾기
+          const businessTripTemplate = state.recurringTemplates.find(t =>
+            t.title.includes('출장비') && t.title.includes('지급') && t.title.includes('신청')
+          )
+
+          if (!businessTripTemplate) {
+            console.log('❌ 출장비 지급 신청 템플릿을 찾을 수 없습니다')
+            console.log('📋 현재 템플릿들:', state.recurringTemplates.map(t => t.title))
+            return
+          }
+
+          console.log('📋 기존 템플릿 데이터:', businessTripTemplate)
+
+          // 새로운 월간 패턴으로 업데이트
+          const updates = {
+            monthlyPattern: 'weekday' as const,
+            monthlyWeek: 'fourth' as const,
+            monthlyWeekday: 2, // 화요일 (0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토)
+            monthlyDate: undefined // 기존 날짜 설정 제거
+          }
+
+          console.log('🔍 요일 확인:')
+          console.log('  0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토')
+          console.log(`  설정값 2 = ${['일','월','화','수','목','금','토'][2]}요일`)
+
+          console.log('🔧 적용할 업데이트:', updates)
+
+          await firestoreService.updateRecurringTemplate(businessTripTemplate.id, updates, currentUser.uid)
+
+          console.log('✅ 출장비 지급 신청 템플릿 수정 완료!')
+          console.log('🔄 인스턴스 재생성 중...')
+
+          // 해당 템플릿의 인스턴스 재생성
+          await firestoreService.regenerateRecurringInstances(businessTripTemplate.id, currentUser.uid)
+
+          console.log('🎯 모든 작업 완료! 페이지를 새로고침하세요.')
+          setTimeout(() => window.location.reload(), 1000)
+
+        } catch (error) {
+          console.error('❌ 템플릿 수정 실패:', error)
+        }
+      }
+
+      // 사용법 안내
+      console.log('🛠️ Firebase 정리 도구:')
+      console.log('  - fixBusinessTripTemplate(): 🔧 출장비 지급 신청 템플릿 수정 (추천!)')
+      console.log('  - forceRegenerateInstances(): 🔄 인스턴스 강제 재생성')
+      console.log('  - smartCleanupInstances(): 안전 정리')
+      console.log('  - validateDataConsistency(): 데이터 확인')
+      console.log('  - cleanupOrphanedData(): 고아 데이터 정리')
     }
   }, [])
 
+  // 모든 함수가 정의된 후 완전한 value 객체 생성
+  const completeValue = useMemo(() => ({
+    ...value,
+    cleanupOrphanedData,
+    validateDataConsistency,
+    massCleanupInstances,
+    smartCleanupInstances
+  }), [value, cleanupOrphanedData, validateDataConsistency, massCleanupInstances, smartCleanupInstances])
+
   return (
-    <TodoContext.Provider value={value}>
+    <TodoContext.Provider value={completeValue}>
       {children}
     </TodoContext.Provider>
   )

@@ -1,6 +1,47 @@
 import type { Todo } from '../types/todo'
 import { adjustDateForHoliday, isNonWorkingDay, getFirstWorkdayOfMonth, getLastWorkdayOfMonth } from './holidays'
 
+// 🔥 특정 월의 N번째 특정 요일 찾기 (예: 네번째 주 화요일)
+function findNthWeekdayOfMonth(year: number, month: number, weekPosition: 'first' | 'second' | 'third' | 'fourth' | 'last', weekday: number): Date | null {
+  // 해당 월의 첫째 날
+  const firstDay = new Date(year, month - 1, 1)
+  const firstDayOfWeek = firstDay.getDay() // 0=일요일, 6=토요일
+
+  if (weekPosition === 'last') {
+    // 마지막 주 처리
+    const lastDay = new Date(year, month, 0) // 다음 달 0일 = 이번 달 마지막 날
+
+    // 마지막 날부터 거슬러 올라가면서 해당 요일 찾기
+    for (let day = lastDay.getDate(); day >= 1; day--) {
+      const testDate = new Date(year, month - 1, day)
+      if (testDate.getDay() === weekday) {
+        return testDate
+      }
+    }
+  } else {
+    // 첫째, 둘째, 셋째, 넷째 주 처리
+    const weekNumbers = { 'first': 1, 'second': 2, 'third': 3, 'fourth': 4 }
+    const targetWeek = weekNumbers[weekPosition]
+
+    // 해당 월의 첫 번째 해당 요일 찾기
+    let daysToAdd = (weekday - firstDayOfWeek + 7) % 7
+    let firstOccurrence = new Date(year, month - 1, 1 + daysToAdd)
+
+    // N번째 발생일 계산
+    let targetDate = new Date(firstOccurrence)
+    targetDate.setDate(targetDate.getDate() + (targetWeek - 1) * 7)
+
+    // 해당 월을 벗어나지 않았는지 확인
+    if (targetDate.getMonth() === month - 1) {
+      return targetDate
+    } else {
+      return null
+    }
+  }
+
+  return null
+}
+
 export function getNextRecurrenceDate(todo: Todo, fromDate: Date = new Date()): Date | null {
   if (todo.recurrence === 'none' || !todo.dueDate) {
     return null
@@ -23,8 +64,27 @@ export function getNextRecurrenceDate(todo: Todo, fromDate: Date = new Date()): 
     }
       
     case 'monthly': {
+      // 🔥 새로운 월간 패턴 처리: 특정 주의 요일
+      if (todo.monthlyPattern === 'weekday' &&
+          todo.monthlyWeek &&
+          todo.monthlyWeekday !== undefined) {
+
+        const monthlyWeek = todo.monthlyWeek
+        const monthlyWeekday = todo.monthlyWeekday
+
+        // 다음 월로 이동
+        const targetYear = nextDate.getMonth() === 11 ? nextDate.getFullYear() + 1 : nextDate.getFullYear()
+        const targetMonth = nextDate.getMonth() === 11 ? 1 : nextDate.getMonth() + 2 // 1-based
+
+        const calculatedDate = findNthWeekdayOfMonth(targetYear, targetMonth, monthlyWeek, monthlyWeekday)
+        if (calculatedDate) {
+          return calculatedDate
+        }
+      }
+
+      // 기존 로직: recurrenceDate 기반
       const targetDate = todo.recurrenceDate || 1
-      
+
       if (targetDate === -1) {
         // 말일로 설정
         nextDate.setMonth(nextDate.getMonth() + 1)
@@ -45,7 +105,7 @@ export function getNextRecurrenceDate(todo: Todo, fromDate: Date = new Date()): 
         // 특정 날짜로 설정
         nextDate.setMonth(nextDate.getMonth() + 1)
         nextDate.setDate(targetDate)
-        
+
         // 해당 월에 그 날짜가 없으면 말일로 조정
         if (nextDate.getDate() !== targetDate) {
           nextDate.setDate(0)
@@ -82,6 +142,14 @@ export function createRecurringTodo(originalTodo: Todo, newDueDate: Date): Omit<
     recurrence: originalTodo.recurrence,
     recurrenceDay: originalTodo.recurrenceDay,
     recurrenceDate: originalTodo.recurrenceDate,
+
+    // 🔥 새로운 월간 패턴 필드들 복사
+    ...originalTodo.monthlyPattern && {
+      monthlyPattern: originalTodo.monthlyPattern,
+      monthlyWeek: originalTodo.monthlyWeek,
+      monthlyWeekday: originalTodo.monthlyWeekday,
+    },
+
     holidayHandling: originalTodo.holidayHandling,
     subTasks: originalTodo.type === 'project' ? [] : undefined,
     project: originalTodo.project,
@@ -125,17 +193,39 @@ export function getRecurrenceDescription(todo: Todo): string {
       break
     }
       
-    case 'monthly':
-      if (todo.recurrenceDate === -1) {
-        description = '매월 말일'
-      } else if (todo.recurrenceDate === -2) {
-        description = '매월 첫 번째 근무일'
-      } else if (todo.recurrenceDate === -3) {
-        description = '매월 마지막 근무일'
+    case 'monthly': {
+      // 🔥 새로운 월간 패턴 처리: 특정 주의 요일
+      if (todo.monthlyPattern === 'weekday' &&
+          todo.monthlyWeek &&
+          todo.monthlyWeekday !== undefined) {
+
+        const weeks = {
+          'first': '첫째',
+          'second': '둘째',
+          'third': '셋째',
+          'fourth': '네째',
+          'last': '마지막'
+        } as const
+
+        const weekdays = ['일', '월', '화', '수', '목', '금', '토']
+        const monthlyWeek = todo.monthlyWeek
+        const monthlyWeekday = todo.monthlyWeekday
+
+        description = `매월 ${weeks[monthlyWeek]} 주 ${weekdays[monthlyWeekday]}요일`
       } else {
-        description = `매월 ${todo.recurrenceDate || 1}일`
+        // 기존 로직: recurrenceDate 기반
+        if (todo.recurrenceDate === -1) {
+          description = '매월 말일'
+        } else if (todo.recurrenceDate === -2) {
+          description = '매월 첫 번째 근무일'
+        } else if (todo.recurrenceDate === -3) {
+          description = '매월 마지막 근무일'
+        } else {
+          description = `매월 ${todo.recurrenceDate || 1}일`
+        }
       }
       break
+    }
       
     case 'yearly':
       description = '매년'

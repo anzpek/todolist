@@ -65,6 +65,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe()
   }, [])
 
+  // AuthContext 간단 노출
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).authContext = { signInWithGoogle }
+    }
+  }, [])
+
   const login = async () => {
     console.log('Auth: Use signInWithGoogle or signIn instead')
   }

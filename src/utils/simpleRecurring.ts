@@ -420,7 +420,6 @@ class SimpleRecurringSystem {
             if (template.title.includes('월간업무보고')) {
               console.log(`📋 월간업무보고 인스턴스 생성:`)
               console.log(`   최종 날짜: ${finalDate.toDateString()} (${finalDate.getDate()}일)`)
-              console.log(`   한국시간 변환: ${koreanDate.toISOString().split('T')[0]}`)
               console.log(`   생성된 ID: ${uniqueId}`)
             }
             
@@ -444,6 +443,57 @@ class SimpleRecurringSystem {
     return instances
   }
   
+  // 특정 월의 N번째 특정 요일 찾기 (예: 네번째 주 화요일)
+  private findNthWeekdayOfMonth(year: number, month: number, weekPosition: 'first' | 'second' | 'third' | 'fourth' | 'last', weekday: number): Date | null {
+    // 해당 월의 첫째 날
+    const firstDay = new Date(year, month - 1, 1)
+    const firstDayOfWeek = firstDay.getDay() // 0=일요일, 6=토요일
+
+    console.log(`   findNthWeekdayOfMonth: ${year}년 ${month}월, ${weekPosition} 주 ${['일','월','화','수','목','금','토'][weekday]}요일`)
+    console.log(`   첫째 날: ${firstDay.toDateString()}, 첫째 날 요일: ${['일','월','화','수','목','금','토'][firstDayOfWeek]}`)
+
+    if (weekPosition === 'last') {
+      // 마지막 주 처리
+      const lastDay = new Date(year, month, 0) // 다음 달 0일 = 이번 달 마지막 날
+      console.log(`   마지막 날: ${lastDay.toDateString()}`)
+
+      // 마지막 날부터 거슬러 올라가면서 해당 요일 찾기
+      for (let day = lastDay.getDate(); day >= 1; day--) {
+        const testDate = new Date(year, month - 1, day)
+        if (testDate.getDay() === weekday) {
+          console.log(`   마지막 ${['일','월','화','수','목','금','토'][weekday]}요일: ${testDate.toDateString()}`)
+          return testDate
+        }
+      }
+    } else {
+      // 첫째, 둘째, 셋째, 넷째 주 처리
+      const weekNumbers = { 'first': 1, 'second': 2, 'third': 3, 'fourth': 4 }
+      const targetWeek = weekNumbers[weekPosition]
+
+      // 해당 월의 첫 번째 해당 요일 찾기
+      let daysToAdd = (weekday - firstDayOfWeek + 7) % 7
+      let firstOccurrence = new Date(year, month - 1, 1 + daysToAdd)
+
+      console.log(`   첫 번째 ${['일','월','화','수','목','금','토'][weekday]}요일: ${firstOccurrence.toDateString()}`)
+
+      // N번째 발생일 계산
+      let targetDate = new Date(firstOccurrence)
+      targetDate.setDate(targetDate.getDate() + (targetWeek - 1) * 7)
+
+      console.log(`   ${targetWeek}번째 ${['일','월','화','수','목','금','토'][weekday]}요일: ${targetDate.toDateString()}`)
+
+      // 해당 월을 벗어나지 않았는지 확인
+      if (targetDate.getMonth() === month - 1) {
+        return targetDate
+      } else {
+        console.log(`   ❌ ${targetWeek}번째 주가 해당 월을 벗어남`)
+        return null
+      }
+    }
+
+    return null
+  }
+
   // 🔥 완전히 새로 작성된 월간 반복 인스턴스 생성 함수
   private generateMonthlyInstancesRaw(template: SimpleRecurringTemplate): SimpleRecurringInstance[] {
     if (template.recurrenceType !== 'monthly') {
@@ -451,7 +501,11 @@ class SimpleRecurringSystem {
     }
 
     console.log(`\n🔥 [${template.title}] 새로운 월간 반복 로직 시작`)
+    console.log(`   전체 템플릿 데이터:`, JSON.stringify(template, null, 2))
     console.log(`   monthlyDate: ${template.monthlyDate}`)
+    console.log(`   monthlyPattern: ${template.monthlyPattern}`)
+    console.log(`   monthlyWeek: ${template.monthlyWeek}`)
+    console.log(`   monthlyWeekday: ${template.monthlyWeekday}`)
 
     const instances: SimpleRecurringInstance[] = []
     const createdDates = new Set<string>() // 중복 방지를 위한 날짜 추적
@@ -479,8 +533,20 @@ class SimpleRecurringSystem {
 
       let targetDate: Date | null = null
 
-      // 날짜 계산
-      if (template.monthlyDate === -1) {
+      // 🔥 새로운 월간 패턴 처리
+      if (template.monthlyPattern === 'weekday' && template.monthlyWeek && template.monthlyWeekday !== undefined) {
+        // 특정 주의 요일 (예: 매월 네번째 주 화요일)
+        console.log(`   패턴: 매월 ${template.monthlyWeek} 주 ${['일','월','화','수','목','금','토'][template.monthlyWeekday]}요일`)
+
+        targetDate = this.findNthWeekdayOfMonth(targetYear, targetMonth, template.monthlyWeek, template.monthlyWeekday)
+
+        if (targetDate) {
+          console.log(`   ${template.monthlyWeek} 주 ${['일','월','화','수','목','금','토'][template.monthlyWeekday]}요일: ${targetDate.toDateString()}`)
+        } else {
+          console.log(`   ❌ ${targetYear}년 ${targetMonth}월에 ${template.monthlyWeek} 주 ${['일','월','화','수','목','금','토'][template.monthlyWeekday]}요일이 없음`)
+        }
+
+      } else if (template.monthlyDate === -1) {
         // 말일
         targetDate = new Date(targetYear, targetMonth, 0) // 다음 달 0일 = 이번 달 말일
         console.log(`   말일: ${targetDate.toDateString()}`)
@@ -505,6 +571,10 @@ class SimpleRecurringSystem {
           continue
         }
         console.log(`   특정 날짜 ${template.monthlyDate}일: ${targetDate.toDateString()}`)
+      } else {
+        // 기본값: 매월 1일
+        targetDate = new Date(targetYear, targetMonth - 1, 1)
+        console.log(`   기본값 (매월 1일): ${targetDate.toDateString()}`)
       }
 
       // 유효한 날짜인지 확인

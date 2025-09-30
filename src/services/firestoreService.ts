@@ -541,14 +541,60 @@ export const firestoreService = {
   },
 
   deleteRecurringTemplate: async (id: string, uid: string): Promise<void> => {
-    try {
-      const templateRef = doc(db, `users/${uid}/recurringTemplates`, id)
-      await deleteDoc(templateRef)
-      console.log('Firestore deleteRecurringTemplate 성공:', id)
-    } catch (error) {
-      console.error('Firestore deleteRecurringTemplate 실패:', error)
-      throw error
-    }
+    return withRetry(async () => {
+      try {
+        console.log('🗑️ 반복 템플릿 삭제 시작:', id)
+
+        // 1. 관련된 모든 인스턴스 찾기
+        console.log('1️⃣ 관련 인스턴스 검색 중...')
+        const instancesRef = collection(db, `users/${uid}/recurringInstances`)
+        const instancesQuery = query(instancesRef, where('templateId', '==', id))
+        const instancesSnapshot = await getDocs(instancesQuery)
+
+        console.log(`발견된 인스턴스: ${instancesSnapshot.size}개`)
+
+        // 2. 관련된 할일들 찾기 (todos 컬렉션에서)
+        console.log('2️⃣ 관련 할일 검색 중...')
+        const todosRef = collection(db, `users/${uid}/todos`)
+        const todosQuery = query(todosRef, where('_templateId', '==', id))
+        const todosSnapshot = await getDocs(todosQuery)
+
+        console.log(`발견된 할일: ${todosSnapshot.size}개`)
+
+        // 3. 배치로 모든 관련 데이터 삭제
+        console.log('3️⃣ 배치 삭제 실행 중...')
+        const batch = writeBatch(db)
+
+        // 템플릿 삭제
+        const templateRef = doc(db, `users/${uid}/recurringTemplates`, id)
+        batch.delete(templateRef)
+
+        // 관련 인스턴스들 삭제
+        instancesSnapshot.forEach(doc => {
+          console.log(`  - 인스턴스 삭제: ${doc.id}`)
+          batch.delete(doc.ref)
+        })
+
+        // 관련 할일들 삭제
+        todosSnapshot.forEach(doc => {
+          console.log(`  - 할일 삭제: ${doc.data().title}`)
+          batch.delete(doc.ref)
+        })
+
+        // 배치 실행
+        await batch.commit()
+
+        console.log('✅ 반복 템플릿 및 관련 데이터 삭제 완료:', {
+          templateId: id,
+          deletedInstances: instancesSnapshot.size,
+          deletedTodos: todosSnapshot.size
+        })
+
+      } catch (error) {
+        console.error('❌ 반복 템플릿 삭제 실패:', error)
+        throw handleFirestoreError(error, 'deleteRecurringTemplate')
+      }
+    })
   },
 
   subscribeRecurringTemplates: (uid: string, callback: (templates: any[]) => void) => {

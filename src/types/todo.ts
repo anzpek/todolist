@@ -78,6 +78,12 @@ export interface Todo {
   recurrence: RecurrenceType
   recurrenceDay?: number // 매주 반복시 요일 (0=일요일, 6=토요일)
   recurrenceDate?: number // 매달 반복시 날짜 (1-31, -1=말일, -2=첫번째 근무일, -3=마지막 근무일)
+
+  // 🔥 월간 특정 주의 요일 설정 추가
+  monthlyPattern?: 'date' | 'weekday' // 'date': 특정 날짜, 'weekday': 특정 주의 요일
+  monthlyWeek?: 'first' | 'second' | 'third' | 'fourth' | 'last' // 몇 번째 주
+  monthlyWeekday?: number // 0=일, 1=월, ..., 6=토 (monthlyPattern이 'weekday'일 때)
+
   holidayHandling?: 'before' | 'after' // 공휴일 처리 방식
   subTasks?: SubTask[] // 프로젝트 타입일 때만 사용
   project?: 'longterm' | 'shortterm' // 롱텀/숏텀 프로젝트 구분
