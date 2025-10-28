@@ -13,7 +13,9 @@ import './index.css'
 
 // 레이지 로딩 컴포넌트들
 const Sidebar = lazy(() => import('./components/Sidebar'))
-const MainContent = lazy(() => import('./components/MainContent'))
+const PWAInstallPrompt = lazy(() => import('./components/PWAInstallPrompt'))
+import MainContent from './components/MainContent';
+const FloatingActionButton = lazy(() => import('./components/FloatingActionButton'))
 const ErrorBoundary = lazy(() => import('./components/ErrorBoundary'))
 const OfflineNotification = lazy(() => import('./components/OfflineNotification'))
 
@@ -95,6 +97,12 @@ function AppInner({
         
         {/* 오프라인 알림 */}
         <OfflineNotification />
+
+        {/* 플로팅 액션 버튼 */}
+        <FloatingActionButton />
+
+        {/* PWA 설치 프롬프트 */}
+        <PWAInstallPrompt />
       </div>
     </Suspense>
   )

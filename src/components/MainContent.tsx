@@ -203,7 +203,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && activeView !== 'vacation' && (
               <button 
                 onClick={() => setIsAddModalOpen(true)}
-                className={`${isMobile ? 'p-1 min-w-[28px] min-h-[28px]' : 'btn-primary'} flex items-center gap-2`}
+                className={`${isMobile ? 'p-1 min-w-[28px] min-h-[28px]' : 'btn-primary'} hidden md:flex items-center gap-2`}
               >
                 <Plus className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
                 {!isMobile && '할일 추가'}
