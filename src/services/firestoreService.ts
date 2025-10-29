@@ -367,6 +367,38 @@ export const firestoreService = {
     await batch.commit()
   },
 
+  subscribeProjectTemplates: (uid: string, callback: (templates: any[]) => void) => {
+    try {
+      debug.log('프로젝트 템플릿 구독 시작', { uid });
+      const templatesRef = collection(db, `users/${uid}/projectTemplates`);
+      const q = query(templatesRef, orderBy('createdAt', 'desc'));
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const templates = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date()
+          };
+        });
+        
+        debug.log('프로젝트 템플릿 구독 업데이트', { count: templates.length });
+        callback(templates);
+      }, (error) => {
+        debug.error('프로젝트 템플릿 구독 오류:', error);
+        callback([]);
+      });
+      
+      return unsubscribe;
+    } catch (error) {
+      debug.error('프로젝트 템플릿 구독 초기화 실패:', error);
+      callback([]);
+      return () => {};
+    }
+  },
+
   subscribeRecurringTemplates: (uid: string, callback: (templates: any[]) => void) => {
     const templatesRef = collection(db, `users/${uid}/recurringTemplates`)
     const q = query(templatesRef, orderBy('createdAt', 'desc'))
