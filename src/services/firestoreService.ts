@@ -590,38 +590,67 @@ export const firestoreService = {
     return withRetry(async () => {
       try {
         if (!uid || !templateId) throw new Error('User ID and template ID are required');
-        debug.log('반복 인스턴스 재생성 시작', { templateId, uid });
+        debug.log('지능형 반복 인스턴스 재생성 시작', { templateId, uid });
 
-        const batch = writeBatch(db);
         const instancesRef = collection(db, `users/${uid}/recurringInstances`);
+        const templateRef = doc(db, `users/${uid}/recurringTemplates`, templateId);
 
+        // 1. 기존 인스턴스 상태 보존
         const existingQuery = query(instancesRef, where('templateId', '==', templateId));
         const existingSnapshot = await getDocs(existingQuery);
-        existingSnapshot.forEach(doc => batch.delete(doc.ref));
-        debug.log('기존 인스턴스 삭제 예정', { count: existingSnapshot.size });
+        const existingInstancesMap = new Map<string, any>();
+        existingSnapshot.forEach(doc => {
+          existingInstancesMap.set(doc.id, doc.data());
+        });
+        debug.log('기존 인스턴스 상태 보존 완료', { count: existingInstancesMap.size });
 
-        const templateRef = doc(db, `users/${uid}/recurringTemplates`, templateId);
+        // 2. 템플릿 정보로 새 인스턴스 생성
         const templateDoc = await getDoc(templateRef);
         if (!templateDoc.exists()) throw new Error(`Template ${templateId} not found`);
-        
         const template = { id: templateDoc.id, ...templateDoc.data() } as SimpleRecurringTemplate;
         
-        const newInstances = await firestoreService.generateInstancesForTemplate(template, uid);
+        const newGeneratedInstances = await firestoreService.generateInstancesForTemplate(template, uid);
+        debug.log('새 인스턴스 생성 완료', { count: newGeneratedInstances.length });
 
-        newInstances.forEach((instance) => {
-          const instanceRef = doc(instancesRef, instance.id);
-          batch.set(instanceRef, {
-            ...instance,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
+        const batch = writeBatch(db);
+        const newInstanceIds = new Set(newGeneratedInstances.map(inst => inst.id));
+
+        // 3. 새 인스턴스 추가 또는 기존 인스턴스 업데이트 (완료 상태 보존)
+        newGeneratedInstances.forEach((newInstance) => {
+          const instanceRef = doc(instancesRef, newInstance.id);
+          const existingInstance = existingInstancesMap.get(newInstance.id);
+
+          if (existingInstance) {
+            // 기존 인스턴스가 있으면 완료 상태를 보존하여 업데이트
+            batch.update(instanceRef, {
+              ...newInstance,
+              completed: existingInstance.completed || false,
+              completedAt: existingInstance.completedAt || null,
+              updatedAt: serverTimestamp(),
+            });
+          } else {
+            // 새로운 인스턴스면 추가
+            batch.set(instanceRef, {
+              ...newInstance,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          }
         });
-        debug.log('새 인스턴스 생성 예정', { count: newInstances.length });
+
+        // 4. 더 이상 유효하지 않은 기존 인스턴스 삭제
+        existingInstancesMap.forEach((_, id) => {
+          if (!newInstanceIds.has(id)) {
+            batch.delete(doc(instancesRef, id));
+            debug.log('유효하지 않은 인스턴스 삭제 예정', { id });
+          }
+        });
 
         await batch.commit();
-        debug.log('반복 인스턴스 재생성 성공', { templateId, deleted: existingSnapshot.size, created: newInstances.length });
+        debug.log('지능형 반복 인스턴스 재생성 성공', { templateId });
+
       } catch (error) {
-        debug.error('반복 인스턴스 재생성 실패:', error);
+        debug.error('지능형 반복 인스턴스 재생성 실패:', error);
         throw handleFirestoreError(error, 'regenerateRecurringInstances');
       }
     });
