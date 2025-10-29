@@ -965,133 +965,60 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   // 할일 삭제 (반복 할일 처리 개선)
   const deleteTodo = async (id: string) => {
     try {
-      console.log('🗑️ 할일 삭제 시작:', id)
+      const allTodos = [...state.todos, ...getRecurringTodos()];
+      const todoInState = allTodos.find(t => t.id === id);
       
-      // 할일 정보 확인 (메타데이터 포함)
-      const todoInState = state.todos.find(t => t.id === id)
-      console.log(`📝 삭제 대상 할일 상세 정보:`, {
-        id: todoInState?.id,
-        title: todoInState?.title,
-        _isRecurringInstance: (todoInState as any)?._isRecurringInstance,
-        _instanceId: (todoInState as any)?._instanceId,
-        _templateId: (todoInState as any)?._templateId
-      })
-      
-      // 반복 할일 인스턴스인지 확인 (ID 패턴 또는 메타데이터로)
-      const isRecurringTodo = id.startsWith('recurring_') || (todoInState as any)?._isRecurringInstance
-      
+      const isRecurringTodo = id.startsWith('recurring_') || (todoInState as any)?._isRecurringInstance;
+
       if (isRecurringTodo) {
-        // 반복 할일 삭제 처리
-        console.log('🔄 반복 할일 삭제:', id)
+        console.log('🔄 반복 할일 "건너뛰기" 처리:', id);
         
-        let instanceId = id
-        
-        // 메타데이터가 있는 경우 인스턴스 ID 사용
-        if ((todoInState as any)?._instanceId) {
-          instanceId = (todoInState as any)._instanceId
-          console.log('📋 메타데이터에서 인스턴스 ID 추출:', instanceId)
-        } else if (id.startsWith('recurring_')) {
-          // 새로운 ID 형태 처리: recurring_instanceId_templateSuffix
-          const parts = id.split('_')
-          instanceId = id.replace('recurring_', '')
-          
-          // 템플릿 접미사가 있는 경우 제거
-          if (parts.length > 2) {
-            // recurring_instanceId_templateSuffix -> instanceId만 추출
-            instanceId = parts.slice(1, -1).join('_')
-          }
-          console.log('📋 ID 패턴에서 인스턴스 ID 추출:', instanceId)
+        let instanceId = (todoInState as any)?._instanceId;
+        if (!instanceId && id.startsWith('recurring_')) {
+          instanceId = id.replace('recurring_', '');
         }
-        
-        // 인스턴스 배열에서 제거
-        const updatedInstances = state.recurringInstances.filter(i => i.id !== instanceId)
-        dispatch({ type: 'SET_RECURRING_INSTANCES', payload: updatedInstances })
-        
-        // 로컬 상태에서도 제거
-        dispatch({ type: 'DELETE_TODO', payload: id })
-        
-        console.log('✅ 반복 할일 삭제 완료:', id, '-> 인스턴스 ID:', instanceId)
-        return
+
+        if (!instanceId) {
+          console.error('❌ 인스턴스 ID를 찾을 수 없어 삭제 처리 불가:', id);
+          return;
+        }
+
+        const updates = {
+          skipped: true,
+          skippedReason: 'manual_deletion'
+        };
+
+        // Optimistic UI update
+        const updatedInstances = state.recurringInstances.map(i => 
+          i.id === instanceId ? { ...i, ...updates } : i
+        );
+        dispatch({ type: 'SET_RECURRING_INSTANCES', payload: updatedInstances });
+
+        // Persist change to Firestore
+        if (currentUser) {
+          try {
+            await firestoreService.updateRecurringInstance(instanceId, updates, currentUser.uid);
+            console.log('✅ Firestore 반복 인스턴스 "skipped"로 업데이트 완료:', instanceId);
+          } catch (error) {
+            console.error('❌ Firestore 반복 인스턴스 업데이트 실패:', error);
+            dispatch({ type: 'SET_RECURRING_INSTANCES', payload: state.recurringInstances });
+            dispatch({ type: 'SET_ERROR', payload: '반복 할일 삭제에 실패했습니다.' });
+          }
+        }
+        return;
       }
       
       // 일반 할일 삭제 처리
       if (currentUser) {
-        // 1. 먼저 로컬 상태에서 할일을 찾아서 확인
-        const todoInState = state.todos.find(t => t.id === id)
-        if (!todoInState) {
-          console.warn(`⚠️ 로컬 상태에 할일이 없음: ${id}`)
-          return
-        }
-        
-        console.log(`🎯 삭제 대상 확인: ${todoInState.title} (${id})`)
-        
-        // 2. 같은 제목의 중복 할일들 찾기
-        const duplicateTodos = state.todos.filter(t => 
-          t.title === todoInState.title && 
-          t.id !== id
-        )
-        
-        if (duplicateTodos.length > 0) {
-          console.log(`🔍 중복 할일 발견: ${duplicateTodos.length}개`, duplicateTodos.map(t => t.id))
-        }
-        
-        try {
-          // 3. 메인 할일 Firestore에서 삭제 시도
-          console.log('🗑️ Firestore에서 할일 삭제 시도:', id)
-          await firestoreService.deleteTodo(id, currentUser.uid)
-          console.log('✅ Firestore 할일 삭제 성공:', id)
-        } catch (firestoreError: unknown) {
-          // Firestore에 할일이 없는 경우 (동기화 문제)
-          if (firestoreError.message.includes('찾을 수 없습니다')) {
-            console.warn(`⚠️ Firestore에 할일이 없음 - 로컬에서만 삭제: ${id}`)
-            console.log(`📝 할일 정보: ${todoInState.title}`)
-          } else {
-            // 다른 Firestore 오류는 재발생
-            throw firestoreError
-          }
-        }
-        
-        // 4. 중복 할일들도 모두 삭제
-        if (duplicateTodos.length > 0) {
-          console.log(`🗑️ 중복 할일들 삭제 시작: ${duplicateTodos.length}개`)
-          for (const duplicateTodo of duplicateTodos) {
-            try {
-              await firestoreService.deleteTodo(duplicateTodo.id, currentUser.uid)
-              console.log(`✅ 중복 할일 삭제 성공: ${duplicateTodo.id}`)
-            } catch (error) {
-              console.warn(`⚠️ 중복 할일 삭제 실패: ${duplicateTodo.id}`, error)
-            }
-            
-            // 로컬 상태에서도 제거
-            dispatch({ type: 'DELETE_TODO', payload: duplicateTodo.id })
-          }
-        }
-        
-        // 5. 어떤 경우든 메인 할일도 로컬 상태에서 제거 (동기화 보장)
-        console.log('🗑️ 로컬 상태에서 할일 제거:', id)
-        dispatch({ type: 'DELETE_TODO', payload: id })
-        
-        // 6. 삭제 완료 로그 (실시간 구독이 자동으로 처리함)
-        console.log('✅ 삭제 완료 - 실시간 구독이 자동으로 UI 업데이트함')
-        
-        console.log('✅ 할일 삭제 완료 (로컬 + Firestore + 중복 제거 + 강제 새로고침)')
-        
+        await firestoreService.deleteTodo(id, currentUser.uid);
       } else {
-        // 비로그인 사용자: 간단하게 메모리에서 삭제
-        console.log('비로그인 모드: 할일 삭제:', id)
-        dispatch({ type: 'DELETE_TODO', payload: id })
-        console.log('✅ 비로그인 할일 삭제 완료')
+        dispatch({ type: 'DELETE_TODO', payload: id });
       }
+      console.log('✅ 일반 할일 삭제 완료:', id);
+
     } catch (error) {
-      console.error('할일 삭제 실패:', error)
-      dispatch({ type: 'SET_ERROR', payload: '할일 삭제 중 오류가 발생했습니다.' })
-      
-      // 에러 발생 시 UI 상태 롤백 (Firestore 실패 시)
-      if (currentUser && !id.startsWith('recurring_')) {
-        console.log('🔄 삭제 실패로 인한 UI 롤백')
-        const freshTodos = await firestoreService.getTodos(currentUser.uid)
-        dispatch({ type: 'SET_TODOS', payload: freshTodos })
-      }
+      console.error('할일 삭제 실패:', error);
+      dispatch({ type: 'SET_ERROR', payload: '할일 삭제 중 오류가 발생했습니다.' });
     }
   }
 
@@ -2298,145 +2225,22 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   // 반복 인스턴스를 일반 할일로 변환하여 반환 (중복 키 방지)
   const getRecurringTodos = (): Todo[] => {
-    // 🔥🔥🔥 로그인 사용자는 Firebase 데이터만 사용, 로컬 생성 완전 금지!
-    if (currentUser) {
-      console.log('🚫🚫🚫 로그인 사용자 - 반복 할일 로컬 생성 완전 차단! Firebase만 사용!')
-      
-      // Firebase state.recurringInstances만 직접 변환
-      const recurringTodos: Todo[] = []
-      const seenIds = new Set<string>()
-      
-      console.log('📊 Firebase state.recurringInstances 개수:', state.recurringInstances.length)
-      console.log('📋 Firebase 인스턴스 ID:', state.recurringInstances.map(i => `${i.id}(완료:${i.completed})`))
-      
-      state.recurringInstances.forEach(instance => {
-        const template = state.recurringTemplates.find(t => t.id === instance.templateId)
-        if (template) {
-          // 🔥 Firebase 데이터를 직접 Todo로 변환 (simpleRecurringSystem 사용 안함)
-          const todo: Todo = {
-            id: `recurring_${instance.id}`,
-            title: template.title,
-            description: template.description,
-            completed: instance.completed, // ✅ Firebase 완료 상태 그대로 사용
-            priority: template.title.includes('월간업무보고') ? 'urgent' : template.priority,
-            type: template.type,
-            dueDate: instance.date,
-            createdAt: instance.createdAt,
-            updatedAt: instance.updatedAt,
-            completedAt: instance.completedAt, // ✅ Firebase 완료 시간 그대로 사용
-            tags: [...(template.tags || [])],
-            order: -1000, // 반복 할일을 같은 우선순위 내에서 최상단에 표시
-            
-            // 메타데이터
-            _isRecurringInstance: true,
-            _instanceId: instance.id,
-            _templateId: template.id
-          } as Todo & {
-            _isRecurringInstance: boolean
-            _instanceId: string
-            _templateId: string
-          }
-          
-          if (template.title.includes('월간업무보고')) {
-            console.log('🔥 Firebase 월간업무보고 직접 변환:', {
-              instanceCompleted: instance.completed,
-              todoCompleted: todo.completed,
-              instanceCompletedAt: instance.completedAt,
-              todoCompletedAt: todo.completedAt
-            })
-          }
-          
-          if (!seenIds.has(todo.id)) {
-            seenIds.add(todo.id)
-            recurringTodos.push(todo)
-          }
-        }
-      })
-      
-      console.log('✅ Firebase 직접 변환 완료:', recurringTodos.length, '개')
-      return recurringTodos
+    if (state.recurringTemplates.length === 0 || state.recurringInstances.length === 0) {
+      return [];
     }
     
-    // 비로그인 사용자만 기존 로직 사용
-    console.log('👤 비로그인 사용자 - 기존 로직 사용')
-    console.log('📊 현재 state.recurringInstances 개수:', state.recurringInstances.length)
-    console.log('📋 모든 인스턴스 ID:', state.recurringInstances.map(i => `${i.id}(완료:${i.completed})`))
-    
-    // 🔧 월간업무보고 상태 확인 (상세)
-    const monthlyReport = state.recurringInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
-    if (monthlyReport) {
-      console.log('🔧 getRecurringTodos - 현재 state에서 월간업무보고:', {
-        id: monthlyReport.id,
-        completed: monthlyReport.completed,
-        updatedAt: monthlyReport.updatedAt
-      })
-    } else {
-      console.log('⚠️ getRecurringTodos - state에 월간업무보고가 없음. 전체 인스턴스 수:', state.recurringInstances.length)
-    }
-    
-    const recurringTodos: Todo[] = []
-    const seenIds = new Set<string>()
-    
-    state.recurringInstances.forEach(instance => {
-      const template = state.recurringTemplates.find(t => t.id === instance.templateId)
-      if (template) {
-        const todo = simpleRecurringSystem.convertToTodo(instance, template)
-        
-        // 주간업무보고 변환 결과 로깅
-        if (instance.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21') {
-          console.log(`🔄 주간업무보고 convertToTodo 결과:`, {
-            todoId: todo.id,
-            completed: todo.completed,
-            title: todo.title,
-            dueDate: todo.dueDate,
-            _isRecurringInstance: (todo as any)._isRecurringInstance,
-            _instanceId: (todo as any)._instanceId
-          })
-        }
-        
-        // 🔥 월간업무보고 변환 과정 추적
-        if (instance.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26') {
-          console.log(`🔥🔥🔥 월간업무보고 convertToTodo 전후 비교:`)
-          console.log(`  입력 instance.completed: ${instance.completed} (${typeof instance.completed})`)
-          console.log(`  입력 instance.completedAt: ${instance.completedAt}`)
-          console.log(`  출력 todo.completed: ${todo.completed} (${typeof todo.completed})`)
-          console.log(`  출력 todo.completedAt: ${todo.completedAt}`)
-        }
-        
-        // 중복 키 검사 및 방지 (반복할일은 인스턴스 ID를 기반으로 고유성 보장)
-        const expectedId = `recurring_${instance.id}`
-        if (todo.id !== expectedId) {
-          console.warn(`⚠️ 반복 할일 ID 불일치 발견: ${todo.id} ≠ ${expectedId}`)
-          todo.id = expectedId
-          console.log(`✅ 반복 할일 ID 수정: ${todo.id}`)
-        }
-        
-        if (seenIds.has(todo.id)) {
-          console.warn(`⚠️ 반복 할일 중복 키 발견: ${todo.id}, 인스턴스: ${instance.id}`)
-          // 스킵하여 중복 제거
-          return
-        }
-        
-        seenIds.add(todo.id)
-        recurringTodos.push(todo)
+    // "skipped"가 true가 아닌 인스턴스만 필터링
+    const activeInstances = state.recurringInstances.filter(instance => !instance.skipped);
+
+    const recurringTodos = activeInstances.map(instance => {
+      const template = state.recurringTemplates.find(t => t.id === instance.templateId);
+      if (!template) {
+        return null; // 템플릿이 없으면 변환 불가
       }
-    })
-    
-    // 중복 반복 할일 제거
-    const uniqueRecurringTodos = simpleRecurringSystem.removeDuplicateTodos(recurringTodos)
-    
-    console.log(`📊 getRecurringTodos 최종 결과: ${uniqueRecurringTodos.length}개`)
-    // 주간업무보고 최종 상태 확인
-    const finalWeeklyReport = uniqueRecurringTodos.find(t => t.title === '주간업무보고')
-    if (finalWeeklyReport) {
-      console.log(`🎯 최종 주간업무보고 상태:`, {
-        id: finalWeeklyReport.id,
-        completed: finalWeeklyReport.completed,
-        title: finalWeeklyReport.title
-      })
-    }
-    
-    return uniqueRecurringTodos
+      return simpleRecurringSystem.convertToTodo(instance, template);
+    }).filter((todo): todo is Todo => todo !== null); // null이 아닌 Todo 객체만 필터링
+
+    return recurringTodos;
   }
 
   // 기존 할일들에 order 값을 초기화하는 함수

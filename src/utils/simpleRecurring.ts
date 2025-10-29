@@ -71,9 +71,23 @@ class SimpleRecurringSystem {
   
   // 특정 날짜에 다른 템플릿의 인스턴스가 있는지 확인
   private hasConflictingInstance(date: Date, currentTemplateId: string, conflictException: ConflictException): boolean {
-    // 🔥 무한 재귀 호출 방지: 중복 체크 기능 완전히 비활성화
-    console.log(`🚫 중복 검사 비활성화됨: ${date.toDateString()}`)
-    return false
+    const targetTemplate = this.templates.find(t => t.title === conflictException.targetTemplateTitle && t.id !== currentTemplateId);
+
+    if (!targetTemplate) {
+      return false;
+    }
+
+    // 무한 재귀를 피하기 위해 충돌 검사를 제외한 Raw 인스턴스 생성 함수 사용
+    const targetInstances = this.generateInstancesForTemplate(targetTemplate);
+
+    for (const instance of targetInstances) {
+      if (this.checkDateConflict(date, instance.date, conflictException.scope)) {
+        console.log(`[Conflict] ${date.toDateString()}에 ${targetTemplate.title}와(과) 충돌 발생`);
+        return true;
+      }
+    }
+
+    return false;
   }
   
   // 날짜 충돌 검사 (scope에 따라)
