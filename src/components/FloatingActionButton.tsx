@@ -1,13 +1,15 @@
 import React from 'react';
-import { useTodos } from '../contexts/TodoContext';
 import { useTheme } from '../contexts/ThemeContext';
 
-const FloatingActionButton: React.FC = () => {
-  const { setShowAddModal } = useTodos();
+interface FloatingActionButtonProps {
+  onClick: () => void;
+}
+
+const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onClick }) => {
   const { theme } = useTheme();
 
   const openAddModal = () => {
-    setShowAddModal(true);
+    onClick();
   };
 
   // Define colors based on the theme

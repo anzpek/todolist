@@ -98,8 +98,7 @@ function AppInner({
         {/* 오프라인 알림 */}
         <OfflineNotification />
 
-        {/* 플로팅 액션 버튼 */}
-        <FloatingActionButton />
+        
 
         {/* PWA 설치 프롬프트 */}
         <PWAInstallPrompt />

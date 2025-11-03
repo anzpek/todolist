@@ -13,6 +13,7 @@ import MonthlyCalendarView from './MonthlyCalendarView'
 import RecurringManagement from './RecurringManagement'
 import CompletedHistoryView from './CompletedHistoryView'
 import AuthModal from './AuthModal'
+import FloatingActionButton from './FloatingActionButton'
 import VacationDashboard from './VacationManagement/VacationDashboard'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -485,6 +486,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+      <FloatingActionButton onClick={() => setIsAddModalOpen(true)} />
     </div>
   )
 }
