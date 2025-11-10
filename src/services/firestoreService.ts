@@ -399,6 +399,29 @@ export const firestoreService = {
     }
   },
 
+  addProjectTemplate: async (template: any, uid: string): Promise<string> => {
+    const templatesRef = collection(db, `users/${uid}/projectTemplates`);
+    const cleanTemplate = removeUndefinedValues(template);
+    const templateData = {
+      ...cleanTemplate,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    const docRef = await addDoc(templatesRef, templateData);
+    return docRef.id;
+  },
+
+  updateProjectTemplate: async (id: string, updates: any, uid: string): Promise<void> => {
+    const templateRef = doc(db, `users/${uid}/projectTemplates`, id);
+    const cleanUpdates = removeUndefinedValues(updates);
+    await updateDoc(templateRef, { ...cleanUpdates, updatedAt: serverTimestamp() });
+  },
+
+  deleteProjectTemplate: async (id: string, uid: string): Promise<void> => {
+    const templateRef = doc(db, `users/${uid}/projectTemplates`, id);
+    await deleteDoc(templateRef);
+  },
+
   subscribeRecurringTemplates: (uid: string, callback: (templates: any[]) => void) => {
     const templatesRef = collection(db, `users/${uid}/recurringTemplates`)
     const q = query(templatesRef, orderBy('createdAt', 'desc'))
@@ -586,6 +609,77 @@ export const firestoreService = {
     return instances;
   },
   
+  // Helper to copy a collection from one UID to another
+  async _copyCollection(oldUid: string, newUid: string, collectionName: string): Promise<void> {
+    const oldCollectionRef = collection(db, `users/${oldUid}/${collectionName}`);
+    const newCollectionRef = collection(db, `users/${newUid}/${collectionName}`);
+    const snapshot = await getDocs(oldCollectionRef);
+    const batch = writeBatch(db);
+
+    snapshot.forEach(docSnapshot => {
+      const docData = docSnapshot.data();
+      // Use setDoc with the original ID to preserve it
+      batch.set(doc(newCollectionRef, docSnapshot.id), {
+        ...docData,
+        // Ensure server timestamps are updated for the new user
+        createdAt: docData.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    debug.log(`Collection '${collectionName}' migrated from ${oldUid} to ${newUid}`);
+  },
+
+  // Helper to delete a collection
+  async _deleteCollection(uid: string, collectionName: string): Promise<void> {
+    const collectionRef = collection(db, `users/${uid}/${collectionName}`);
+    const snapshot = await getDocs(collectionRef);
+    const batch = writeBatch(db);
+    snapshot.forEach(docSnapshot => {
+      batch.delete(docSnapshot.ref);
+    });
+    await batch.commit();
+    debug.log(`Collection '${collectionName}' deleted for ${uid}`);
+  },
+
+  // Admin function to migrate user data
+  migrateUserData: async (oldUid: string, newUid: string): Promise<void> => {
+    return withRetry(async () => {
+      try {
+        if (!oldUid || !newUid) {
+          throw new Error('Old UID and New UID are required for migration.');
+        }
+        if (oldUid === newUid) {
+          throw new Error('Cannot migrate data to the same UID.');
+        }
+
+        debug.log(`Starting data migration from old UID: ${oldUid} to new UID: ${newUid}`);
+
+        // 1. Copy todos
+        await firestoreService._copyCollection(oldUid, newUid, 'todos');
+        // 2. Copy recurringTemplates
+        await firestoreService._copyCollection(oldUid, newUid, 'recurringTemplates');
+        // 3. Copy recurringInstances
+        await firestoreService._copyCollection(oldUid, newUid, 'recurringInstances');
+        // 4. Copy projectTemplates (if any)
+        await firestoreService._copyCollection(oldUid, newUid, 'projectTemplates');
+
+        // 5. Delete old data (optional, but good for cleanup)
+        debug.log(`Deleting old data for UID: ${oldUid}`);
+        await firestoreService._deleteCollection(oldUid, 'todos');
+        await firestoreService._deleteCollection(oldUid, 'recurringTemplates');
+        await firestoreService._deleteCollection(oldUid, 'recurringInstances');
+        await firestoreService._deleteCollection(oldUid, 'projectTemplates');
+
+
+        debug.log(`Data migration completed successfully from ${oldUid} to ${newUid}`);
+      } catch (error) {
+        debug.error('Data migration failed:', error);
+        throw handleFirestoreError(error, 'migrateUserData');
+      }
+    });
+  },
+
   regenerateRecurringInstances: async (templateId: string, uid: string): Promise<void> => {
     return withRetry(async () => {
       try {
