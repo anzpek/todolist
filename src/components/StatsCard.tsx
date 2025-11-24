@@ -1,25 +1,25 @@
 import { useTodos } from '../contexts/TodoContext'
 
 interface StatsCardProps {
-  layout?: 'compact' | 'sidebar'
+  layout?: 'compact' | 'sidebar' | 'full'
 }
 
 const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
   const { todos, getTodayTodos, getWeekTodos, getOverdueTodos } = useTodos()
-  
+
   const totalTodos = todos.length
   const completedTodos = todos.filter(todo => todo.completed).length
   const completionRate = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0
-  
+
   const todayTodos = getTodayTodos()
   const todayCompleted = todayTodos.filter(todo => todo.completed).length
   const todayTotal = todayTodos.length
-  
+
   const weekTodos = getWeekTodos()
   const weekCompleted = weekTodos.filter(todo => todo.completed).length
   const weekTotal = weekTodos.length
   const weekRate = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0
-  
+
   const overdueTodos = getOverdueTodos().length
 
   const stats = [

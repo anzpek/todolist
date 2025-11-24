@@ -2,12 +2,14 @@ import React, { useState } from 'react'
 import { useTodos } from '../contexts/TodoContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useFontSize } from '../contexts/FontSizeContext'
 import NotificationSettings from './NotificationSettings'
 
 const SettingsView: React.FC = () => {
   const { user, logout } = useAuth()
   const { exportData, importData, clearCompleted, stats, syncing, syncWithCloud } = useTodos()
   const { theme, setTheme } = useTheme()
+  const { fontSizeLevel, setFontSizeLevel } = useFontSize()
   const [importError, setImportError] = useState<string | null>(null)
   const [showImportSuccess, setShowImportSuccess] = useState(false)
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
@@ -34,7 +36,7 @@ const SettingsView: React.FC = () => {
       try {
         const content = e.target?.result as string
         const success = await importData(content)
-        
+
         if (success) {
           setImportError(null)
           setShowImportSuccess(true)
@@ -47,18 +49,18 @@ const SettingsView: React.FC = () => {
       }
     }
     reader.readAsText(file)
-    
+
     // 파일 입력 초기화
     event.target.value = ''
   }
 
   const handleClearCompleted = () => {
-    const completedCount = stats.completed
+    const completedCount = stats?.completed || 0
     if (completedCount === 0) {
       alert('완료된 할일이 없습니다.')
       return
     }
-    
+
     if (confirm(`완료된 할일 ${completedCount}개를 삭제하시겠습니까?`)) {
       clearCompleted()
     }
@@ -129,7 +131,7 @@ const SettingsView: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           {/* 동기화 버튼 */}
           {!user?.isAnonymous && (
             <button
@@ -147,7 +149,7 @@ const SettingsView: React.FC = () => {
               </span>
             </button>
           )}
-          
+
           {/* 로그아웃 버튼 */}
           <button
             onClick={handleLogout}
@@ -171,11 +173,10 @@ const SettingsView: React.FC = () => {
             <button
               key={option.key}
               onClick={() => setTheme(option.key as 'light' | 'dark' | 'system')}
-              className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                theme === option.key
-                  ? 'bg-primary-50 border-primary-200 dark:bg-primary-900/20 dark:border-primary-700'
-                  : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
-              }`}
+              className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${theme === option.key
+                ? 'bg-primary-50 border-primary-200 dark:bg-primary-900/20 dark:border-primary-700'
+                : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-lg">{option.icon}</span>
@@ -191,25 +192,61 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
 
+      {/* 글자 크기 설정 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">글자 크기</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <span className="text-sm text-gray-500 dark:text-gray-400">작게</span>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setFontSizeLevel(level as 1 | 2 | 3 | 4 | 5)}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${fontSizeLevel === level
+                    ? 'bg-blue-600 text-white shadow-lg scale-110'
+                    : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500'
+                    }`}
+                  aria-label={`글자 크기 ${level}단계`}
+                >
+                  <span style={{ fontSize: `${0.8 + level * 0.1}rem` }}>A</span>
+                </button>
+              ))}
+            </div>
+            <span className="text-lg text-gray-900 dark:text-white font-bold">크게</span>
+          </div>
+
+          {/* 미리보기 */}
+          <div className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900/50">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">미리보기</p>
+            <p className="text-base text-gray-900 dark:text-gray-100 leading-relaxed">
+              다람쥐 헌 쳇바퀴에 타고파. The quick brown fox jumps over the lazy dog.
+              <br />
+              <span className="text-sm text-gray-600 dark:text-gray-400">작은 텍스트 예시입니다.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 데이터 통계 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">데이터 통계</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-              {stats.total}
+              {stats?.total || 0}
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">총 할일</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats.completed}
+              {stats?.completed || 0}
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">완료</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {stats.pending}
+              {stats?.pending || 0}
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">진행중</div>
           </div>
@@ -225,7 +262,7 @@ const SettingsView: React.FC = () => {
       {/* 데이터 관리 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">데이터 관리</h3>
-        
+
         <div className="space-y-3">
           {/* 데이터 내보내기 */}
           <button
@@ -280,7 +317,7 @@ const SettingsView: React.FC = () => {
                   완료된 할일 삭제
                 </div>
                 <div className="text-xs text-orange-600 dark:text-orange-400">
-                  완료된 할일 {stats.completed}개를 모두 삭제
+                  완료된 할일 {stats?.completed || 0}개를 모두 삭제
                 </div>
               </div>
             </div>
@@ -331,7 +368,7 @@ const SettingsView: React.FC = () => {
       {/* 알림 설정 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">알림</h3>
-        
+
         <button
           onClick={() => setShowNotificationSettings(true)}
           className="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
@@ -353,7 +390,7 @@ const SettingsView: React.FC = () => {
 
       {/* 하단 여백 */}
       <div className="h-8" />
-      
+
       {/* 알림 설정 모달 */}
       {showNotificationSettings && (
         <NotificationSettings onClose={() => setShowNotificationSettings(false)} />

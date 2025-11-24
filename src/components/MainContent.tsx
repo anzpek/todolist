@@ -15,6 +15,7 @@ import CompletedHistoryView from './CompletedHistoryView'
 import AuthModal from './AuthModal'
 import FloatingActionButton from './FloatingActionButton'
 import VacationDashboard from './VacationManagement/VacationDashboard'
+import SettingsView from './SettingsView'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
 import { format, addDays, subDays, isToday } from 'date-fns'
@@ -22,7 +23,7 @@ import { ko } from 'date-fns/locale'
 import type { Priority, TaskType } from '../types/todo'
 
 interface MainContentProps {
-  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation'
+  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings'
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   searchInputRef: React.RefObject<HTMLInputElement | null>
@@ -41,7 +42,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
   const [completionDateFilter, setCompletionDateFilter] = useState<'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'>('all')
   const [currentViewState, setCurrentViewState] = useState<ViewType | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date()) // 오늘 할일의 현재 선택된 날짜
-  
+
   const { getTomorrowTodos, getYesterdayIncompleteTodos, todos } = useTodos()
   const { currentUser, logout, isAnonymous } = useAuth()
 
@@ -100,7 +101,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
   //     return false
   //   })
   // }
-  
+
   // AddTodoModal ref 설정
   useEffect(() => {
     if (addTodoModalRef) {
@@ -109,32 +110,32 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
       }
     }
   }, [addTodoModalRef])
-  
+
   // 키보드 단축키 이벤트 리스너
   useEffect(() => {
     const handleOpenAddTodoModal = () => {
       setIsAddModalOpen(true)
     }
-    
+
     const handleFocusSearch = () => {
       searchInputRef.current?.focus()
     }
-    
+
     const handleToggleSidebar = () => {
       onToggleSidebar()
     }
-    
+
     const handleSwitchView = (event: CustomEvent) => {
       const view = event.detail as ViewType
       setCurrentViewState(view)
     }
-    
+
     // 커스텀 이벤트 리스너 등록
     window.addEventListener('openAddTodoModal', handleOpenAddTodoModal)
     window.addEventListener('focusSearch', handleFocusSearch)
     window.addEventListener('toggleSidebar', handleToggleSidebar)
     window.addEventListener('switchView', handleSwitchView as EventListener)
-    
+
     return () => {
       window.removeEventListener('openAddTodoModal', handleOpenAddTodoModal)
       window.removeEventListener('focusSearch', handleFocusSearch)
@@ -142,10 +143,10 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
       window.removeEventListener('switchView', handleSwitchView as EventListener)
     }
   }, [searchInputRef, onToggleSidebar])
-  
+
   // 실제 사용할 뷰는 currentViewState가 있으면 우선, 없으면 props의 currentView
   const activeView = currentViewState || currentView
-  
+
   // currentView가 변경되면 currentViewState 초기화
   useEffect(() => {
     setCurrentViewState(null)
@@ -160,7 +161,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     setCompletionDateFilter('all')
   }
 
-  const getViewTitle = (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation') => {
+  const getViewTitle = (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings') => {
     switch (view) {
       case 'today':
         return '오늘 할일'
@@ -176,6 +177,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
         return '통계 및 데이터'
       case 'vacation':
         return '휴가 관리'
+      case 'settings':
+        return '설정'
       default:
         return '할일'
     }
@@ -197,12 +200,12 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               {getViewTitle(activeView)}
             </h2>
           </div>
-          
-          
+
+
           <div className="flex items-center gap-2">
             {/* 할일 추가 버튼 - 모든 뷰에서 표시 */}
             {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && activeView !== 'vacation' && (
-              <button 
+              <button
                 onClick={() => setIsAddModalOpen(true)}
                 className={`${isMobile ? 'p-1 min-w-[28px] min-h-[28px]' : 'btn-primary'} hidden md:flex items-center gap-2`}
               >
@@ -210,7 +213,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 {!isMobile && '할일 추가'}
               </button>
             )}
-            
+
             {/* 사용자 정보 및 인증 버튼 */}
             {currentUser ? (
               <div className="flex items-center gap-2">
@@ -247,8 +250,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
           </div>
         </div>
       </header>
-      
-      <main 
+
+      <main
         className={`flex-1 ${isMobile ? 'p-4' : 'p-6'} overflow-y-auto`}
         {...(isMobile && (currentView === 'today' || currentView === 'week' || currentView === 'month') ? {
           onTouchStart: swipeHandlers.onTouchStart,
@@ -257,8 +260,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
         } : {})}
       >
         <div className={`${isMobile ? 'w-full' : 'max-w-7xl'} mx-auto`}>
-          
-          {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && activeView !== 'vacation' && (
+
+          {activeView !== 'recurring' && activeView !== 'history' && activeView !== 'analytics' && activeView !== 'vacation' && activeView !== 'settings' && (
             <SearchFilter
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
@@ -277,7 +280,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               availableTags={availableTags}
             />
           )}
-          
+
           {activeView === 'recurring' ? (
             <RecurringManagement />
           ) : activeView === 'history' ? (
@@ -300,7 +303,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                   </div>
                 </div>
               )}
-              
+
               {/* 어제 못한 일 - 왼쪽 */}
               <div className={`${isMobile ? '' : 'lg:col-span-2'}`}>
                 <div className={`${isMobile ? '' : 'sticky top-0'}`}>
@@ -352,11 +355,10 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                     </button>
                     <button
                       onClick={goToToday}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
-                        isToday(selectedDate) 
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' 
-                          : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${isToday(selectedDate)
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
                       title="오늘로 이동"
                     >
                       <Calendar className="w-3 h-3" />
@@ -370,8 +372,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                     </button>
                   </div>
                 </div>
-                <TodoList 
-                  currentView={activeView} 
+                <TodoList
+                  currentView={activeView}
                   searchTerm={searchTerm}
                   priorityFilter={priorityFilter}
                   typeFilter={typeFilter}
@@ -460,29 +462,23 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             <div className="max-w-7xl mx-auto">
               <VacationDashboard />
             </div>
-          ) : (
-            <div className="max-w-4xl mx-auto">
-              <TodoList 
-                currentView={activeView} 
-                searchTerm={searchTerm}
-                priorityFilter={priorityFilter}
-                typeFilter={typeFilter}
-                projectFilter={projectFilter}
-                tagFilter={tagFilter}
-                completionDateFilter={completionDateFilter}
-              />
+          ) : activeView === 'settings' ? (
+            <div className="max-w-3xl mx-auto">
+              <SettingsView />
             </div>
+          ) : (
+            null
           )}
         </div>
       </main>
 
 
-      <AddTodoModal 
+      <AddTodoModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
-      
-      <AuthModal 
+
+      <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />

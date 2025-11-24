@@ -700,9 +700,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       
       if (!currentUser) return;
 
-      // 로그인 사용자 - localStorage 완전 비활성화, 마이그레이션 건너뜀
-      console.log('🚫 로그인 사용자 - localStorage 완전 비활성화, 마이그레이션 건너뜀')
-      return
+      // 로그인 사용자 - localStorage 완전 비활성화, 마이그레이션 건너뜀 (이전에는 return으로 막았으나, 이제는 마이그레이션 시도)
+      console.log('🔄 로그인 사용자 - localStorage 데이터 마이그레이션 시도')
       
       // 마이그레이션 완료 여부 확인
       const migrationFlag = localStorage.getItem(`migrated_${currentUser.uid}`)

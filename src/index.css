@@ -3,12 +3,26 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Base font size scaling factor (default 1.0) */
+    --font-scale: 1.0;
+    
+    /* Fluid typography base calculation */
+    /* Mobile (320px): 14px */
+    /* Desktop (1200px): 16px */
+    /* Formula: 14px + (16 - 14) * ((100vw - 320px) / (1200 - 320)) */
+    /* Simplified: clamp(0.875rem, 0.8rem + 0.25vw, 1rem) */
+    --base-font-size: clamp(0.875rem, 0.8rem + 0.4vw, 1.125rem);
+  }
+
+  html {
+    /* Apply the scale factor to the fluid base size */
+    font-size: calc(var(--base-font-size) * var(--font-scale));
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply font-sans bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
-  }
-  
-  html {
-    scroll-behavior: smooth;
   }
 }
 
