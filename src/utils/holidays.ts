@@ -9,6 +9,16 @@ export interface HolidayInfo {
   isHoliday: boolean
 }
 
+export interface CustomHoliday {
+  date: string
+  isRecurring?: boolean
+}
+
+export interface CustomHoliday {
+  date: string
+  isRecurring?: boolean
+}
+
 // 캐시된 공휴일 데이터
 let holidayCache: Record<string, string[]> = {}
 let holidayInfoCache: Record<string, HolidayInfo[]> = {}
@@ -19,19 +29,19 @@ async function fetchHolidays(year: number): Promise<string[]> {
     const response = await fetch(
       `${HOLIDAY_API_URL}?serviceKey=${HOLIDAY_API_KEY}&solYear=${year}&_type=json&numOfRows=50`
     )
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
+
     const data = await response.json()
     const holidays: string[] = []
-    
+
     if (data.response?.body?.items?.item) {
-      const items = Array.isArray(data.response.body.items.item) 
-        ? data.response.body.items.item 
+      const items = Array.isArray(data.response.body.items.item)
+        ? data.response.body.items.item
         : [data.response.body.items.item]
-      
+
       items.forEach((item: any) => {
         if (item.locdate) {
           const dateStr = item.locdate.toString()
@@ -40,7 +50,7 @@ async function fetchHolidays(year: number): Promise<string[]> {
         }
       })
     }
-    
+
     return holidays
   } catch (error) {
     console.error('공휴일 API 호출 실패:', error)
@@ -55,19 +65,19 @@ async function fetchHolidayInfos(year: number): Promise<HolidayInfo[]> {
     const response = await fetch(
       `${HOLIDAY_API_URL}?serviceKey=${HOLIDAY_API_KEY}&solYear=${year}&_type=json&numOfRows=50`
     )
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
+
     const data = await response.json()
     const holidayInfos: HolidayInfo[] = []
-    
+
     if (data.response?.body?.items?.item) {
-      const items = Array.isArray(data.response.body.items.item) 
-        ? data.response.body.items.item 
+      const items = Array.isArray(data.response.body.items.item)
+        ? data.response.body.items.item
         : [data.response.body.items.item]
-      
+
       items.forEach((item: any) => {
         if (item.locdate) {
           const dateStr = item.locdate.toString()
@@ -80,7 +90,7 @@ async function fetchHolidayInfos(year: number): Promise<HolidayInfo[]> {
         }
       })
     }
-    
+
     return holidayInfos
   } catch (error) {
     console.error('공휴일 정보 API 호출 실패:', error)
@@ -133,7 +143,7 @@ function getDefaultHolidays(year: number): string[] {
       '2026-12-25', // 크리스마스
     ]
   }
-  
+
   return defaultHolidays[year.toString()] || []
 }
 
@@ -196,40 +206,40 @@ function getDefaultHolidayInfos(year: number): HolidayInfo[] {
       { date: '2026-12-25', name: '크리스마스', isHoliday: true },
     ]
   }
-  
+
   return defaultHolidayInfos[year.toString()] || []
 }
 
 // 공휴일 데이터 로드 (캐시 포함)
 async function loadHolidays(year: number): Promise<string[]> {
   const yearStr = year.toString()
-  
+
   // 캐시된 데이터가 있으면 반환
   if (holidayCache[yearStr]) {
     return holidayCache[yearStr]
   }
-  
+
   // API에서 데이터 가져오기
   const holidays = await fetchHolidays(year)
   holidayCache[yearStr] = holidays
   // Cache updated for year
-  
+
   return holidays
 }
 
 // 공휴일 정보 로드 (캐시 포함)
 async function loadHolidayInfos(year: number): Promise<HolidayInfo[]> {
   const yearStr = year.toString()
-  
+
   // 캐시된 데이터가 있으면 반환
   if (holidayInfoCache[yearStr]) {
     return holidayInfoCache[yearStr]
   }
-  
+
   // API에서 데이터 가져오기
   const holidayInfos = await fetchHolidayInfos(year)
   holidayInfoCache[yearStr] = holidayInfos
-  
+
   return holidayInfos
 }
 
@@ -240,7 +250,7 @@ export async function isHoliday(date: Date): Promise<boolean> {
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
   const day = date.getDate().toString().padStart(2, '0')
   const dateStr = `${year}-${month}-${day}`
-  
+
   try {
     const holidays = await loadHolidays(year)
     return holidays.includes(dateStr)
@@ -259,7 +269,7 @@ export function isHolidaySync(date: Date): boolean {
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
   const day = date.getDate().toString().padStart(2, '0')
   const dateStr = `${year}-${month}-${day}`
-  
+
   const holidays = getDefaultHolidays(year)
   return holidays.includes(dateStr)
 }
@@ -280,7 +290,7 @@ export async function getHolidayInfo(date: Date): Promise<HolidayInfo | null> {
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
   const day = date.getDate().toString().padStart(2, '0')
   const dateStr = `${year}-${month}-${day}`
-  
+
   try {
     const holidayInfos = await loadHolidayInfos(year)
     return holidayInfos.find(info => info.date === dateStr) || null
@@ -299,7 +309,7 @@ export function getHolidayInfoSync(date: Date): HolidayInfo | null {
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
   const day = date.getDate().toString().padStart(2, '0')
   const dateStr = `${year}-${month}-${day}`
-  
+
   const holidayInfos = getDefaultHolidayInfos(year)
   return holidayInfos.find(info => info.date === dateStr) || null
 }
@@ -327,7 +337,7 @@ export async function isNonWorkingDayAsync(date: Date): Promise<boolean> {
 
 export function adjustDateForHoliday(date: Date, direction: 'before' | 'after'): Date {
   const adjustedDate = new Date(date)
-  
+
   while (isNonWorkingDay(adjustedDate)) {
     if (direction === 'before') {
       adjustedDate.setDate(adjustedDate.getDate() - 1)
@@ -335,13 +345,13 @@ export function adjustDateForHoliday(date: Date, direction: 'before' | 'after'):
       adjustedDate.setDate(adjustedDate.getDate() + 1)
     }
   }
-  
+
   return adjustedDate
 }
 
 export async function adjustDateForHolidayAsync(date: Date, direction: 'before' | 'after'): Promise<Date> {
   const adjustedDate = new Date(date)
-  
+
   while (await isNonWorkingDayAsync(adjustedDate)) {
     if (direction === 'before') {
       adjustedDate.setDate(adjustedDate.getDate() - 1)
@@ -349,7 +359,7 @@ export async function adjustDateForHolidayAsync(date: Date, direction: 'before' 
       adjustedDate.setDate(adjustedDate.getDate() + 1)
     }
   }
-  
+
   return adjustedDate
 }
 
@@ -392,11 +402,11 @@ export async function preloadHolidays(years: number[]): Promise<void> {
 export function getFirstWorkdayOfMonth(year: number, month: number): Date {
   const firstDay = new Date(year, month - 1, 1) // month는 0-based이므로 -1
   let currentDay = new Date(firstDay)
-  
+
   while (isNonWorkingDay(currentDay)) {
     currentDay.setDate(currentDay.getDate() + 1)
   }
-  
+
   return currentDay
 }
 
@@ -404,11 +414,11 @@ export function getFirstWorkdayOfMonth(year: number, month: number): Date {
 export function getLastWorkdayOfMonth(year: number, month: number): Date {
   const lastDay = new Date(year, month, 0) // 다음 달 0일 = 이번 달 마지막 날
   let currentDay = new Date(lastDay)
-  
+
   while (isNonWorkingDay(currentDay)) {
     currentDay.setDate(currentDay.getDate() - 1)
   }
-  
+
   return currentDay
 }
 
@@ -416,21 +426,53 @@ export function getLastWorkdayOfMonth(year: number, month: number): Date {
 export async function getFirstWorkdayOfMonthAsync(year: number, month: number): Promise<Date> {
   const firstDay = new Date(year, month - 1, 1)
   let currentDay = new Date(firstDay)
-  
+
   while (await isNonWorkingDayAsync(currentDay)) {
     currentDay.setDate(currentDay.getDate() + 1)
   }
-  
+
   return currentDay
 }
 
 export async function getLastWorkdayOfMonthAsync(year: number, month: number): Promise<Date> {
   const lastDay = new Date(year, month, 0)
   let currentDay = new Date(lastDay)
-  
+
   while (await isNonWorkingDayAsync(currentDay)) {
     currentDay.setDate(currentDay.getDate() - 1)
   }
-  
+
   return currentDay
+}
+
+// 커스텀 공휴일 포함 확인
+export function checkIsHoliday(date: Date, customHolidays: CustomHoliday[]): boolean {
+  // 1. 기본 공휴일 확인
+  if (isHolidaySync(date)) return true
+
+  // 2. 커스텀 공휴일 확인
+  const year = date.getFullYear()
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const day = date.getDate().toString().padStart(2, '0')
+  const dateStr = `${year}-${month}-${day}`
+  const monthDay = `${month}-${day}`
+
+  return customHolidays.some(holiday => {
+    // Ensure isRecurring is treated as boolean
+    const isRecurring = !!holiday.isRecurring
+
+    if (isRecurring) {
+      // Robust date comparison: split and compare month/day parts
+      const parts = holiday.date.split('-')
+      if (parts.length === 3) {
+        const hMonth = parts[1].padStart(2, '0')
+        const hDay = parts[2].padStart(2, '0')
+        const hMonthDay = `${hMonth}-${hDay}`
+        return hMonthDay === monthDay
+      }
+      // Fallback to simple string check if format is unexpected
+      return holiday.date.endsWith(monthDay)
+    }
+    return holiday.date === dateStr
+  })
 }

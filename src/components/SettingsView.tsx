@@ -1,18 +1,52 @@
+
+
 import React, { useState } from 'react'
 import { useTodos } from '../contexts/TodoContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useFontSize } from '../contexts/FontSizeContext'
+import { useCustomHolidays } from '../contexts/CustomHolidayContext'
 import NotificationSettings from './NotificationSettings'
+import { Trash2, Plus } from 'lucide-react'
 
 const SettingsView: React.FC = () => {
   const { user, logout } = useAuth()
   const { exportData, importData, clearCompleted, stats, syncing, syncWithCloud } = useTodos()
   const { theme, setTheme } = useTheme()
   const { fontSizeLevel, setFontSizeLevel } = useFontSize()
+  const { customHolidays, addCustomHoliday, deleteCustomHoliday } = useCustomHolidays()
   const [importError, setImportError] = useState<string | null>(null)
   const [showImportSuccess, setShowImportSuccess] = useState(false)
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
+  const [newHolidayDate, setNewHolidayDate] = useState('')
+  const [newHolidayName, setNewHolidayName] = useState('')
+  const [newHolidayIsRecurring, setNewHolidayIsRecurring] = useState(false)
+
+  const handleAddHoliday = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newHolidayDate || !newHolidayName) return
+
+    try {
+      await addCustomHoliday(newHolidayDate, newHolidayName, newHolidayIsRecurring)
+      setNewHolidayDate('')
+      setNewHolidayName('')
+      setNewHolidayIsRecurring(false)
+    } catch (error) {
+      console.error('Failed to add holiday:', error)
+      alert('공휴일 추가에 실패했습니다.')
+    }
+  }
+
+  const handleDeleteHoliday = async (id: string) => {
+    if (confirm('이 공휴일을 삭제하시겠습니까?')) {
+      try {
+        await deleteCustomHoliday(id)
+      } catch (error) {
+        console.error('Failed to delete holiday:', error)
+        alert('공휴일 삭제에 실패했습니다.')
+      }
+    }
+  }
 
   const handleExport = () => {
     const data = exportData()
@@ -20,7 +54,7 @@ const SettingsView: React.FC = () => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `todos-backup-${new Date().toISOString().split('T')[0]}.json`
+    link.download = `todos - backup - ${new Date().toISOString().split('T')[0]}.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -61,7 +95,7 @@ const SettingsView: React.FC = () => {
       return
     }
 
-    if (confirm(`완료된 할일 ${completedCount}개를 삭제하시겠습니까?`)) {
+    if (confirm(`완료된 할일 ${completedCount}개를 삭제하시겠습니까 ? `)) {
       clearCompleted()
     }
   }
@@ -173,10 +207,10 @@ const SettingsView: React.FC = () => {
             <button
               key={option.key}
               onClick={() => setTheme(option.key as 'light' | 'dark' | 'system')}
-              className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${theme === option.key
+              className={`w - full flex items - center justify - between p - 3 rounded - lg border transition - colors ${theme === option.key
                 ? 'bg-primary-50 border-primary-200 dark:bg-primary-900/20 dark:border-primary-700'
                 : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
+                } `}
             >
               <div className="flex items-center gap-3">
                 <span className="text-lg">{option.icon}</span>
@@ -203,13 +237,13 @@ const SettingsView: React.FC = () => {
                 <button
                   key={level}
                   onClick={() => setFontSizeLevel(level as 1 | 2 | 3 | 4 | 5)}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${fontSizeLevel === level
+                  className={`w - 10 h - 10 rounded - full flex items - center justify - center transition - all ${fontSizeLevel === level
                     ? 'bg-blue-600 text-white shadow-lg scale-110'
                     : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500'
-                    }`}
-                  aria-label={`글자 크기 ${level}단계`}
+                    } `}
+                  aria-label={`글자 크기 ${level} 단계`}
                 >
-                  <span style={{ fontSize: `${0.8 + level * 0.1}rem` }}>A</span>
+                  <span style={{ fontSize: `${0.8 + level * 0.1} rem` }}>A</span>
                 </button>
               ))}
             </div>
@@ -225,6 +259,86 @@ const SettingsView: React.FC = () => {
               <span className="text-sm text-gray-600 dark:text-gray-400">작은 텍스트 예시입니다.</span>
             </p>
           </div>
+        </div>
+      </div>
+
+
+
+      {/* 공휴일 설정 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">공휴일 설정</h3>
+
+        {/* 공휴일 추가 폼 */}
+        <form onSubmit={handleAddHoliday} className="flex gap-2 mb-4">
+          <input
+            type="date"
+            value={newHolidayDate}
+            onChange={(e) => setNewHolidayDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+          <input
+            type="text"
+            value={newHolidayName}
+            onChange={(e) => setNewHolidayName(e.target.value)}
+            placeholder="공휴일 이름"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+          <button
+            type="submit"
+            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            title="추가"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </form>
+
+        <div className="mb-4 flex items-center">
+          <input
+            type="checkbox"
+            id="recurringHoliday"
+            checked={newHolidayIsRecurring}
+            onChange={(e) => setNewHolidayIsRecurring(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+          />
+          <label htmlFor="recurringHoliday" className="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+            매년 반복
+          </label>
+        </div>
+
+        {/* 공휴일 목록 */}
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {customHolidays.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              등록된 공휴일이 없습니다.
+            </p>
+          ) : (
+            customHolidays.map((holiday) => (
+              <div key={holiday.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {holiday.date}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    {holiday.name}
+                  </span>
+                  {holiday.isRecurring && (
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+                      매년
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDeleteHoliday(holiday.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  title="삭제"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -392,10 +506,12 @@ const SettingsView: React.FC = () => {
       <div className="h-8" />
 
       {/* 알림 설정 모달 */}
-      {showNotificationSettings && (
-        <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
-      )}
-    </div>
+      {
+        showNotificationSettings && (
+          <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
+        )
+      }
+    </div >
   )
 }
 

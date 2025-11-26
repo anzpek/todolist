@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { VacationProvider } from './contexts/VacationContext'
 import { KeyboardProvider } from './contexts/KeyboardContext'
 import { FontSizeProvider } from './contexts/FontSizeContext'
+import { CustomHolidayProvider } from './contexts/CustomHolidayContext'
 import { useGlobalKeyboard } from './hooks/useGlobalKeyboard'
 import { debug } from './utils/debug'
 import { performanceMonitor, measureRenderTime } from './utils/performance'
@@ -315,9 +316,11 @@ function App() {
           <AuthProvider>
             <FontSizeProvider>
               <VacationProvider>
-                <TodoProvider>
-                  <AppContent />
-                </TodoProvider>
+                <CustomHolidayProvider>
+                  <TodoProvider>
+                    <AppContent />
+                  </TodoProvider>
+                </CustomHolidayProvider>
               </VacationProvider>
             </FontSizeProvider>
           </AuthProvider>

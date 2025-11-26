@@ -20,7 +20,7 @@ import { db } from '../config/firebase';
 import type { Todo, SubTask } from '../types/todo';
 import { debug } from '../utils/debug';
 import { handleFirestoreError, withRetry } from '../utils/errorHandling';
-import { getHolidayInfoSync, isWeekend, getFirstWorkdayOfMonth, getLastWorkdayOfMonth } from '../utils/holidays';
+import { getHolidayInfoSync, isWeekend, getFirstWorkdayOfMonth, getLastWorkdayOfMonth, checkIsHoliday, type CustomHoliday } from '../utils/holidays';
 import type { SimpleRecurringTemplate, RecurrenceException, ConflictException, SimpleRecurringInstance } from '../utils/simpleRecurring';
 
 // #region Helper Functions
@@ -71,72 +71,72 @@ const _checkDateConflict = (date1: Date, date2: Date, scope: 'same_date' | 'same
 };
 
 const _calculateWeekOfMonth = (date: Date): number => {
-    const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-    const firstDayOfWeek = firstDayOfMonth.getDay();
-    const weekOfMonth = Math.ceil((date.getDate() + firstDayOfWeek) / 7);
-    return weekOfMonth;
+  const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+  const firstDayOfWeek = firstDayOfMonth.getDay();
+  const weekOfMonth = Math.ceil((date.getDate() + firstDayOfWeek) / 7);
+  return weekOfMonth;
 };
 
 const _isLastOccurrenceOfWeekdayInMonth = (date: Date): boolean => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const weekday = date.getDay();
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    for (let day = lastDayOfMonth.getDate(); day >= 1; day--) {
-        const testDate = new Date(year, month, day);
-        if (testDate.getDay() === weekday) {
-            return date.getDate() === day;
-        }
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const weekday = date.getDay();
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  for (let day = lastDayOfMonth.getDate(); day >= 1; day--) {
+    const testDate = new Date(year, month, day);
+    if (testDate.getDay() === weekday) {
+      return date.getDate() === day;
     }
-    return false;
+  }
+  return false;
 };
 
 const _findNthWeekdayOfMonth = (year: number, month: number, weekPosition: 'first' | 'second' | 'third' | 'fourth' | 'last', weekday: number): Date | null => {
-    const jsMonth = month - 1;
-    if (weekPosition === 'last') {
-        const lastDayOfMonth = new Date(year, jsMonth + 1, 0);
-        for (let day = lastDayOfMonth.getDate(); day >= 1; day--) {
-            const date = new Date(year, jsMonth, day);
-            if (date.getDay() === weekday) return date;
-        }
-    } else {
-        const weekNumbers = { 'first': 1, 'second': 2, 'third': 3, 'fourth': 4 };
-        const targetWeek = weekNumbers[weekPosition];
-        let weekCount = 0;
-        const lastDayOfMonth = new Date(year, jsMonth + 1, 0).getDate();
-        for (let day = 1; day <= lastDayOfMonth; day++) {
-            const date = new Date(year, jsMonth, day);
-            if (date.getDay() === weekday) {
-                weekCount++;
-                if (weekCount === targetWeek) return date;
-            }
-        }
+  const jsMonth = month - 1;
+  if (weekPosition === 'last') {
+    const lastDayOfMonth = new Date(year, jsMonth + 1, 0);
+    for (let day = lastDayOfMonth.getDate(); day >= 1; day--) {
+      const date = new Date(year, jsMonth, day);
+      if (date.getDay() === weekday) return date;
     }
-    return null;
+  } else {
+    const weekNumbers = { 'first': 1, 'second': 2, 'third': 3, 'fourth': 4 };
+    const targetWeek = weekNumbers[weekPosition];
+    let weekCount = 0;
+    const lastDayOfMonth = new Date(year, jsMonth + 1, 0).getDate();
+    for (let day = 1; day <= lastDayOfMonth; day++) {
+      const date = new Date(year, jsMonth, day);
+      if (date.getDay() === weekday) {
+        weekCount++;
+        if (weekCount === targetWeek) return date;
+      }
+    }
+  }
+  return null;
 };
 
-const _adjustForHolidays = (date: Date, holidayHandling: 'before' | 'after' | 'show' = 'show'): Date => {
-    let adjustedDate = new Date(date);
-    if (holidayHandling === 'show') return adjustedDate;
+const _adjustForHolidays = (date: Date, holidayHandling: 'before' | 'after' | 'show' = 'show', customHolidays: CustomHoliday[] = []): Date => {
+  let adjustedDate = new Date(date);
+  if (holidayHandling === 'show') return adjustedDate;
 
-    const isHoliday = getHolidayInfoSync(adjustedDate) !== null;
-    const isWeekendDay = isWeekend(adjustedDate);
+  const isHoliday = checkIsHoliday(adjustedDate, customHolidays);
+  const isWeekendDay = isWeekend(adjustedDate);
 
-    if (!isHoliday && !isWeekendDay) return adjustedDate;
+  if (!isHoliday && !isWeekendDay) return adjustedDate;
 
-    let attempts = 0;
-    while (attempts < 15) {
-        if (holidayHandling === 'before') {
-            adjustedDate.setDate(adjustedDate.getDate() - 1);
-        } else {
-            adjustedDate.setDate(adjustedDate.getDate() + 1);
-        }
-        const currentIsHoliday = getHolidayInfoSync(adjustedDate) !== null;
-        const currentIsWeekend = isWeekend(adjustedDate);
-        if (!currentIsHoliday && !currentIsWeekend) break;
-        attempts++;
+  let attempts = 0;
+  while (attempts < 15) {
+    if (holidayHandling === 'before') {
+      adjustedDate.setDate(adjustedDate.getDate() - 1);
+    } else {
+      adjustedDate.setDate(adjustedDate.getDate() + 1);
     }
-    return adjustedDate;
+    const currentIsHoliday = checkIsHoliday(adjustedDate, customHolidays);
+    const currentIsWeekend = isWeekend(adjustedDate);
+    if (!currentIsHoliday && !currentIsWeekend) break;
+    attempts++;
+  }
+  return adjustedDate;
 };
 // #endregion
 
@@ -150,14 +150,14 @@ export const firestoreService = {
         if (!uid) {
           throw new Error('User ID is required')
         }
-        
+
         const todosRef = collection(db, `users/${uid}/todos`)
         const q = query(todosRef, orderBy('createdAt', 'desc'))
         const snapshot = await getDocs(q)
-        
+
         const todos = snapshot.docs.map(doc => {
           const data = doc.data()
-          
+
           return {
             id: doc.id,
             ...data,
@@ -174,7 +174,7 @@ export const firestoreService = {
             })) : []
           }
         }) as Todo[]
-        
+
         debug.log('Firestore getTodos 성공:', { count: todos.length, uid })
         return todos
       } catch (error) {
@@ -190,16 +190,16 @@ export const firestoreService = {
         if (!uid || !todo.title?.trim()) {
           throw new Error('User ID and todo title are required')
         }
-        
+
         const todosRef = collection(db, `users/${uid}/todos`)
         const cleanedTodo = removeUndefinedValues(todo)
-        
+
         const todoData = {
           ...cleanedTodo,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         }
-        
+
         const docRef = await addDoc(todosRef, todoData)
         debug.log('Firestore addTodo 성공:', docRef.id)
         return docRef.id
@@ -214,17 +214,17 @@ export const firestoreService = {
     try {
       const todoRef = doc(db, `users/${uid}/todos`, id)
       const docSnap = await getDoc(todoRef)
-      
+
       if (!docSnap.exists()) {
         debug.warn(`할일 문서 ${id}가 존재하지 않습니다. 업데이트를 건너뜁니다.`)
         return
       }
-      
+
       const updateData = {
         ...updates,
         updatedAt: serverTimestamp()
       }
-      
+
       await updateDoc(todoRef, updateData)
     } catch (error) {
       debug.error('Firestore updateTodo 실패:', error)
@@ -246,7 +246,7 @@ export const firestoreService = {
     try {
       const todosRef = collection(db, `users/${uid}/todos`)
       const q = query(todosRef, orderBy('createdAt', 'desc'))
-      
+
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const todos = snapshot.docs.map(doc => {
           const data = doc.data()
@@ -271,12 +271,12 @@ export const firestoreService = {
         console.error('❌ Firestore 구독 오류:', error)
         callback([])
       })
-      
+
       return unsubscribe
     } catch (error) {
       console.error('❌ Firestore subscribeTodos 초기화 실패:', error)
       callback([])
-      return () => {}
+      return () => { }
     }
   },
 
@@ -293,14 +293,14 @@ export const firestoreService = {
     const todoRef = doc(db, `users/${uid}/todos`, todoId)
     const todoSnapshot = await getDoc(todoRef)
     if (!todoSnapshot.exists()) throw new Error('할일을 찾을 수 없습니다.')
-    
+
     const todoData = todoSnapshot.data()
     const currentSubTasks = todoData.subTasks || []
-    
-    const updatedSubTasks = currentSubTasks.map((subTask: SubTask) => 
+
+    const updatedSubTasks = currentSubTasks.map((subTask: SubTask) =>
       subTask.id === subTaskId ? { ...subTask, ...updates, updatedAt: new Date() } : subTask
     )
-    
+
     await updateDoc(todoRef, {
       subTasks: updatedSubTasks,
       updatedAt: serverTimestamp()
@@ -311,12 +311,12 @@ export const firestoreService = {
     const todoRef = doc(db, `users/${uid}/todos`, todoId)
     const todoSnapshot = await getDoc(todoRef)
     if (!todoSnapshot.exists()) throw new Error('할일을 찾을 수 없습니다.')
-    
+
     const todoData = todoSnapshot.data()
     const currentSubTasks = todoData.subTasks || []
-    
+
     const filteredSubTasks = currentSubTasks.filter((subTask: SubTask) => subTask.id !== subTaskId)
-    
+
     await updateDoc(todoRef, {
       subTasks: filteredSubTasks,
       updatedAt: serverTimestamp()
@@ -363,7 +363,7 @@ export const firestoreService = {
     const q = query(instancesRef, where('templateId', '==', id))
     const snapshot = await getDocs(q)
     snapshot.forEach(doc => batch.delete(doc.ref))
-    
+
     await batch.commit()
   },
 
@@ -372,7 +372,7 @@ export const firestoreService = {
       debug.log('프로젝트 템플릿 구독 시작', { uid });
       const templatesRef = collection(db, `users/${uid}/projectTemplates`);
       const q = query(templatesRef, orderBy('createdAt', 'desc'));
-      
+
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const templates = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -383,19 +383,19 @@ export const firestoreService = {
             updatedAt: safeToDate(data.updatedAt) || new Date()
           };
         });
-        
+
         debug.log('프로젝트 템플릿 구독 업데이트', { count: templates.length });
         callback(templates);
       }, (error) => {
         debug.error('프로젝트 템플릿 구독 오류:', error);
         callback([]);
       });
-      
+
       return unsubscribe;
     } catch (error) {
       debug.error('프로젝트 템플릿 구독 초기화 실패:', error);
       callback([]);
-      return () => {};
+      return () => { };
     }
   },
 
@@ -440,7 +440,7 @@ export const firestoreService = {
   getRecurringInstances: async (uid: string): Promise<any[]> => {
     const instancesRef = collection(db, `users/${uid}/recurringInstances`)
     const q = query(instancesRef, orderBy('date', 'asc'))
-    const snapshot = await getDocs(q, { source: 'server' })
+    const snapshot = await getDocs(q)
     return snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
@@ -526,7 +526,7 @@ export const firestoreService = {
     if (!targetTemplateDoc) return false;
 
     const targetTemplate = { id: targetTemplateDoc.id, ...targetTemplateDoc.data() } as SimpleRecurringTemplate;
-    const targetInstances = await this.generateInstancesForTemplate(targetTemplate, uid, true);
+    const targetInstances = await this.generateInstancesForTemplate(targetTemplate, uid, true, []);
 
     for (const instance of targetInstances) {
       if (_checkDateConflict(date, instance.date, conflictException.scope)) {
@@ -537,13 +537,14 @@ export const firestoreService = {
     return false;
   },
 
-  async generateInstancesForTemplate(template: SimpleRecurringTemplate, uid: string, isRecursiveCall = false): Promise<SimpleRecurringInstance[]> {
+  async generateInstancesForTemplate(template: SimpleRecurringTemplate, uid: string, isRecursiveCall = false, customHolidays: CustomHoliday[] = []): Promise<SimpleRecurringInstance[]> {
     if (!template.isActive) return [];
 
     const instances: SimpleRecurringInstance[] = [];
     const createdDates = new Set<string>();
     const now = new Date();
-    const endDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+    const endDate = new Date(now);
+    endDate.setFullYear(now.getFullYear() + 1); // 1년 후까지 생성
     let currentDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
     while (currentDate <= endDate) {
@@ -580,7 +581,7 @@ export const firestoreService = {
       }
 
       if (potentialDate && potentialDate >= new Date(new Date().setHours(0, 0, 0, 0))) {
-        let finalDate = _adjustForHolidays(potentialDate, template.holidayHandling);
+        let finalDate = _adjustForHolidays(potentialDate, template.holidayHandling, customHolidays);
         const isException = await this._isExceptionDate(finalDate, template, uid, isRecursiveCall);
 
         if (!isException) {
@@ -608,7 +609,7 @@ export const firestoreService = {
     }
     return instances;
   },
-  
+
   // Helper to copy a collection from one UID to another
   async _copyCollection(oldUid: string, newUid: string, collectionName: string): Promise<void> {
     const oldCollectionRef = collection(db, `users/${oldUid}/${collectionName}`);
@@ -702,20 +703,35 @@ export const firestoreService = {
         const templateDoc = await getDoc(templateRef);
         if (!templateDoc.exists()) throw new Error(`Template ${templateId} not found`);
         const template = { id: templateDoc.id, ...templateDoc.data() } as SimpleRecurringTemplate;
-        
-        const newGeneratedInstances = await firestoreService.generateInstancesForTemplate(template, uid);
+
+        // 2.5 커스텀 공휴일 가져오기
+        const customHolidaysRef = collection(db, `users/${uid}/custom_holidays`);
+        const customHolidaysSnapshot = await getDocs(customHolidaysRef);
+        const customHolidays = customHolidaysSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            date: data.date,
+            name: data.name,
+            isRecurring: data.isRecurring,
+            createdAt: data.createdAt
+          } as CustomHoliday;
+        });
+
+        const newGeneratedInstances = await firestoreService.generateInstancesForTemplate(template, uid, false, customHolidays);
         debug.log('새 인스턴스 생성 완료', { count: newGeneratedInstances.length });
 
         const batch = writeBatch(db);
-        const newInstanceIds = new Set(newGeneratedInstances.map(inst => inst.id));
+        const newInstanceIds = new Set<string>();
 
-        // 3. 새 인스턴스 추가 또는 기존 인스턴스 업데이트 (완료 상태 보존)
+        // 3. 새 인스턴스 추가 또는 기존 인스턴스 업데이트
         newGeneratedInstances.forEach((newInstance) => {
           const instanceRef = doc(instancesRef, newInstance.id);
           const existingInstance = existingInstancesMap.get(newInstance.id);
 
           if (existingInstance) {
-            // 기존 인스턴스가 있으면 완료 상태를 보존하여 업데이트
+            // 기존 인스턴스가 있으면 업데이트 (완료 상태 보존)
+            newInstanceIds.add(newInstance.id);
             batch.update(instanceRef, {
               ...newInstance,
               completed: existingInstance.completed || false,
@@ -723,7 +739,8 @@ export const firestoreService = {
               updatedAt: serverTimestamp(),
             });
           } else {
-            // 새로운 인스턴스면 추가
+            // 새로운 인스턴스인 경우
+            newInstanceIds.add(newInstance.id);
             batch.set(instanceRef, {
               ...newInstance,
               createdAt: serverTimestamp(),
@@ -732,11 +749,20 @@ export const firestoreService = {
           }
         });
 
-        // 4. 더 이상 유효하지 않은 기존 인스턴스 삭제
-        existingInstancesMap.forEach((_, id) => {
+        // 4. 더 이상 유효하지 않은 기존 인스턴스 삭제 (단, 미완료 인스턴스는 절대 삭제하지 않음)
+        existingInstancesMap.forEach((data, id) => {
           if (!newInstanceIds.has(id)) {
-            batch.delete(doc(instancesRef, id));
-            debug.log('유효하지 않은 인스턴스 삭제 예정', { id });
+            // 🔥 수정: 미완료여도 미래의 인스턴스라면 삭제 (템플릿 변경 반영)
+            const instanceDate = safeToDate(data.date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (data.completed || (instanceDate && instanceDate >= today)) {
+              batch.delete(doc(instancesRef, id));
+              debug.log('유효하지 않은 인스턴스 삭제 (완료됨 또는 미래)', { id });
+            } else {
+              debug.log('유효하지 않지만 과거의 미완료된 인스턴스 보존', { id });
+            }
           }
         });
 
