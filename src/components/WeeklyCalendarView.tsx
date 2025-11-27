@@ -15,6 +15,8 @@ import { getHolidayInfoSync, isWeekend, type HolidayInfo } from '../utils/holida
 import type { Priority, TaskType, Todo } from '../types/todo'
 
 interface WeeklyCalendarViewProps {
+  currentDate: Date
+  onDateChange: (date: Date) => void
   searchTerm: string
   priorityFilter: Priority | 'all'
   typeFilter: TaskType | 'all'
@@ -26,6 +28,8 @@ interface WeeklyCalendarViewProps {
 }
 
 const WeeklyCalendarView = ({
+  currentDate,
+  onDateChange,
   searchTerm,
   priorityFilter,
   typeFilter,
@@ -35,7 +39,7 @@ const WeeklyCalendarView = ({
   onAddTodo,
   isMobile = false
 }: WeeklyCalendarViewProps) => {
-  const [currentWeek, setCurrentWeek] = useState(new Date())
+  // const [currentWeek, setCurrentWeek] = useState(new Date()) // Removed internal state
   const [holidayInfos, setHolidayInfos] = useState<Record<string, HolidayInfo>>({})
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -48,15 +52,15 @@ const WeeklyCalendarView = ({
   const { getCustomHoliday } = useCustomHolidays()
 
   const weekDays = useMemo(() => {
-    const start = startOfWeek(currentWeek, { weekStartsOn: 0 }) // 일요일 시작
-    const end = endOfWeek(currentWeek, { weekStartsOn: 0 })
+    const start = startOfWeek(currentDate, { weekStartsOn: 0 }) // 일요일 시작
+    const end = endOfWeek(currentDate, { weekStartsOn: 0 })
     return eachDayOfInterval({ start, end })
-  }, [currentWeek])
+  }, [currentDate])
 
   // 몇째주 계산
   const weekOfMonth = useMemo(() => {
-    return getWeekOfMonth(currentWeek, { weekStartsOn: 0 })
-  }, [currentWeek])
+    return getWeekOfMonth(currentDate, { weekStartsOn: 0 })
+  }, [currentDate])
 
   // 공휴일 정보 로드
   useEffect(() => {
@@ -170,15 +174,15 @@ const WeeklyCalendarView = ({
   }
 
   const goToPreviousWeek = () => {
-    setCurrentWeek(prev => subWeeks(prev, 1))
+    onDateChange(subWeeks(currentDate, 1))
   }
 
   const goToNextWeek = () => {
-    setCurrentWeek(prev => addWeeks(prev, 1))
+    onDateChange(addWeeks(currentDate, 1))
   }
 
   const goToCurrentWeek = () => {
-    setCurrentWeek(new Date())
+    onDateChange(new Date())
   }
 
   // 스와이프 핸들러 설정
@@ -202,7 +206,7 @@ const WeeklyCalendarView = ({
       <div className={`flex items-center ${isMobile ? 'flex-col gap-2' : 'justify-between'}`}>
         <div className={`flex items-center ${isMobile ? 'w-full justify-between' : 'gap-4'}`}>
           <h2 className={`${isMobile ? 'text-base' : 'text-xl'} font-semibold text-gray-900 dark:text-white ${isMobile ? 'flex-1 text-center min-w-0' : ''}`}>
-            {format(currentWeek, 'yyyy년 M월', { locale: ko })} {weekOfMonth}째주
+            {format(currentDate, 'yyyy년 M월', { locale: ko })} {weekOfMonth}째주
           </h2>
           <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
             <button

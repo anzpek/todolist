@@ -15,7 +15,7 @@ import {
   RotateCcw,
   User
 } from 'lucide-react'
-import { format, addDays, subDays, isSameDay } from 'date-fns'
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import TodoList from './TodoList'
 import WeeklyCalendarView from './WeeklyCalendarView'
@@ -61,12 +61,24 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     setSelectedDate(date)
   }
 
-  const handlePrevDay = () => {
-    setSelectedDate(prev => subDays(prev, 1))
+  const handlePrev = () => {
+    if (currentView === 'week') {
+      setSelectedDate(prev => subWeeks(prev, 1))
+    } else if (currentView === 'month') {
+      setSelectedDate(prev => subMonths(prev, 1))
+    } else {
+      setSelectedDate(prev => subDays(prev, 1))
+    }
   }
 
-  const handleNextDay = () => {
-    setSelectedDate(prev => addDays(prev, 1))
+  const handleNext = () => {
+    if (currentView === 'week') {
+      setSelectedDate(prev => addWeeks(prev, 1))
+    } else if (currentView === 'month') {
+      setSelectedDate(prev => addMonths(prev, 1))
+    } else {
+      setSelectedDate(prev => addDays(prev, 1))
+    }
   }
 
   const handleToday = () => {
@@ -162,16 +174,21 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             {/* Date Navigation (Only for calendar views) */}
             {(currentView === 'today' || currentView === 'week' || currentView === 'month') && (
               <div className="flex items-center justify-center gap-4 glass-panel p-2">
-                <button onClick={handlePrevDay} className="p-1 hover:bg-gray-200 rounded-full">
+                <button onClick={handlePrev} className="p-1 hover:bg-gray-200 rounded-full">
                   <ChevronLeft className="w-5 h-5 text-gray-600" />
                 </button>
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5 text-indigo-600" />
                   <span className="text-lg font-medium text-gray-900 dark:text-white">
-                    {format(selectedDate, 'yyyy년 M월 d일 (EEE)', { locale: ko })}
+                    {currentView === 'week'
+                      ? `${format(startOfWeek(selectedDate, { weekStartsOn: 0 }), 'M월 d일', { locale: ko })} - ${format(endOfWeek(selectedDate, { weekStartsOn: 0 }), 'M월 d일', { locale: ko })}`
+                      : currentView === 'month'
+                        ? format(selectedDate, 'yyyy년 M월', { locale: ko })
+                        : format(selectedDate, 'yyyy년 M월 d일 (EEE)', { locale: ko })
+                    }
                   </span>
                 </div>
-                <button onClick={handleNextDay} className="p-1 hover:bg-gray-200 rounded-full">
+                <button onClick={handleNext} className="p-1 hover:bg-gray-200 rounded-full">
                   <ChevronRight className="w-5 h-5 text-gray-600" />
                 </button>
                 <button
@@ -197,6 +214,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             projectFilter={projectFilter}
             filterTags={filterTags}
             completionDateFilter={completionDateFilter}
+            selectedDate={selectedDate}
           />
         ) : currentView === 'week' ? (
           <WeeklyCalendarView
