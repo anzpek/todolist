@@ -1,5 +1,5 @@
 import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff, Settings } from 'lucide-react'
-import type { ViewType } from '../App'
+import type { ViewType } from '../types/views'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useVacation } from '../contexts/VacationContext'
@@ -20,292 +20,173 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false, forceMobile = null, onToggleForceMobile }: SidebarProps) => {
-  const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, getRecurringTodos } = useTodos()
+  const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, getRecurringTodos, getTodayTodos } = useTodos()
   const { currentUser } = useAuth()
   const { showVacationsInTodos, toggleVacationDisplay } = useVacation()
-
-  // 디버깅: 사용자 정보 확인
-  console.log('🔍 Sidebar - currentUser:', currentUser)
-  console.log('🔍 Sidebar - currentUser?.email:', currentUser?.email)
-  console.log('🔍 Sidebar - isAdmin:', isAdmin(currentUser?.email))
 
   const overdueTodos = getOverdueTodos()
   const tomorrowTodos = getTomorrowTodos()
   const yesterdayTodos = getYesterdayIncompleteTodos()
+  const todayTodos = getTodayTodos()
 
   // 반복 템플릿 통계
   const activeTemplates = recurringTemplates.filter(template => template.isActive)
 
-  // 오늘의 반복 할일 (중복 제거된 버전 사용)
-  const today = new Date()
-  const allRecurringTodos = getRecurringTodos()
-  const todayRecurringTodos = allRecurringTodos.filter(todo => {
-    if (!todo.dueDate) return false
-    const todoDate = new Date(todo.dueDate)
-    return todoDate.toDateString() === today.toDateString()
-  })
-
-  console.log('🔍 Sidebar - 전체 반복 할일:', allRecurringTodos.length)
-  console.log('🔍 Sidebar - 오늘 반복 할일:', todayRecurringTodos.length)
-  console.log('🔍 Sidebar - 오늘 반복 할일 목록:', todayRecurringTodos.map(t => ({ title: t.title, completed: t.completed })))
-
-  // 기본 네비게이션 아이템
-  const baseNavItems: Array<{ id: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings', label: string, icon: any, adminOnly?: boolean }> = [
-    { id: 'today', label: '오늘 할일', icon: Clock },
-    { id: 'week', label: '이번 주 할일', icon: Calendar },
-    { id: 'month', label: '이번 달 할일', icon: CalendarDays },
-    { id: 'recurring', label: '반복 관리', icon: Repeat },
-    { id: 'history', label: '완료 히스토리', icon: History },
-    { id: 'analytics', label: '통계 및 데이터', icon: ChevronRight },
-    { id: 'vacation', label: '휴가 관리', icon: Users, adminOnly: true },
+  const menuItems = [
+    { id: 'today', label: '오늘 할일', icon: Calendar, count: todayTodos.filter(t => !t.completed).length },
+    { id: 'week', label: '주간 캘린더', icon: CalendarDays },
+    { id: 'month', label: '월간 캘린더', icon: Calendar },
+    { id: 'recurring', label: '반복 관리', icon: Repeat, count: activeTemplates.length },
+    { id: 'history', label: '완료 기록', icon: History },
+    { id: 'analytics', label: '통계/분석', icon: Users },
+    { id: 'vacation', label: '휴가 관리', icon: Calendar },
     { id: 'settings', label: '설정', icon: Settings },
   ]
 
-  // 관리자 권한에 따라 필터링
-  const navItems = baseNavItems.filter(item => !item.adminOnly || isAdmin(currentUser?.email))
-
-  if (!isOpen) {
-    return null
-  }
-
   return (
-    <div className={`${isMobile
-        ? 'fixed top-0 left-0 z-50 w-80 h-full bg-white dark:bg-gray-800 transform transition-transform duration-300 ease-in-out'
-        : 'relative w-64 h-full bg-white dark:bg-gray-800'
-      } border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-xl`}>
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h1 className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold text-gray-900 dark:text-white`}>
-          할일 관리
-        </h1>
-        {isMobile && (
-          <button
-            onClick={onToggle}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
+    <>
+      {/* 모바일 오버레이 */}
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300"
+          onClick={onToggle}
+        />
+      )}
 
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon
+      {/* 사이드바 컨테이너 */}
+      <aside
+        className={`fixed top-0 left-0 z-50 h-full transition-all duration-300 ease-in-out 
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
+          ${isMobile ? 'w-[280px]' : 'w-64'}
+          glass-card border-r border-white/40 dark:border-gray-700/40 rounded-none
+          flex flex-col shadow-2xl`}
+      >
+        {/* 헤더 영역 */}
+        <div className="p-6 flex items-center justify-between relative overflow-hidden shrink-0">
+          {/* 배경 장식 */}
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 dark:from-blue-500/5 dark:to-purple-500/5 pointer-events-none" />
+
+          <h1 className="text-2xl font-bold text-gradient-blue relative z-10 tracking-tight">
+            Todo List
+          </h1>
+          {isMobile && (
+            <button
+              onClick={onToggle}
+              className="p-2 rounded-xl hover:bg-white/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors relative z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+
+        {/* 메인 네비게이션 */}
+        <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
+          {menuItems.map((item) => {
+            if (item.id === 'analytics' && !isAdmin(currentUser?.email)) return null
+
             const isActive = currentView === item.id
+            const Icon = item.icon
 
             return (
-              <li key={item.id}>
-                <button
-                  onClick={() => {
-                    onViewChange(item.id)
-                    // 모바일에서 메뉴 선택 시 사이드바 닫기
-                    if (isMobile) {
-                      onToggle()
-                    }
-                  }}
-                  className={`w-full flex items-center justify-between px-4 py-2 text-left rounded-lg transition-colors ${isActive
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                      : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
-                    }`}
-                >
-                  <div className="flex items-center">
-                    <Icon className="w-5 h-5 mr-3" />
-                    <span className="font-medium">{item.label}</span>
+              <button
+                key={item.id}
+                onClick={() => {
+                  onViewChange(item.id as any)
+                  if (isMobile) onToggle()
+                }}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group
+                  ${isActive
+                    ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-100/50 dark:border-blue-500/30 backdrop-blur-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-200 hover:shadow-sm border border-transparent'
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg transition-colors ${isActive ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-gray-100/50 dark:bg-gray-800/50 group-hover:bg-white dark:group-hover:bg-gray-700'}`}>
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'}`} />
                   </div>
-                  {item.id === 'recurring' && activeTemplates.length > 0 && (
-                    <span className="text-xs bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full">
-                      {activeTemplates.length}
-                    </span>
-                  )}
-                </button>
-              </li>
+                  <span className="font-medium">{item.label}</span>
+                </div>
+                {item.count !== undefined && item.count > 0 && (
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isActive ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
+                    {item.count}
+                  </span>
+                )}
+              </button>
             )
           })}
-        </ul>
 
-        {/* 오늘의 반복 태스크 */}
-        {todayRecurringTodos.length > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center gap-2 px-4 py-1 text-sm font-medium text-purple-600 dark:text-purple-400">
-              <Repeat className="w-4 h-4" />
-              <span>오늘 반복 할일 ({todayRecurringTodos.length})</span>
-            </div>
-            <div className="space-y-1 mt-1">
-              {todayRecurringTodos.slice(0, 3).map(todo => {
-                return (
-                  <div key={todo.id} className={`px-3 py-1 text-sm mx-2 rounded ${todo.completed
-                      ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
-                      : 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
-                    }`}>
-                    <div className="truncate">{todo.title}</div>
-                    <div className="text-xs">
-                      {todo.completed ? '완료' : '대기 중'}
-                    </div>
-                  </div>
-                )
-              })}
-              {todayRecurringTodos.length > 3 && (
-                <div className="px-4 py-1 text-xs text-purple-500 dark:text-purple-400">
-                  +{todayRecurringTodos.length - 3}개 더
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+          {/* 구분선 */}
+          <div className="my-4 border-t border-gray-200/50 dark:border-gray-700/50" />
 
-        {/* 놓친 할일 */}
-        {overdueTodos.length > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center gap-2 px-4 py-1 text-sm font-medium text-red-600 dark:text-red-400">
-              <AlertTriangle className="w-4 h-4" />
-              <span>놓친 할일 ({overdueTodos.length})</span>
-            </div>
-            <div className="space-y-1 mt-1">
-              {overdueTodos.slice(0, 3).map(todo => (
-                <div key={todo.id} className="px-3 py-1 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 mx-2 rounded">
-                  <div className="truncate">{todo.title}</div>
+          {/* 요약 카드 영역 */}
+          <div className="space-y-3 px-1">
+            {/* 어제 미완료 */}
+            {yesterdayTodos.length > 0 && (
+              <div className="glass-panel p-4 rounded-xl border-l-4 border-l-orange-400 group hover:scale-[1.02] transition-transform duration-200 bg-orange-50/30 dark:bg-orange-900/10">
+                <div className="flex items-center gap-2 mb-2 text-orange-600 dark:text-orange-400">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="text-sm font-bold">어제 미완료</span>
                 </div>
-              ))}
-              {overdueTodos.length > 3 && (
-                <div className="px-4 py-1 text-xs text-red-500 dark:text-red-400">
-                  +{overdueTodos.length - 3}개 더
+                <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  {yesterdayTodos.length}
+                  <span className="text-sm font-normal text-gray-500 ml-1">개</span>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 어제 못한 일 */}
-        {yesterdayTodos.length > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center gap-2 px-4 py-1 text-sm font-medium text-orange-600 dark:text-orange-400">
-              <ChevronLeft className="w-4 h-4" />
-              <span>어제 못한 일 ({yesterdayTodos.length})</span>
-            </div>
-            <div className="space-y-1 mt-1">
-              {yesterdayTodos.slice(0, 3).map(todo => (
-                <div key={todo.id} className="px-3 py-1 text-sm text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 mx-2 rounded">
-                  <div className="truncate">{todo.title}</div>
-                  {todo.type === 'project' && (
-                    <div className="text-xs text-orange-500 dark:text-orange-300">
-                      {todo.project === 'longterm' ? '롱텀' : '숏텀'} 프로젝트
-                    </div>
-                  )}
-                </div>
-              ))}
-              {yesterdayTodos.length > 3 && (
-                <div className="px-4 py-1 text-xs text-orange-500 dark:text-orange-400">
-                  +{yesterdayTodos.length - 3}개 더
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 내일 할일 미리보기 */}
-        {tomorrowTodos.length > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center gap-2 px-4 py-1 text-sm font-medium text-blue-600 dark:text-blue-400">
-              <ChevronRight className="w-4 h-4" />
-              <span>내일 할일 ({tomorrowTodos.length})</span>
-            </div>
-            <div className="space-y-1 mt-1">
-              {tomorrowTodos.slice(0, 3).map(todo => (
-                <div key={todo.id} className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 mx-2 rounded">
-                  <div className="truncate">{todo.title}</div>
-                  {todo.type === 'project' && (
-                    <div className="text-xs text-blue-500 dark:text-blue-300">
-                      {todo.project === 'longterm' ? '롱텀' : '숏텀'} 프로젝트
-                    </div>
-                  )}
-                </div>
-              ))}
-              {tomorrowTodos.length > 3 && (
-                <div className="px-4 py-1 text-xs text-blue-500 dark:text-blue-400">
-                  +{tomorrowTodos.length - 3}개 더
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </nav>
-
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-        {/* 휴가 표시 토글 (관리자만) */}
-        {isAdmin(currentUser?.email) && (
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-              휴가 표시
-            </label>
-            <button
-              onClick={toggleVacationDisplay}
-              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${showVacationsInTodos
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-            >
-              <div className="flex items-center">
-                {showVacationsInTodos ? (
-                  <Eye className="w-4 h-4 mr-2" />
-                ) : (
-                  <EyeOff className="w-4 h-4 mr-2" />
-                )}
-                <span>{showVacationsInTodos ? '휴가 표시됨' : '휴가 숨김'}</span>
               </div>
-            </button>
-          </div>
-        )}
+            )}
 
-        {/* 모바일/데스크톱 전환 */}
-        {onToggleForceMobile && (
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-              화면 모드
-            </label>
-            <div className="grid grid-cols-3 gap-1">
-              <button
-                onClick={() => onToggleForceMobile?.(false)}
-                className={`px-2 py-2 text-xs rounded-lg transition-colors ${forceMobile === false
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-              >
-                💻 PC
-              </button>
-              <button
-                onClick={() => onToggleForceMobile?.(null)}
-                className={`px-2 py-2 text-xs rounded-lg transition-colors ${forceMobile === null
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-              >
-                🔄 자동
-              </button>
-              <button
-                onClick={() => onToggleForceMobile?.(true)}
-                className={`px-2 py-2 text-xs rounded-lg transition-colors ${forceMobile === true
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-              >
-                📱 폰
-              </button>
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
-              {typeof window !== 'undefined' ? window.innerWidth : 0}px
+            {/* 오늘 지연 */}
+            {overdueTodos.length > 0 && (
+              <div className="glass-panel p-4 rounded-xl border-l-4 border-l-red-500 group hover:scale-[1.02] transition-transform duration-200 bg-red-50/30 dark:bg-red-900/10">
+                <div className="flex items-center gap-2 mb-2 text-red-600 dark:text-red-400">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm font-bold">지연된 할일</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  {overdueTodos.length}
+                  <span className="text-sm font-normal text-gray-500 ml-1">개</span>
+                </div>
+              </div>
+            )}
+
+            {/* 내일 예정 */}
+            <div className="glass-panel p-4 rounded-xl border-l-4 border-l-blue-400 group hover:scale-[1.02] transition-transform duration-200 bg-blue-50/30 dark:bg-blue-900/10">
+              <div className="flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm font-bold">내일 예정</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                {tomorrowTodos.length}
+                <span className="text-sm font-normal text-gray-500 ml-1">개</span>
+              </div>
             </div>
           </div>
-        )}
+        </nav>
 
-        {/* 테마 토글 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-            테마
-          </label>
+        {/* 하단 영역 - 정리됨 */}
+        <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm shrink-0 space-y-4">
           <ThemeToggle />
+          <DataBackup />
+
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200/30 dark:border-gray-700/30">
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+              v1.2.0 • Premium
+            </p>
+            {onToggleForceMobile && (
+              <button
+                onClick={() => onToggleForceMobile(!forceMobile)}
+                className={`p-1.5 rounded-lg transition-all ${forceMobile
+                  ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'hover:bg-white/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400'
+                  }`}
+                title={forceMobile ? "데스크톱 뷰로 전환" : "모바일 뷰 테스트"}
+              >
+                {forceMobile ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      </aside>
+    </>
   )
 }
 

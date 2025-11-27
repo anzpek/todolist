@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react'
 import { useTodos } from '../contexts/TodoContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -7,10 +6,14 @@ import { useAuth } from '../contexts/AuthContext'
 import { useFontSize } from '../contexts/FontSizeContext'
 import { useCustomHolidays } from '../contexts/CustomHolidayContext'
 import NotificationSettings from './NotificationSettings'
-import { Trash2, Plus } from 'lucide-react'
+import {
+  Trash2, Plus, User, Palette, Type, Calendar, BarChart2, HardDrive, Bell,
+  LogOut, RefreshCw, Moon, Sun, Monitor, Download, Upload, Check, AlertCircle,
+  ChevronRight, Info
+} from 'lucide-react'
 
 const SettingsView: React.FC = () => {
-  const { user, logout } = useAuth()
+  const { currentUser: user, logout } = useAuth()
   const { exportData, importData, clearCompleted, stats, syncing, syncWithCloud } = useTodos()
   const { theme, setTheme } = useTheme()
   const { fontSizeLevel, setFontSizeLevel } = useFontSize()
@@ -54,7 +57,7 @@ const SettingsView: React.FC = () => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `todos - backup - ${new Date().toISOString().split('T')[0]}.json`
+    link.download = `todos-backup-${new Date().toISOString().split('T')[0]}.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -95,7 +98,7 @@ const SettingsView: React.FC = () => {
       return
     }
 
-    if (confirm(`완료된 할일 ${completedCount}개를 삭제하시겠습니까 ? `)) {
+    if (confirm(`완료된 할일 ${completedCount}개를 삭제하시겠습니까?`)) {
       clearCompleted()
     }
   }
@@ -133,205 +136,233 @@ const SettingsView: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-4xl mx-auto pb-10">
       {/* 헤더 */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">설정</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="animate-fade-in">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">설정</h2>
+        <p className="text-gray-500 dark:text-gray-400 font-medium">
           앱 설정 및 데이터 관리
         </p>
       </div>
 
       {/* 계정 정보 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">계정</h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
+      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.1s' }}>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <User className="w-5 h-5" strokeWidth={2} />
+          </div>
+          계정
+        </h3>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 backdrop-blur-sm">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 rounded-full flex items-center justify-center shadow-inner">
               {user?.photoURL ? (
-                <img src={user.photoURL} alt="프로필" className="w-8 h-8 rounded-full" />
+                <img src={user.photoURL} alt="프로필" className="w-10 h-10 rounded-full object-cover" />
               ) : (
-                <span className="text-primary-600 dark:text-primary-400">
-                  {user?.isAnonymous ? '👤' : user?.email?.charAt(0).toUpperCase() || 'U'}
+                <span className="text-xl font-bold text-blue-600 dark:text-blue-300">
+                  {user?.isAnonymous ? 'G' : user?.email?.charAt(0).toUpperCase() || 'U'}
                 </span>
               )}
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="flex-1 min-w-0">
+              <div className="text-base font-bold text-gray-900 dark:text-white truncate">
                 {user?.isAnonymous ? '게스트 사용자' : user?.displayName || '사용자'}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">
-                {user?.isAnonymous ? '로컬 저장' : user?.email || '클라우드 동기화'}
+              <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                {user?.isAnonymous ? '로컬 저장소 사용 중' : user?.email}
               </div>
             </div>
           </div>
 
-          {/* 동기화 버튼 */}
-          {!user?.isAnonymous && (
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="w-full flex items-center justify-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50"
-            >
-              {syncing ? (
-                <div className="w-4 h-4 border-2 border-blue-400 border-t-blue-600 rounded-full animate-spin" />
-              ) : (
-                <span className="text-lg">🔄</span>
-              )}
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                {syncing ? '동기화 중...' : '클라우드와 동기화'}
-              </span>
-            </button>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {!user?.isAnonymous && (
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center justify-center gap-2.5 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 group"
+              >
+                {syncing ? (
+                  <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400 group-hover:rotate-180 transition-transform duration-500" />
+                )}
+                <span className="font-semibold text-blue-700 dark:text-blue-300">
+                  {syncing ? '동기화 중...' : '클라우드 동기화'}
+                </span>
+              </button>
+            )}
 
-          {/* 로그아웃 버튼 */}
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-          >
-            <span className="text-lg">🚪</span>
-            <span className="text-sm font-medium text-red-800 dark:text-red-200">로그아웃</span>
-          </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center gap-2.5 p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all active:scale-[0.98] group"
+            >
+              <LogOut className="w-5 h-5 text-red-600 dark:text-red-400 group-hover:-translate-x-1 transition-transform" />
+              <span className="font-semibold text-red-700 dark:text-red-300">로그아웃</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 테마 설정 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">테마</h3>
-        <div className="space-y-2">
+      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.2s' }}>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+            <Palette className="w-5 h-5" strokeWidth={2} />
+          </div>
+          테마
+        </h3>
+        <div className="grid grid-cols-3 gap-4">
           {[
-            { key: 'light', label: '라이트 모드', icon: '☀️' },
-            { key: 'dark', label: '다크 모드', icon: '🌙' },
-            { key: 'system', label: '시스템 설정', icon: '💻' }
-          ].map((option) => (
-            <button
-              key={option.key}
-              onClick={() => setTheme(option.key as 'light' | 'dark' | 'system')}
-              className={`w - full flex items - center justify - between p - 3 rounded - lg border transition - colors ${theme === option.key
-                ? 'bg-primary-50 border-primary-200 dark:bg-primary-900/20 dark:border-primary-700'
-                : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
-                } `}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">{option.icon}</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
+            { key: 'light', label: '라이트', icon: Sun },
+            { key: 'dark', label: '다크', icon: Moon },
+            { key: 'system', label: '시스템', icon: Monitor }
+          ].map((option) => {
+            const Icon = option.icon
+            const isActive = theme === option.key
+            return (
+              <button
+                key={option.key}
+                onClick={() => setTheme(option.key as 'light' | 'dark' | 'system')}
+                className={`flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border transition-all duration-300 ${isActive
+                  ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 shadow-md scale-[1.02]'
+                  : 'bg-white/50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200'
+                  }`}
+              >
+                <Icon className={`w-6 h-6 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
+                <span className={`text-sm font-semibold ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'
+                  }`}>
                   {option.label}
                 </span>
-              </div>
-              {theme === option.key && (
-                <span className="text-primary-600 dark:text-primary-400 text-sm">✓</span>
-              )}
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/* 글자 크기 설정 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">글자 크기</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-            <span className="text-sm text-gray-500 dark:text-gray-400">작게</span>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((level) => (
+      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.3s' }}>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <Type className="w-5 h-5" strokeWidth={2} />
+          </div>
+          글자 크기
+        </h3>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between bg-white/50 dark:bg-gray-700/30 p-6 rounded-xl border border-gray-100 dark:border-gray-700/50">
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">작게</span>
+            <div className="flex gap-3 items-center flex-wrap justify-center">
+              {[1, 2, 3, 4, 5, 6, 7].map((level) => (
                 <button
                   key={level}
-                  onClick={() => setFontSizeLevel(level as 1 | 2 | 3 | 4 | 5)}
-                  className={`w - 10 h - 10 rounded - full flex items - center justify - center transition - all ${fontSizeLevel === level
-                    ? 'bg-blue-600 text-white shadow-lg scale-110'
-                    : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500'
-                    } `}
+                  onClick={() => setFontSizeLevel(level as 1 | 2 | 3 | 4 | 5 | 6 | 7)}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${fontSizeLevel === level
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110'
+                    : 'bg-white dark:bg-gray-600 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-500'
+                    }`}
                   aria-label={`글자 크기 ${level} 단계`}
                 >
-                  <span style={{ fontSize: `${0.8 + level * 0.1} rem` }}>A</span>
+                  <span style={{ fontSize: `${0.5 + level * 0.1}rem`, fontWeight: 600 }}>A</span>
                 </button>
               ))}
             </div>
-            <span className="text-lg text-gray-900 dark:text-white font-bold">크게</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">크게</span>
           </div>
 
           {/* 미리보기 */}
-          <div className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">미리보기</p>
-            <p className="text-base text-gray-900 dark:text-gray-100 leading-relaxed">
+          <div className="p-5 border border-gray-200/60 dark:border-gray-700/60 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 backdrop-blur-sm">
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-2 uppercase tracking-wider">Preview</p>
+            <p className="text-base text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
               다람쥐 헌 쳇바퀴에 타고파. The quick brown fox jumps over the lazy dog.
-              <br />
-              <span className="text-sm text-gray-600 dark:text-gray-400">작은 텍스트 예시입니다.</span>
             </p>
           </div>
         </div>
       </div>
 
-
-
       {/* 공휴일 설정 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">공휴일 설정</h3>
+      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.4s' }}>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+            <Calendar className="w-5 h-5" strokeWidth={2} />
+          </div>
+          공휴일 설정
+        </h3>
 
         {/* 공휴일 추가 폼 */}
-        <form onSubmit={handleAddHoliday} className="flex gap-2 mb-4">
-          <input
-            type="date"
-            value={newHolidayDate}
-            onChange={(e) => setNewHolidayDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-          />
-          <input
-            type="text"
-            value={newHolidayName}
-            onChange={(e) => setNewHolidayName(e.target.value)}
-            placeholder="공휴일 이름"
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-          />
-          <button
-            type="submit"
-            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            title="추가"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+        <form onSubmit={handleAddHoliday} className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="flex-1 flex gap-3">
+            <input
+              type="date"
+              value={newHolidayDate}
+              onChange={(e) => setNewHolidayDate(e.target.value)}
+              className="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              required
+            />
+            <input
+              type="text"
+              value={newHolidayName}
+              onChange={(e) => setNewHolidayName(e.target.value)}
+              placeholder="공휴일 이름"
+              className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              required
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center h-full px-3 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
+              <input
+                type="checkbox"
+                id="recurringHoliday"
+                checked={newHolidayIsRecurring}
+                onChange={(e) => setNewHolidayIsRecurring(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
+              />
+              <label htmlFor="recurringHoliday" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap cursor-pointer select-none">
+                매년 반복
+              </label>
+            </div>
+            <button
+              type="submit"
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center min-w-[3rem]"
+              title="추가"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
         </form>
 
-        <div className="mb-4 flex items-center">
-          <input
-            type="checkbox"
-            id="recurringHoliday"
-            checked={newHolidayIsRecurring}
-            onChange={(e) => setNewHolidayIsRecurring(e.target.checked)}
-            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-          />
-          <label htmlFor="recurringHoliday" className="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
-            매년 반복
-          </label>
-        </div>
-
         {/* 공휴일 목록 */}
-        <div className="space-y-2 max-h-60 overflow-y-auto">
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
           {customHolidays.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-              등록된 공휴일이 없습니다.
-            </p>
+            <div className="text-center py-8 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                등록된 공휴일이 없습니다.
+              </p>
+            </div>
           ) : (
             customHolidays.map((holiday) => (
-              <div key={holiday.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {holiday.date}
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {holiday.name}
-                  </span>
-                  {holiday.isRecurring && (
-                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
-                      매년
-                    </span>
-                  )}
+              <div key={holiday.id} className="group flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:border-blue-200 dark:hover:border-blue-800 transition-all hover:shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm border border-red-100 dark:border-red-800/30">
+                    {holiday.date.split('-')[2]}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {holiday.name}
+                      </span>
+                      {holiday.isRecurring && (
+                        <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full font-semibold border border-blue-200 dark:border-blue-800/50">
+                          매년
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {holiday.date}
+                    </div>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleDeleteHoliday(holiday.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                   title="삭제"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -343,175 +374,144 @@ const SettingsView: React.FC = () => {
       </div>
 
       {/* 데이터 통계 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">데이터 통계</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-              {stats?.total || 0}
-            </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">총 할일</div>
+      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.5s' }}>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
+            <BarChart2 className="w-5 h-5" strokeWidth={2} />
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats?.completed || 0}
+          데이터 통계
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: '총 할일', value: stats?.total || 0, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+            { label: '완료', value: stats?.completed || 0, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
+            { label: '진행중', value: stats?.pending || 0, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+            { label: '저장공간', value: getStorageSize(), color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' }
+          ].map((item, idx) => (
+            <div key={idx} className={`flex flex-col items-center justify-center p-4 rounded-xl ${item.bg} border border-transparent hover:border-current transition-all duration-300`}>
+              <div className={`text-2xl font-bold ${item.color} mb-1`}>
+                {item.value}
+              </div>
+              <div className="text-xs font-medium text-gray-600 dark:text-gray-400">{item.label}</div>
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">완료</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {stats?.pending || 0}
-            </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">진행중</div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm font-bold text-gray-600 dark:text-gray-400">
-              {getStorageSize()}
-            </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">저장공간</div>
-          </div>
+          ))}
         </div>
       </div>
 
       {/* 데이터 관리 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">데이터 관리</h3>
+      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.6s' }}>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+            <HardDrive className="w-5 h-5" strokeWidth={2} />
+          </div>
+          데이터 관리
+        </h3>
 
-        <div className="space-y-3">
-          {/* 데이터 내보내기 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
             onClick={handleExport}
-            className="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            className="flex flex-col items-center justify-center gap-3 p-6 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 transition-all group"
           >
-            <div className="flex items-center gap-3">
-              <span className="text-lg">📥</span>
-              <div className="text-left">
-                <div className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  데이터 내보내기
-                </div>
-                <div className="text-xs text-blue-600 dark:text-blue-400">
-                  할일 데이터를 JSON 파일로 저장
-                </div>
-              </div>
+            <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
+              <Download className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300">내보내기</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">JSON 파일로 저장</div>
             </div>
           </button>
 
-          {/* 데이터 가져오기 */}
-          <div className="relative">
+          <div className="relative group">
             <input
               type="file"
               accept=".json"
               onChange={handleImportFile}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
             />
-            <div className="w-full flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <span className="text-lg">📤</span>
-                <div className="text-left">
-                  <div className="text-sm font-medium text-green-800 dark:text-green-200">
-                    데이터 가져오기
-                  </div>
-                  <div className="text-xs text-green-600 dark:text-green-400">
-                    JSON 파일에서 할일 데이터 복원
-                  </div>
-                </div>
+            <div className="flex flex-col items-center justify-center gap-3 p-6 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl group-hover:bg-green-50 dark:group-hover:bg-green-900/20 group-hover:border-green-200 dark:group-hover:border-green-800 transition-all h-full">
+              <div className="w-12 h-12 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform duration-300">
+                <Upload className="w-6 h-6" />
+              </div>
+              <div className="text-center">
+                <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-green-700 dark:group-hover:text-green-300">가져오기</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">JSON 파일 복원</div>
               </div>
             </div>
           </div>
 
-          {/* 완료된 할일 삭제 */}
           <button
             onClick={handleClearCompleted}
-            className="w-full flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+            className="flex flex-col items-center justify-center gap-3 p-6 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-200 dark:hover:border-orange-800 transition-all group"
           >
-            <div className="flex items-center gap-3">
-              <span className="text-lg">🗑️</span>
-              <div className="text-left">
-                <div className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                  완료된 할일 삭제
-                </div>
-                <div className="text-xs text-orange-600 dark:text-orange-400">
-                  완료된 할일 {stats?.completed || 0}개를 모두 삭제
-                </div>
-              </div>
+            <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform duration-300">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-orange-700 dark:group-hover:text-orange-300">정리하기</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">완료된 할일 삭제</div>
             </div>
           </button>
         </div>
 
         {/* 알림 메시지 */}
-        {importError && (
-          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
-            <div className="text-sm text-red-800 dark:text-red-200">
-              ❌ {importError}
+        {(importError || showImportSuccess) && (
+          <div className={`mt-6 p-4 rounded-2xl border flex items-center gap-4 animate-fade-in ${importError
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+            }`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${importError ? 'bg-red-100 dark:bg-red-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
+              {importError ? <AlertCircle className="w-5 h-5" /> : <Check className="w-5 h-5" />}
             </div>
+            <span className="font-medium">{importError || '데이터를 성공적으로 가져왔습니다.'}</span>
           </div>
         )}
-
-        {showImportSuccess && (
-          <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-            <div className="text-sm text-green-800 dark:text-green-200">
-              ✅ 데이터를 성공적으로 가져왔습니다.
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 앱 정보 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">앱 정보</h3>
-        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-          <div className="flex justify-between">
-            <span>버전</span>
-            <span>1.0.0</span>
-          </div>
-          <div className="flex justify-between">
-            <span>빌드</span>
-            <span>React 19</span>
-          </div>
-          <div className="flex justify-between">
-            <span>PWA</span>
-            <span className="text-green-600 dark:text-green-400">지원됨</span>
-          </div>
-          <div className="flex justify-between">
-            <span>오프라인 모드</span>
-            <span className="text-green-600 dark:text-green-400">지원됨</span>
-          </div>
-        </div>
       </div>
 
       {/* 알림 설정 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">알림</h3>
+      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.7s' }}>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-yellow-50 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
+            <Bell className="w-5 h-5" strokeWidth={2} />
+          </div>
+          알림
+        </h3>
 
         <button
           onClick={() => setShowNotificationSettings(true)}
-          className="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          className="w-full flex items-center justify-between p-5 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 transition-all group"
         >
-          <div className="flex items-center gap-3">
-            <span className="text-lg">🔔</span>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform">
+              <Bell className="w-6 h-6" />
+            </div>
             <div className="text-left">
-              <div className="text-sm font-medium text-blue-800 dark:text-blue-200">
+              <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors">
                 알림 설정
               </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400">
+              <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 마감 알림, 완료 축하 등 설정
               </div>
             </div>
           </div>
-          <span className="text-blue-600 dark:text-blue-400">→</span>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
         </button>
       </div>
 
-      {/* 하단 여백 */}
-      <div className="h-8" />
+      {/* 앱 정보 */}
+      <div className="text-center py-6 animate-fade-in" style={{ animationDelay: '0.8s' }}>
+        <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
+          ToDo List App v1.0.0
+        </p>
+        <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+          Designed for simplicity & productivity
+        </p>
+      </div>
 
       {/* 알림 설정 모달 */}
-      {
-        showNotificationSettings && (
-          <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
-        )
-      }
-    </div >
+      {showNotificationSettings && (
+        <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
+      )}
+    </div>
   )
 }
 

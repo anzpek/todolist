@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { 
-  onAuthStateChanged, 
-  signInWithPopup, 
+import {
+  onAuthStateChanged,
+  signInWithPopup,
   signInAnonymously as firebaseSignInAnonymously,
   signOut,
   createUserWithEmailAndPassword,
@@ -16,6 +16,7 @@ interface User {
   uid: string
   email: string | null
   displayName: string | null
+  photoURL: string | null
   isAnonymous?: boolean
 }
 
@@ -52,6 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
           isAnonymous: firebaseUser.isAnonymous
         })
         setIsAnonymous(firebaseUser.isAnonymous)
@@ -128,17 +130,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return result.user
     } catch (error: any) {
       console.error('구글 로그인 실패:', error)
-      
+
       // 사용자가 팝업을 닫거나 취소한 경우
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         throw new Error('로그인이 취소되었습니다.')
       }
-      
+
       // 네트워크 오류
       if (error.code === 'auth/network-request-failed') {
         throw new Error('네트워크 연결을 확인해주세요.')
       }
-      
+
       // 기타 오류
       throw new Error('로그인 중 오류가 발생했습니다: ' + error.message)
     }

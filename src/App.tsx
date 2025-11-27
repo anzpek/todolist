@@ -12,6 +12,7 @@ import { performanceMonitor, measureRenderTime } from './utils/performance'
 import { errorTracker } from './utils/errorTracking'
 import { initializeSecurity, generateSecurityReport } from './utils/security'
 import './index.css'
+import type { ViewType } from './types/views'
 
 // 레이지 로딩 컴포넌트들
 const Sidebar = lazy(() => import('./components/Sidebar'))
@@ -20,6 +21,7 @@ import MainContent from './components/MainContent';
 const FloatingActionButton = lazy(() => import('./components/FloatingActionButton'))
 const ErrorBoundary = lazy(() => import('./components/ErrorBoundary'))
 const OfflineNotification = lazy(() => import('./components/OfflineNotification'))
+const BottomNavigation = lazy(() => import('./components/BottomNavigation'))
 
 // 로딩 스피너 컴포넌트
 const LoadingSpinner = () => (
@@ -27,9 +29,6 @@ const LoadingSpinner = () => (
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
   </div>
 )
-
-// 기존 컴포넌트들과의 호환성을 위한 타입
-export type ViewType = 'today' | 'week' | 'month'
 
 interface AppInnerProps {
   currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings'
@@ -67,7 +66,7 @@ function AppInner({
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      <div className={`h-screen flex bg-gray-50 dark:bg-gray-900 ${isMobile ? 'relative' : ''}`}>
+      <div className={`h-screen flex bg-gray-50 dark:bg-gray-900 ${isMobile ? 'flex-col' : ''}`}>
         {/* 모바일에서 사이드바 오버레이 */}
         {isMobile && isSidebarOpen && (
           <div
@@ -76,7 +75,7 @@ function AppInner({
           />
         )}
 
-        {/* 사이드바 */}
+        {/* 사이드바 - 모바일에서도 렌더링 (오버레이 모드) */}
         <Sidebar
           currentView={currentView}
           onViewChange={setCurrentView}
@@ -88,19 +87,28 @@ function AppInner({
         />
 
         {/* 메인 컨텐츠 */}
-        <MainContent
-          currentView={currentView}
-          isSidebarOpen={isSidebarOpen}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          searchInputRef={searchInputRef}
-          addTodoModalRef={addTodoModalRef}
-          isMobile={isMobile}
-        />
+        <div className={`flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden ${isMobile ? 'pb-20' : ''}`}>
+          <MainContent
+            currentView={currentView}
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            searchInputRef={searchInputRef}
+            addTodoModalRef={addTodoModalRef}
+            isMobile={isMobile}
+          />
+        </div>
+
+        {/* 모바일 하단 네비게이션 */}
+        {isMobile && (
+          <BottomNavigation
+            currentView={currentView}
+            onViewChange={setCurrentView}
+            onToggleSidebar={() => setIsSidebarOpen(true)}
+          />
+        )}
 
         {/* 오프라인 알림 */}
         <OfflineNotification />
-
-
 
         {/* PWA 설치 프롬프트 */}
         <PWAInstallPrompt />

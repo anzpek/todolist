@@ -2,222 +2,166 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Glassmorphism Variables */
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  --glass-blur: 12px;
+
+  /* Dark Mode Glass */
+  --glass-border-dark: rgba(255, 255, 255, 0.1);
+  --glass-bg-dark: rgba(17, 24, 39, 0.7);
+  --glass-shadow-dark: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+html {
+  font-size: calc(16px * var(--font-scale, 1));
+  transition: font-size 0.3s ease-out;
+}
+
 @layer base {
-  :root {
-    /* Base font size scaling factor (default 1.0) */
-    --font-scale: 1.0;
-    
-    /* Fluid typography base calculation */
-    /* Mobile (320px): 14px */
-    /* Desktop (1200px): 16px */
-    /* Formula: 14px + (16 - 14) * ((100vw - 320px) / (1200 - 320)) */
-    /* Simplified: clamp(0.875rem, 0.8rem + 0.25vw, 1rem) */
-    --base-font-size: clamp(0.875rem, 0.8rem + 0.4vw, 1.125rem);
-  }
-
-  html {
-    /* Apply the scale factor to the fluid base size */
-    font-size: calc(var(--base-font-size) * var(--font-scale));
-    scroll-behavior: smooth;
-  }
-
   body {
-    @apply font-sans bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased;
+    background-color: #f3f4f6;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
+    background-attachment: fixed;
+    background-size: 120% 120%;
+    animation: gradient-shift 20s ease infinite alternate;
+  }
+
+  .dark body {
+    background-color: #111827;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 0%;
+  }
+
+  100% {
+    background-position: 100% 100%;
   }
 }
 
 @layer components {
-  /* 접근성 - 스크린 리더 전용 텍스트 */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
+
+  /* Glass Utilities */
+  .glass-card {
+    @apply bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-lg rounded-2xl transition-all duration-300;
   }
 
-  /* 포커스 시에만 보이는 요소 (건너뛰기 링크 등) */
-  .sr-only.focus\:not-sr-only:focus {
-    position: static;
-    width: auto;
-    height: auto;
-    padding: inherit;
-    margin: inherit;
-    overflow: visible;
-    clip: auto;
-    white-space: normal;
+  .glass-panel {
+    @apply bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-white/20 dark:border-white/10 rounded-xl;
   }
 
-  /* 고대비 포커스 표시 */
-  .focus-visible {
-    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-800;
+  .glass-button {
+    @apply px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-white/80 dark:bg-gray-700/80 hover:bg-white dark:hover:bg-gray-600 border border-white/20 dark:border-white/10 shadow-sm hover:shadow-md active:scale-95;
   }
 
-  /* 건너뛰기 링크 스타일 */
-  .skip-link {
-    @apply fixed top-0 left-0 z-50 -translate-y-full;
-    @apply px-4 py-2 bg-blue-600 text-white font-medium;
-    @apply transition-transform duration-200;
+  .glass-input {
+    @apply bg-white/50 dark:bg-gray-900/50 border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-all duration-200;
   }
 
-  .skip-link:focus {
-    @apply translate-y-0;
+  /* Text Gradients */
+  .text-gradient-blue {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400;
   }
 
-  .btn-primary {
-    @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-105 active:scale-95;
-    @apply focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
-  }
-  
-  .btn-secondary {
-    @apply px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-105 active:scale-95 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
-    @apply focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2;
-  }
-  
-  .card {
-    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:shadow-md;
-    @apply focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2;
+  .text-gradient-purple {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400;
   }
 
-  /* 접근성 - 포커스 트랩 컨테이너 */
-  .focus-trap {
-    @apply relative;
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
 
-  /* 접근성 - 고대비 모드 지원 */
-  @media (prefers-contrast: high) {
-    .btn-primary {
-      @apply border-2 border-blue-800;
-    }
-    
-    .btn-secondary {
-      @apply border-2 border-gray-800 dark:border-gray-200;
-    }
-    
-    .card {
-      @apply border-2 border-gray-800 dark:border-gray-200;
-    }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
   }
 
-  /* 접근성 - 모션 감소 설정 지원 */
-  @media (prefers-reduced-motion: reduce) {
-    .todo-item,
-    .btn-primary,
-    .btn-secondary,
-    .card,
-    .progress-bar,
-    .modal-backdrop,
-    .fade-in,
-    .slide-in {
-      @apply transition-none;
-      animation: none;
-      transform: none;
-    }
-    
-    .todo-item:hover {
-      transform: none;
-    }
-    
-    .btn-primary:hover,
-    .btn-secondary:hover {
-      transform: none;
-    }
-  }
-  
-  .todo-item {
-    @apply transition-all duration-300 ease-in-out;
-  }
-  
-  .todo-item:hover {
-    @apply transform translate-x-1 shadow-lg;
-  }
-  
-  .fade-in {
-    animation: fadeIn 0.3s ease-in-out;
-  }
-  
-  .slide-in {
-    animation: slideIn 0.3s ease-out;
-  }
-  
-  .progress-bar {
-    @apply transition-all duration-500 ease-out;
-  }
-  
-  .modal-backdrop {
-    @apply transition-opacity duration-300;
-  }
-  
-  .modal-content {
-    @apply transition-all duration-300 transform;
-  }
-  
-  .checkbox-animation {
-    @apply transition-all duration-200 ease-in-out;
-  }
-  
-  .checkbox-animation:hover {
-    @apply transform scale-110;
-  }
-  
-  .priority-badge {
-    @apply transition-all duration-200 hover:scale-105;
-  }
-  
-  .nav-item {
-    @apply transition-all duration-200 ease-in-out;
-  }
-  
-  .nav-item:hover {
-    @apply transform translate-x-1;
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-300/50 dark:bg-gray-600/50 rounded-full hover:bg-gray-400/50 dark:hover:bg-gray-500/50 transition-colors;
   }
 }
 
-@layer utilities {
-  .text-shadow {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  }
-  
-  .glass-effect {
-    @apply backdrop-blur-sm bg-white/80 dark:bg-gray-800/80;
-  }
-}
-
-@keyframes fadeIn {
+/* Animations */
+@keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-@keyframes slideIn {
+@keyframes scaleIn {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: scale(0.95);
   }
+
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: scale(1);
   }
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
   }
-  50% {
-    opacity: 0.5;
+
+  100% {
+    background-position: 1000px 0;
   }
 }
 
-.animate-pulse-custom {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Legacy Support & Overrides */
+.card {
+  @apply glass-card;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 border-none;
+}
+
+.btn-secondary {
+  @apply glass-button;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

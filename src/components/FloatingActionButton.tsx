@@ -1,40 +1,37 @@
-import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
+import { Plus } from 'lucide-react'
+import { useTheme } from '../contexts/ThemeContext'
 
 interface FloatingActionButtonProps {
-  onClick: () => void;
+  onClick: () => void
 }
 
-const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onClick }) => {
-  const { theme } = useTheme();
-
-  const openAddModal = () => {
-    onClick();
-  };
-
-  // Define colors based on the theme
-  const bgColor = theme === 'dark' ? 'bg-indigo-500' : 'bg-indigo-600';
-  const hoverBgColor = theme === 'dark' ? 'hover:bg-indigo-600' : 'hover:bg-indigo-700';
-  const ringColor = theme === 'dark' ? 'focus:ring-indigo-400' : 'focus:ring-indigo-500';
+const FloatingActionButton = ({ onClick }: FloatingActionButtonProps) => {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
 
   return (
     <button
-      onClick={openAddModal}
-      className={`md:hidden fixed bottom-6 right-6 w-16 h-16 rounded-full text-white shadow-lg flex items-center justify-center ${bgColor} ${hoverBgColor} transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 ${ringColor}`}
-      aria-label="Add new todo"
+      onClick={onClick}
+      className="fixed bottom-20 right-4 z-50 group"
+      aria-label="할일 추가"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-8 w-8"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2.5}
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-      </svg>
-    </button>
-  );
-};
+      {/* 글로우 효과 */}
+      <div className="absolute inset-0 rounded-full bg-blue-500 blur-lg opacity-40 group-hover:opacity-60 transition-opacity duration-300 animate-pulse" />
 
-export default FloatingActionButton;
+      {/* 버튼 본체 */}
+      <div className={`
+        relative flex items-center justify-center 
+        w-14 h-14 rounded-full
+        bg-gradient-to-r from-blue-600 to-indigo-600
+        text-white shadow-lg shadow-blue-500/40
+        transform transition-all duration-300
+        group-hover:scale-110 group-active:scale-95
+        group-hover:shadow-blue-500/60
+      `}>
+        <Plus className="w-7 h-7 transition-transform duration-300 group-hover:rotate-90" strokeWidth={2.5} />
+      </div>
+    </button>
+  )
+}
+
+export default FloatingActionButton

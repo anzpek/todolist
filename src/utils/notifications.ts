@@ -18,7 +18,7 @@ export class NotificationManager {
   constructor() {
     this.loadNotifications()
     this.checkScheduledNotifications()
-    
+
     // 매분마다 알림 체크
     setInterval(() => {
       this.checkScheduledNotifications()
@@ -66,6 +66,20 @@ export class NotificationManager {
     }
   }
 
+  public showNotification(options: { title: string; body: string; tag?: string }) {
+    if (this.isSupported() && Notification.permission === 'granted') {
+      new Notification(options.title, {
+        body: options.body,
+        icon: '/favicon.ico',
+        tag: options.tag
+      })
+    }
+  }
+
+  public isSupported(): boolean {
+    return 'Notification' in window
+  }
+
   public requestPermission(): Promise<NotificationPermission> {
     if (!('Notification' in window)) {
       return Promise.resolve('denied')
@@ -78,7 +92,7 @@ export class NotificationManager {
 
     const reminderTime = new Date(todo.dueDate)
     reminderTime.setDate(reminderTime.getDate() - settings.advanceDays)
-    
+
     // 시간 설정
     const [hours, minutes] = settings.time.split(':').map(Number)
     reminderTime.setHours(hours, minutes, 0, 0)
@@ -160,7 +174,7 @@ export class NotificationManager {
   }
 
   public getAllNotifications(): NotificationEvent[] {
-    return [...this.notifications].sort((a, b) => 
+    return [...this.notifications].sort((a, b) =>
       b.createdAt.getTime() - a.createdAt.getTime()
     )
   }

@@ -1,4 +1,5 @@
 import { useTodos } from '../contexts/TodoContext'
+import { CheckCircle, Clock, Calendar, AlertTriangle, PieChart, TrendingUp, Activity, Target } from 'lucide-react'
 
 interface StatsCardProps {
   layout?: 'compact' | 'sidebar' | 'full'
@@ -22,30 +23,89 @@ const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
 
   const overdueTodos = getOverdueTodos().length
 
+  // Circular Progress Component
+  const CircularProgress = ({ value, color, size = 60 }: { value: number, color: string, size?: number }) => {
+    const radius = size / 2 - 4
+    const circumference = 2 * Math.PI * radius
+    const offset = circumference - (value / 100) * circumference
+
+    return (
+      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+        <svg className="transform -rotate-90 w-full h-full">
+          <circle
+            className="text-gray-200 dark:text-gray-700"
+            strokeWidth="4"
+            stroke="currentColor"
+            fill="transparent"
+            r={radius}
+            cx={size / 2}
+            cy={size / 2}
+          />
+          <circle
+            className={color}
+            strokeWidth="4"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            stroke="currentColor"
+            fill="transparent"
+            r={radius}
+            cx={size / 2}
+            cy={size / 2}
+          />
+        </svg>
+        <span className="absolute text-xs font-bold text-gray-700 dark:text-gray-200">{value}%</span>
+      </div>
+    )
+  }
+
   const stats = [
     {
       title: '전체 완료율',
       value: `${completionRate}%`,
+      icon: <PieChart className="w-5 h-5" />,
       textColor: 'text-green-600',
-      bgColor: 'bg-green-50 dark:bg-green-900/20'
+      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      borderColor: 'border-green-100 dark:border-green-800',
+      chart: <CircularProgress value={completionRate} color="text-green-500" />
     },
     {
       title: '오늘 진행률',
       value: `${todayCompleted}/${todayTotal}`,
+      icon: <Target className="w-5 h-5" />,
       textColor: 'text-blue-600',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20'
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+      borderColor: 'border-blue-100 dark:border-blue-800',
+      chart: (
+        <div className="w-full h-2 bg-blue-100 dark:bg-blue-900/30 rounded-full overflow-hidden mt-2">
+          <div
+            className="h-full bg-blue-500 rounded-full transition-all duration-500"
+            style={{ width: `${todayTotal > 0 ? (todayCompleted / todayTotal) * 100 : 0}%` }}
+          />
+        </div>
+      )
     },
     {
-      title: '이번 주',
+      title: '주간 달성',
       value: `${weekRate}%`,
+      icon: <TrendingUp className="w-5 h-5" />,
       textColor: 'text-purple-600',
-      bgColor: 'bg-purple-50 dark:bg-purple-900/20'
+      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
+      borderColor: 'border-purple-100 dark:border-purple-800',
+      chart: <CircularProgress value={weekRate} color="text-purple-500" />
     },
     {
       title: '지연된 할일',
       value: overdueTodos.toString(),
+      icon: <AlertTriangle className="w-5 h-5" />,
       textColor: 'text-red-600',
-      bgColor: 'bg-red-50 dark:bg-red-900/20'
+      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      borderColor: 'border-red-100 dark:border-red-800',
+      chart: (
+        <div className="flex items-center justify-center h-[60px]">
+          <span className="text-3xl font-bold text-red-500">{overdueTodos}</span>
+        </div>
+      )
     }
   ]
 
@@ -73,12 +133,26 @@ const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className={`grid ${layout === 'full' ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'} gap-4 lg:gap-6`}>
       {stats.map((stat, index) => (
-        <div key={index} className={`${stat.bgColor} rounded-lg p-2 border border-gray-200 dark:border-gray-700`}>
-          <div className="text-center">
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
-            <p className={`text-lg font-bold ${stat.textColor} dark:text-gray-200`}>{stat.value}</p>
+        <div
+          key={index}
+          className={`${stat.bgColor} ${stat.borderColor} rounded-xl p-4 lg:p-6 border transition-all duration-300 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between min-h-[140px]`}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className={`p-2.5 rounded-xl bg-white dark:bg-gray-800 ${stat.textColor} shadow-sm`}>
+              {stat.icon}
+            </div>
+            <p className="text-sm lg:text-base font-semibold text-gray-600 dark:text-gray-400">{stat.title}</p>
+          </div>
+
+          <div className="flex items-end justify-between mt-2">
+            <div className="flex flex-col">
+              <span className={`text-2xl lg:text-3xl font-bold ${stat.textColor} dark:text-gray-200 tracking-tight`}>{stat.value}</span>
+            </div>
+            <div className="flex items-center justify-center scale-110 lg:scale-125 origin-bottom-right">
+              {stat.chart}
+            </div>
           </div>
         </div>
       ))}
