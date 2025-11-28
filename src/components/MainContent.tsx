@@ -215,6 +215,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             filterTags={filterTags}
             completionDateFilter={completionDateFilter}
             selectedDate={selectedDate}
+            onDateChange={handleDateChange}
           />
         ) : currentView === 'week' ? (
           <WeeklyCalendarView

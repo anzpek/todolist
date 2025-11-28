@@ -1,8 +1,10 @@
 import { CheckCircle2, Calendar, Clock, Plus, User, Menu, RotateCcw } from 'lucide-react'
 import { useState, memo, useMemo, useEffect } from 'react'
+import { addDays, subDays } from 'date-fns'
 import { useTodos } from '../contexts/TodoContext'
 import { useVacation } from '../contexts/VacationContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useSwipe } from '../hooks/useSwipe'
 import { isAdmin } from '../constants/admin'
 import type { ViewType } from '../types/views'
 import TodoItem from './TodoItem'
@@ -18,6 +20,7 @@ interface TodoListProps {
   tagFilter?: string[]
   completionDateFilter?: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
   selectedDate?: Date // 오늘 할일 뷰에서 선택된 날짜
+  onDateChange?: (date: Date) => void
 }
 
 const TodoList = memo(({
@@ -28,13 +31,30 @@ const TodoList = memo(({
   projectFilter = 'all',
   tagFilter = [],
   completionDateFilter = 'all',
-  selectedDate
+  selectedDate,
+  onDateChange
 }: TodoListProps) => {
   const { todos, getTodayTodos, getWeekTodos, getMonthTodos, reorderTodos, getYesterdayIncompleteTodos, getTomorrowTodos } = useTodos()
   const { currentUser } = useAuth()
   const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Swipe handlers for Today view
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => {
+      if (currentView === 'today' && onDateChange && selectedDate) {
+        onDateChange(addDays(selectedDate, 1))
+      }
+    },
+    onSwipeRight: () => {
+      if (currentView === 'today' && onDateChange && selectedDate) {
+        onDateChange(subDays(selectedDate, 1))
+      }
+    }
+  }, {
+    minSwipeDistance: 60
+  })
 
   // Memoized todo retrieval based on current view
   const currentTodos = useMemo((): Todo[] => {
@@ -276,10 +296,15 @@ const TodoList = memo(({
   // 오늘 뷰일 때의 3단 레이아웃 (어제, 오늘, 내일)
   if (currentView === 'today') {
     return (
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+      <div
+        className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start"
+        onTouchStart={swipeHandlers.onTouchStart}
+        onTouchMove={swipeHandlers.onTouchMove}
+        onTouchEnd={swipeHandlers.onTouchEnd}
+      >
         {/* 왼쪽: 어제 못한 일 (2칸) */}
         <div className="xl:col-span-2 space-y-4">
-          <div className="glass-card p-4 rounded-xl">
+          <div className="glass-card p-3 sm:p-4 rounded-xl">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
               <RotateCcw className="w-4 h-4" />
               어제 못한 일
@@ -305,12 +330,12 @@ const TodoList = memo(({
         <div className="xl:col-span-8 space-y-6">
           {/* 휴가 정보 섹션 */}
           {vacationsForDate.length > 0 && (
-            <div className="glass-card p-6 relative overflow-hidden group mb-6">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2 relative z-10">
-                <Calendar className="w-6 h-6 text-blue-500" />
-                오늘의 휴가 <span className="text-base font-medium text-gray-500 dark:text-gray-300 ml-1">({vacationsForDate.length})</span>
+            <div className="glass-card p-4 sm:p-6 relative overflow-hidden group mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2 relative z-10">
+                <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
+                오늘의 휴가 <span className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-300 ml-1">({vacationsForDate.length})</span>
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                 {vacationsForDate.map(vacation => {
                   const employee = employees.find(emp => emp.id === vacation.employeeId)
                   return (
@@ -318,7 +343,7 @@ const TodoList = memo(({
                       key={vacation.id}
                       vacation={vacation}
                       employee={employee}
-                      compact={false}
+                      compact={true}
                     />
                   )
                 })}
@@ -465,7 +490,7 @@ const TodoList = memo(({
 
         {/* 오른쪽: 내일 할일 (2칸) */}
         <div className="xl:col-span-2 space-y-4">
-          <div className="glass-card p-4 rounded-xl">
+          <div className="glass-card p-3 sm:p-4 rounded-xl">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4" />
               내일 할일
