@@ -161,16 +161,28 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
       const now = new Date()
       return {
         ...state,
-        todos: state.todos.map(todo =>
-          todo.id === action.payload
-            ? {
+        todos: state.todos.map(todo => {
+          if (todo.id === action.payload) {
+            const newCompleted = !todo.completed
+            // 완료 상태로 변경될 때 알림 트리거 (사이드 이펙트지만 reducer 내에서 호출 - 실제로는 미들웨어나 dispatch 직후가 좋지만 구조상 여기서 처리)
+            if (newCompleted) {
+              // 비동기로 실행하여 reducer 순수성 유지 노력
+              setTimeout(() => {
+                import('../utils/notifications').then(({ notificationManager }) => {
+                  notificationManager.showCompletionCelebration(todo)
+                })
+              }, 0)
+            }
+
+            return {
               ...todo,
-              completed: !todo.completed,
-              completedAt: !todo.completed ? now : undefined,
+              completed: newCompleted,
+              completedAt: newCompleted ? now : undefined,
               updatedAt: now
             }
-            : todo
-        )
+          }
+          return todo
+        })
       }
     }
     case 'ADD_SUBTASK':

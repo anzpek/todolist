@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Calendar, Plus, Settings, Pause, Play, Trash2, Edit, Minus, X } from 'lucide-react'
+import { Calendar, Plus, Settings, Pause, Play, Trash2, Edit, Minus, X, Flag, Repeat, AlertCircle, Check, Briefcase, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import type { SimpleRecurringTemplate, ConflictException } from '../utils/simpleRecurring'
 import AddRecurringModal from './AddRecurringModal'
@@ -491,10 +491,6 @@ interface EditRecurringModalProps {
 const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalProps) => {
   const { recurringTemplates } = useTodos()
 
-  console.log('=== EditRecurringModal 초기화 ===')
-  console.log('전달받은 template:', template)
-  console.log('template.holidayHandling:', template.holidayHandling)
-
   const [formData, setFormData] = useState({
     title: template.title,
     description: template.description || '',
@@ -511,15 +507,10 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
     holidayHandling: template.holidayHandling || 'show'
   })
 
-  console.log('초기 formData.holidayHandling:', formData.holidayHandling)
-
   const [isLoading, setIsLoading] = useState(false)
 
   // 템플릿이 변경될 때마다 formData 업데이트
   useEffect(() => {
-    console.log('=== EditRecurringModal template 변경 감지 ===')
-    console.log('새로운 template.holidayHandling:', template.holidayHandling)
-
     setFormData({
       title: template.title,
       description: template.description || '',
@@ -535,8 +526,6 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
       exceptions: template.exceptions || [],
       holidayHandling: template.holidayHandling || 'show'
     })
-
-    console.log('업데이트된 formData.holidayHandling:', template.holidayHandling || 'before')
   }, [template])
 
   // 예외 설정 관리 함수들
@@ -616,10 +605,6 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
     setIsLoading(true)
 
     try {
-      console.log('=== EditRecurringModal 저장 시작 ===')
-      console.log('원본 템플릿 holidayHandling:', template.holidayHandling)
-      console.log('formData holidayHandling:', formData.holidayHandling)
-
       const updateData: Partial<SimpleRecurringTemplate> = {
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
@@ -631,9 +616,6 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
         holidayHandling: formData.holidayHandling,
         updatedAt: new Date()
       }
-
-      console.log('updateData:', updateData)
-      console.log('updateData.holidayHandling:', updateData.holidayHandling)
 
       // 반복 설정에 따라 필요한 필드 추가
       if (formData.recurrenceType === 'weekly') {
@@ -660,209 +642,450 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          반복 템플릿 수정
-        </h3>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 제목 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              제목
-            </label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              required
-            />
-          </div>
-
-          {/* 설명 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              설명
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              rows={2}
-            />
-          </div>
-
-          {/* 우선순위 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              우선순위
-            </label>
-            <select
-              value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="low">낮음</option>
-              <option value="medium">보통</option>
-              <option value="high">높음</option>
-              <option value="urgent">긴급</option>
-            </select>
-          </div>
-
-          {/* 반복 주기 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              반복 주기
-            </label>
-            <select
-              value={formData.recurrenceType}
-              onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="daily">매일</option>
-              <option value="weekly">매주</option>
-              <option value="monthly">매월</option>
-            </select>
-          </div>
-
-          {/* 주간 반복 설정 */}
-          {formData.recurrenceType === 'weekly' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                요일
-              </label>
-              <select
-                value={formData.weekday}
-                onChange={(e) => setFormData({ ...formData, weekday: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value={0}>일요일</option>
-                <option value={1}>월요일</option>
-                <option value={2}>화요일</option>
-                <option value={3}>수요일</option>
-                <option value={4}>목요일</option>
-                <option value={5}>금요일</option>
-                <option value={6}>토요일</option>
-              </select>
-            </div>
-          )}
-
-          {/* 월간 반복 설정 */}
-          {formData.recurrenceType === 'monthly' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  월간 패턴
-                </label>
-                <select
-                  value={formData.monthlyPattern}
-                  onChange={(e) => setFormData({ ...formData, monthlyPattern: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="date">특정 날짜 (예: 매월 15일)</option>
-                  <option value="weekday">특정 주의 요일 (예: 매월 마지막 주 수요일)</option>
-                </select>
-              </div>
-
-              {formData.monthlyPattern === 'date' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    날짜
-                  </label>
-                  <select
-                    value={formData.monthlyDate}
-                    onChange={(e) => setFormData({ ...formData, monthlyDate: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                      <option key={day} value={day}>
-                        {day}일
-                      </option>
-                    ))}
-                    <option value={-1}>말일</option>
-                    <option value={-2}>첫 번째 근무일</option>
-                    <option value={-3}>마지막 근무일</option>
-                  </select>
-                </div>
-              )}
-
-              {formData.monthlyPattern === 'weekday' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      몇 번째 주
-                    </label>
-                    <select
-                      value={formData.monthlyWeek}
-                      onChange={(e) => setFormData({ ...formData, monthlyWeek: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="first">첫 번째</option>
-                      <option value="second">두 번째</option>
-                      <option value="third">세 번째</option>
-                      <option value="fourth">네 번째</option>
-                      <option value="last">마지막</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      요일
-                    </label>
-                    <select
-                      value={formData.monthlyWeekday}
-                      onChange={(e) => setFormData({ ...formData, monthlyWeekday: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value={0}>일요일</option>
-                      <option value={1}>월요일</option>
-                      <option value={2}>화요일</option>
-                      <option value={3}>수요일</option>
-                      <option value={4}>목요일</option>
-                      <option value={5}>금요일</option>
-                      <option value={6}>토요일</option>
-                    </select>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {/* 공휴일 처리 설정 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              공휴일 처리
-            </label>
-            <select
-              value={formData.holidayHandling}
-              onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="show">그대로 표시 (기본)</option>
-              <option value="skip">건너뛰기 (다음 반복일에 생성)</option>
-              <option value="next_day">다음 날로 미루기</option>
-              <option value="prev_day">이전 날로 당기기</option>
-            </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              * 반복 예정일이 공휴일인 경우 어떻게 처리할지 설정합니다.
-            </p>
-          </div>
-
-          <div className="flex justify-end space-x-2 pt-4">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <form
+          onSubmit={handleSubmit}
+          className="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 transform transition-all"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              반복 템플릿 수정
+            </h2>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+              className="p-2 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {/* 제목 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                제목
+              </label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full text-lg px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-0 rounded-xl focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:text-white"
+                required
+              />
+            </div>
+
+            {/* 설명 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                설명
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-0 rounded-xl focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:text-white resize-none"
+                rows={2}
+              />
+            </div>
+
+            {/* 우선순위 선택 (4단계) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Flag className="w-4 h-4 inline mr-1" />
+                우선순위
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'urgent', label: '긴급', color: 'text-red-700 bg-red-100 dark:bg-red-900/40 border-red-200 dark:border-red-800' },
+                  { value: 'high', label: '높음', color: 'text-orange-700 bg-orange-100 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800' },
+                  { value: 'medium', label: '보통', color: 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/40 border-yellow-200 dark:border-yellow-800' },
+                  { value: 'low', label: '낮음', color: 'text-green-700 bg-green-100 dark:bg-green-900/40 border-green-200 dark:border-green-800' }
+                ].map(priority => (
+                  <label
+                    key={priority.value}
+                    className={`flex-1 flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all border ${formData.priority === priority.value
+                      ? `ring-2 ring-offset-1 ring-blue-500 ${priority.color} font-bold`
+                      : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="priority"
+                      value={priority.value}
+                      checked={formData.priority === priority.value}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                      className="sr-only"
+                    />
+                    <span className="text-sm">{priority.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 반복 주기 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Repeat className="w-4 h-4 inline mr-1" />
+                반복 주기
+              </label>
+              <select
+                value={formData.recurrenceType}
+                onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as any })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="daily">매일</option>
+                <option value="weekly">매주</option>
+                <option value="monthly">매월</option>
+              </select>
+            </div>
+
+            {/* 주간 반복 설정 */}
+            {formData.recurrenceType === 'weekly' && (
+              <div className="animate-fadeIn">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  요일 선택
+                </label>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {weekdays.map(day => (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, weekday: day.value })}
+                      className={`flex-1 min-w-[60px] py-2 rounded-lg text-sm font-medium transition-colors ${formData.weekday === day.value
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 ring-2 ring-blue-500'
+                          : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 월간 반복 설정 */}
+            {formData.recurrenceType === 'monthly' && (
+              <div className="space-y-4 animate-fadeIn">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    월간 패턴
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex-1">
+                      <input
+                        type="radio"
+                        checked={formData.monthlyPattern === 'date'}
+                        onChange={() => setFormData({ ...formData, monthlyPattern: 'date' })}
+                        className="mr-3 w-4 h-4 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">날짜 기준 (예: 15일)</span>
+                    </label>
+                    <label className="flex items-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex-1">
+                      <input
+                        type="radio"
+                        checked={formData.monthlyPattern === 'weekday'}
+                        onChange={() => setFormData({ ...formData, monthlyPattern: 'weekday' })}
+                        className="mr-3 w-4 h-4 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">요일 기준 (예: 첫째주 월요일)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {formData.monthlyPattern === 'date' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      날짜 선택
+                    </label>
+                    <select
+                      value={formData.monthlyDate}
+                      onChange={(e) => setFormData({ ...formData, monthlyDate: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                        <option key={day} value={day}>{day}일</option>
+                      ))}
+                      <option value={-1}>말일</option>
+                      <option value={-2}>첫 번째 근무일</option>
+                      <option value={-3}>마지막 근무일</option>
+                    </select>
+                  </div>
+                )}
+
+                {formData.monthlyPattern === 'weekday' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        주차
+                      </label>
+                      <select
+                        value={formData.monthlyWeek}
+                        onChange={(e) => setFormData({ ...formData, monthlyWeek: e.target.value as any })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="first">첫 번째 주</option>
+                        <option value="second">두 번째 주</option>
+                        <option value="third">세 번째 주</option>
+                        <option value="fourth">네 번째 주</option>
+                        <option value="last">마지막 주</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        요일
+                      </label>
+                      <select
+                        value={formData.monthlyWeekday}
+                        onChange={(e) => setFormData({ ...formData, monthlyWeekday: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      >
+                        {weekdays.map(day => (
+                          <option key={day.value} value={day.value}>{day.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 공휴일 처리 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                공휴일 처리
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: 'before', label: '이전으로 이동' },
+                  { value: 'after', label: '이후로 이동' },
+                  { value: 'show', label: '그대로 표시' }
+                ].map(option => (
+                  <label
+                    key={option.value}
+                    className={`flex items-center justify-center p-2 rounded-lg cursor-pointer border transition-all ${formData.holidayHandling === option.value
+                        ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300'
+                        : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="holidayHandling"
+                      value={option.value}
+                      checked={formData.holidayHandling === option.value}
+                      onChange={(e) => setFormData({ ...formData, holidayHandling: e.target.value as any })}
+                      className="sr-only"
+                    />
+                    <span className="text-sm">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 예외 설정 */}
+            <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Minus className="w-4 h-4 inline mr-1" />
+                  예외 설정 (제외할 조건)
+                </label>
+                <button
+                  type="button"
+                  onClick={addException}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  예외 추가
+                </button>
+              </div>
+
+              {formData.exceptions.map((exception, index) => (
+                <div key={index} className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-3 border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <select
+                      value={exception.type}
+                      onChange={(e) => updateException(index, 'type', e.target.value)}
+                      className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white mr-2"
+                    >
+                      <option value="date">특정 날짜 제외</option>
+                      <option value="weekday">특정 요일 제외</option>
+                      <option value="week">특정 주차 제외</option>
+                      <option value="month">특정 달 제외</option>
+                      <option value="conflict">다른 템플릿과 중복</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeException(index)}
+                      className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* 예외 값 선택 UI */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {exception.type === 'date' && Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <label key={day} className="flex items-center space-x-2 p-1 hover:bg-white dark:hover:bg-gray-600 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(exception.values as number[]).includes(day)}
+                          onChange={(e) => {
+                            const currentValues = exception.values as number[]
+                            const newValues = e.target.checked
+                              ? [...currentValues, day]
+                              : currentValues.filter(v => v !== day)
+                            updateExceptionValues(index, newValues)
+                          }}
+                          className="rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{day}일</span>
+                      </label>
+                    ))}
+
+                    {exception.type === 'weekday' && weekdays.map(day => (
+                      <label key={day.value} className="flex items-center space-x-2 p-1 hover:bg-white dark:hover:bg-gray-600 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(exception.values as number[]).includes(day.value)}
+                          onChange={(e) => {
+                            const currentValues = exception.values as number[]
+                            const newValues = e.target.checked
+                              ? [...currentValues, day.value]
+                              : currentValues.filter(v => v !== day.value)
+                            updateExceptionValues(index, newValues)
+                          }}
+                          className="rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{day.label}</span>
+                      </label>
+                    ))}
+
+                    {exception.type === 'week' && [1, 2, 3, 4, -1].map(week => (
+                      <label key={week} className="flex items-center space-x-2 p-1 hover:bg-white dark:hover:bg-gray-600 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(exception.values as number[]).includes(week)}
+                          onChange={(e) => {
+                            const currentValues = exception.values as number[]
+                            const newValues = e.target.checked
+                              ? [...currentValues, week]
+                              : currentValues.filter(v => v !== week)
+                            updateExceptionValues(index, newValues)
+                          }}
+                          className="rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{getWeekLabel(week)}</span>
+                      </label>
+                    ))}
+
+                    {exception.type === 'month' && Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                      <label key={month} className="flex items-center space-x-2 p-1 hover:bg-white dark:hover:bg-gray-600 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(exception.values as number[]).includes(month)}
+                          onChange={(e) => {
+                            const currentValues = exception.values as number[]
+                            const newValues = e.target.checked
+                              ? [...currentValues, month]
+                              : currentValues.filter(v => v !== month)
+                            updateExceptionValues(index, newValues)
+                          }}
+                          className="rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{month}월</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* 충돌 예외 처리 */}
+                  {exception.type === 'conflict' && (
+                    <div className="space-y-3">
+                      {((exception.values as ConflictException[]) || []).map((conflictException, conflictIndex) => (
+                        <div key={conflictIndex} className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                              중복 예외 규칙 {conflictIndex + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeConflictException(index, conflictIndex)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                대상 템플릿
+                              </label>
+                              <select
+                                value={conflictException.targetTemplateTitle}
+                                onChange={(e) => updateConflictException(index, conflictIndex, 'targetTemplateTitle', e.target.value)}
+                                className="w-full px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+                              >
+                                <option value="">템플릿 선택</option>
+                                {recurringTemplates.map(t => (
+                                  <option key={t.id} value={t.title}>
+                                    {t.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                중복 조건
+                              </label>
+                              <select
+                                value={conflictException.scope}
+                                onChange={(e) => updateConflictException(index, conflictIndex, 'scope', e.target.value)}
+                                className="w-full px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+                              >
+                                <option value="same_date">같은 날짜 중복</option>
+                                <option value="same_week">같은 주 중복</option>
+                                <option value="same_month">같은 달 중복</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => addConflictException(index)}
+                        className="w-full py-2 px-3 text-sm border-2 border-dashed border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        중복 규칙 추가
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 하단 버튼 */}
+          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              disabled={isLoading}
             >
               취소
             </button>
             <button
               type="submit"
+              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 transform hover:-translate-y-0.5 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {isLoading ? '저장 중...' : '저장'}
+              <Check className="w-4 h-4" />
+              {isLoading ? '저장 중...' : '저장하기'}
             </button>
           </div>
         </form>

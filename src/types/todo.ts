@@ -62,8 +62,11 @@ export interface ProjectTemplate {
 
 export interface NotificationSettings {
   enabled: boolean
-  advanceDays: number // 몇 일 전에 알림
-  time: string // 알림 시간 (HH:mm 형식)
+  advanceDays: number // @deprecated dueReminderTiming 사용 권장
+  dueReminderTiming?: number // 마감 몇 분 전 알림 (예: 60 = 1시간 전)
+  startReminder?: boolean // 시작일 알림 여부
+  weeklyReport?: boolean // 주간 리포트 알림 여부
+  time: string // 일간 브리핑 시간 (HH:mm 형식)
 }
 
 export interface Todo {

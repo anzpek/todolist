@@ -67,7 +67,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
     try {
       debug.log('새 템플릿 생성', { template: newTemplate })
       await firestoreService.addProjectTemplate(newTemplate, currentUser.uid)
-      
+
       setNewTemplate({
         name: '',
         description: '',
@@ -127,7 +127,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
         ...templateData,
         name: `${template.name} (복사본)`
       }
-      
+
       debug.log('템플릿 복사', { duplicated })
       await firestoreService.addProjectTemplate(duplicated, currentUser.uid)
     } catch (error) {
@@ -151,8 +151,8 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
   }
 
   const updateSubTaskInTemplate = (
-    template: any, 
-    index: number, 
+    template: any,
+    index: number,
     updates: Partial<Omit<SubTask, 'id' | 'createdAt' | 'updatedAt'>>,
     setter: (template: any) => void
   ) => {
@@ -172,7 +172,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -201,7 +201,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
           {isCreating && (
             <div className="mb-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
               <h3 className="text-lg font-medium mb-4">새 템플릿</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">템플릿 이름</label>
@@ -213,7 +213,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                     placeholder="예: 7월 진흥원 교육 프로젝트"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium mb-2">카테고리</label>
                   <select
@@ -249,7 +249,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                     작업 추가
                   </button>
                 </div>
-                
+
                 <div className="space-y-2">
                   {newTemplate.subTasks.map((subTask, index) => (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
@@ -258,7 +258,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                         checked={subTask.completed}
                         onChange={(e) => {
                           const now = new Date()
-                          updateSubTaskInTemplate(newTemplate, index, { 
+                          updateSubTaskInTemplate(newTemplate, index, {
                             completed: e.target.checked,
                             completedAt: e.target.checked ? now : null as any
                           }, setNewTemplate)
@@ -325,7 +325,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
           {editingTemplate && (
             <div className="mb-6 p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
               <h3 className="text-lg font-medium mb-4 text-blue-800 dark:text-blue-200">템플릿 수정</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">템플릿 이름</label>
@@ -337,7 +337,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                     placeholder="예: 7월 진흥원 교육 프로젝트"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium mb-2">카테고리</label>
                   <select
@@ -373,7 +373,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                     작업 추가
                   </button>
                 </div>
-                
+
                 <div className="space-y-2">
                   {editingTemplate.subTasks.map((subTask, index) => (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
@@ -382,7 +382,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                         checked={subTask.completed}
                         onChange={(e) => {
                           const now = new Date()
-                          updateSubTaskInTemplate(editingTemplate, index, { 
+                          updateSubTaskInTemplate(editingTemplate, index, {
                             completed: e.target.checked,
                             completedAt: e.target.checked ? now : null as any
                           }, setEditingTemplate)
@@ -452,11 +452,10 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      template.category === 'longterm' 
+                    <span className={`text-xs px-2 py-1 rounded ${template.category === 'longterm'
                         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300'
                         : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                    }`}>
+                      }`}>
                       {template.category === 'longterm' ? '롱텀' : '숏텀'}
                     </span>
                   </div>
@@ -489,11 +488,11 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                     </button>
                   </div>
                 </div>
-                
+
                 {template.description && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{template.description}</p>
                 )}
-                
+
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
                   하위 작업: {template.subTasks.length}개
                 </div>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Check, Trash2, Edit, MoreVertical, Calendar, Clock, ArrowRight, Flag, Play, ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, Trash2, Edit, MoreVertical, Calendar, Clock, ArrowRight, Flag, Play, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 import { format, isAfter, isBefore, startOfDay, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useTodos } from '../contexts/TodoContext'
@@ -9,12 +9,12 @@ import SubTaskManager from './SubTaskManager'
 
 interface TodoItemProps {
   todo: Todo
+  onEdit?: (todo: Todo) => void
+  compact?: boolean
 }
 
-const TodoItem = ({ todo }: TodoItemProps) => {
+const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
   const { toggleTodo, deleteTodo, updateTodo } = useTodos()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
   const [isSwiping, setIsSwiping] = useState(false)
   const itemRef = useRef<HTMLDivElement>(null)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -28,10 +28,10 @@ const TodoItem = ({ todo }: TodoItemProps) => {
   // 날짜 관련 로직
   const isOverdue = todo.dueDate && isBefore(new Date(todo.dueDate), startOfDay(new Date())) && !todo.completed
   const isDueToday = todo.dueDate && isAfter(new Date(todo.dueDate), startOfDay(new Date())) && isBefore(new Date(todo.dueDate), addDays(startOfDay(new Date()), 1))
-  
+
   // 날짜 포맷팅 함수
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'yyyy.MM.dd', { locale: ko })
+  const formatDate = (date: Date | string) => {
+    return format(new Date(date), 'yyyy.MM.dd', { locale: ko })
   }
 
   // 날짜 표시 렌더링
@@ -64,9 +64,8 @@ const TodoItem = ({ todo }: TodoItemProps) => {
     // 마감일만 있는 경우
     if (todo.dueDate) {
       return (
-        <div className={`flex items-center gap-1 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded ${
-          isOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
-        }`}>
+        <div className={`flex items-center gap-1 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
+          }`}>
           <Flag className={`w-3 h-3 ${isOverdue ? 'text-red-500 fill-red-500' : 'text-gray-400'}`} />
           <span>{formatDate(todo.dueDate)}</span>
         </div>
@@ -89,23 +88,22 @@ const TodoItem = ({ todo }: TodoItemProps) => {
     },
     onSwipeRight: () => toggleTodo(todo.id)
   }, {
-    threshold: 50,
     minSwipeDistance: 50
   })
 
-  // 메뉴 외부 클릭 감지
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false)
-      }
+  // 우선순위별 테두리 색상 (모바일용)
+  const getPriorityBorderColor = () => {
+    if (todo.completed) return 'border-gray-200 dark:border-gray-700'
+    switch (todo.priority) {
+      case 'urgent': return 'border-red-500 dark:border-red-500'
+      case 'high': return 'border-orange-500 dark:border-orange-500'
+      case 'medium': return 'border-blue-500 dark:border-blue-500' // 일반(보통)도 색상 표시
+      default: return 'border-gray-200 dark:border-gray-700'
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }
 
   return (
-    <div 
+    <div
       ref={itemRef}
       className={`
         relative group mb-3 transition-all duration-300 ease-out
@@ -115,29 +113,28 @@ const TodoItem = ({ todo }: TodoItemProps) => {
     >
       <div className={`
         relative p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300
-        ${todo.completed 
-          ? 'bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700' 
-          : 'bg-white/70 dark:bg-gray-800/70 border-white/50 dark:border-gray-700 shadow-sm hover:shadow-md hover:-translate-y-0.5'
+        ${todo.completed
+          ? 'bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700'
+          : `bg-white/70 dark:bg-gray-800/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 ${getPriorityBorderColor()} md:border-white/50 md:dark:border-gray-700`
         }
       `}>
-        
-        {/* 우측 상단 메타데이터 영역 (태그 + 날짜) */}
-        <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+
+        {/* 우측 상단 메타데이터 영역 (태그 + 날짜) - PC 버전 */}
+        <div className="hidden md:flex absolute top-4 right-20 flex-col items-end gap-1.5 z-10">
           {/* 1행: 태그들 */}
           <div className="flex items-center gap-1.5">
-            {todo.recurring && (
+            {todo.recurrence && todo.recurrence !== 'none' && (
               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800 flex items-center gap-1">
                 <ArrowRight className="w-3 h-3" />
                 반복
               </span>
             )}
-            
+
             {todo.priority && todo.priority !== 'medium' && (
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border flex items-center gap-1 ${
-                todo.priority === 'urgent'
-                  ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
-                  : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
-              }`}>
+              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border flex items-center gap-1 ${todo.priority === 'urgent'
+                ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+                : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+                }`}>
                 {todo.priority === 'urgent' ? '긴급' : '높음'}
               </span>
             )}
@@ -158,14 +155,59 @@ const TodoItem = ({ todo }: TodoItemProps) => {
           {renderDateDisplay()}
         </div>
 
+        {/* 모바일용 메타데이터 (반복 아이콘, 장기 뱃지) */}
+        <div className="md:hidden absolute top-4 right-20 flex items-center gap-1.5 z-10">
+          {todo.recurrence && todo.recurrence !== 'none' && (
+            <RotateCcw className="w-4 h-4 text-purple-500" />
+          )}
+          {todo.type === 'project' && todo.project === 'longterm' && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-full border border-indigo-200 dark:border-indigo-800">
+              장기
+            </span>
+          )}
+        </div>
+
+        {/* Action Buttons (Always visible) */}
+        <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-1">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit?.(todo)
+              }}
+              className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              title="수정"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                if (window.confirm('정말 삭제하시겠습니까?')) {
+                  deleteTodo(todo.id)
+                }
+              }}
+              className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              title="삭제"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* 모바일용 날짜 표시 (버튼 바로 아래) */}
+          <div className="md:hidden mt-1">
+            {renderDateDisplay()}
+          </div>
+        </div>
+
         <div className="flex items-start gap-4">
           {/* 모던 체크박스 */}
           <button
             onClick={handleToggle}
             className={`
               flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 mt-1
-              ${todo.completed 
-                ? 'bg-blue-500 border-blue-500 text-white scale-110' 
+              ${todo.completed
+                ? 'bg-blue-500 border-blue-500 text-white scale-110'
                 : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-400 bg-white dark:bg-gray-800'
               }
             `}
@@ -173,19 +215,19 @@ const TodoItem = ({ todo }: TodoItemProps) => {
             {todo.completed && <Check className="w-4 h-4" strokeWidth={3} />}
           </button>
 
-          <div className="flex-1 min-w-0 pt-0.5 pr-24">
+          <div className="flex-1 min-w-0 pt-0.5 pr-28 sm:pr-24">
             {/* 제목 및 확장 버튼 */}
             <div className="flex items-start gap-2">
               <h3 className={`
                 text-base font-semibold leading-snug transition-all duration-300 break-words
-                ${todo.completed 
-                  ? 'text-gray-400 dark:text-gray-500 line-through decoration-2 decoration-gray-300' 
+                ${todo.completed
+                  ? 'text-gray-400 dark:text-gray-500 line-through decoration-2 decoration-gray-300'
                   : 'text-gray-900 dark:text-white'
                 }
               `}>
                 {todo.title}
               </h3>
-              
+
               {/* 확장 버튼 (하위 작업이 있을 때만 표시) */}
               {hasSubTasks && (
                 <button
@@ -199,7 +241,7 @@ const TodoItem = ({ todo }: TodoItemProps) => {
                 </button>
               )}
             </div>
-            
+
             {/* 설명 (존재할 경우) */}
             {todo.description && (
               <p className={`mt-1.5 text-sm line-clamp-2 ${todo.completed ? 'text-gray-400' : 'text-gray-600 dark:text-gray-300'}`}>
@@ -212,8 +254,8 @@ const TodoItem = ({ todo }: TodoItemProps) => {
               {todo.tags && todo.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {todo.tags.map((tag, index) => (
-                    <span 
-                      key={index} 
+                    <span
+                      key={index}
                       className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md font-medium"
                     >
                       #{tag}
@@ -231,22 +273,21 @@ const TodoItem = ({ todo }: TodoItemProps) => {
                   <span>{Math.round(progress)}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      progress === 100 ? 'bg-green-500' : 'bg-blue-500'
-                    }`}
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-blue-500'
+                      }`}
                     style={{ width: `${progress}%` }}
                   />
                 </div>
               </div>
             )}
-            
+
             {/* 확장된 하위 작업 목록 */}
             {isExpanded && (
               <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 animate-fade-in-down">
                 <SubTaskManager
+                  todoId={todo.id}
                   subTasks={todo.subTasks || []}
-                  onUpdate={(newSubTasks) => updateTodo(todo.id, { subTasks: newSubTasks })}
                 />
               </div>
             )}

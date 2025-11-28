@@ -28,11 +28,12 @@ import VacationDashboard from './VacationManagement/VacationDashboard'
 import SettingsView from './SettingsView'
 import FloatingActionButton from './FloatingActionButton'
 import AddTodoModal from './AddTodoModal'
+import EditTodoModal from './EditTodoModal'
 import SearchFilter from './SearchFilter'
 import TodoItem from './TodoItem'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
-import type { Priority, TaskType } from '../types/todo'
+import type { Priority, TaskType, Todo } from '../types/todo'
 
 interface MainContentProps {
   currentView: 'today' | 'week' | 'month' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation'
@@ -47,6 +48,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
   const { currentUser } = useAuth()
   const { allTags } = useTodos()
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [selectedDate, setSelectedDate] = useState(new Date())
 
   // Search and Filter states
@@ -92,6 +94,10 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     setProjectFilter('all')
     setFilterTags([])
     setCompletionDateFilter('all')
+  }
+
+  const handleEditTodo = (todo: Todo) => {
+    setEditingTodo(todo)
   }
 
   return (
@@ -209,13 +215,14 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
           <TodoList
             currentView="today"
             searchTerm={searchQuery}
-            filterPriority={filterPriority}
+            priorityFilter={filterPriority}
             typeFilter={typeFilter}
             projectFilter={projectFilter}
-            filterTags={filterTags}
+            tagFilter={filterTags}
             completionDateFilter={completionDateFilter}
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
+            onEdit={handleEditTodo}
           />
         ) : currentView === 'week' ? (
           <WeeklyCalendarView
@@ -245,7 +252,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               isMobile={isMobile}
             />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <TodoList currentView="month" />
+              <TodoList currentView="month" onEdit={handleEditTodo} />
               <div className="hidden lg:block">
                 <ProjectAnalysis />
               </div>
@@ -277,6 +284,15 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
+
+      {/* Edit Todo Modal */}
+      {editingTodo && (
+        <EditTodoModal
+          isOpen={!!editingTodo}
+          onClose={() => setEditingTodo(null)}
+          todo={editingTodo}
+        />
+      )}
     </main>
   )
 }

@@ -21,6 +21,7 @@ interface TodoListProps {
   completionDateFilter?: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
   selectedDate?: Date // 오늘 할일 뷰에서 선택된 날짜
   onDateChange?: (date: Date) => void
+  onEdit?: (todo: Todo) => void
 }
 
 const TodoList = memo(({
@@ -32,7 +33,8 @@ const TodoList = memo(({
   tagFilter = [],
   completionDateFilter = 'all',
   selectedDate,
-  onDateChange
+  onDateChange,
+  onEdit
 }: TodoListProps) => {
   const { todos, getTodayTodos, getWeekTodos, getMonthTodos, reorderTodos, getYesterdayIncompleteTodos, getTomorrowTodos } = useTodos()
   const { currentUser } = useAuth()
@@ -110,6 +112,14 @@ const TodoList = memo(({
         // 프로젝트 필터 (프로젝트 타입일 때만)
         if (projectFilter !== 'all' && todo.type === 'project' && todo.project !== projectFilter) {
           return false
+        }
+
+        // 태그 필터
+        if (tagFilter.length > 0) {
+          if (!todo.tags || todo.tags.length === 0) return false
+          // 선택된 태그 중 하나라도 포함되어 있으면 표시 (OR 조건)
+          const hasMatchingTag = todo.tags.some(tag => tagFilter.includes(tag))
+          if (!hasMatchingTag) return false
         }
 
         return true
@@ -316,7 +326,7 @@ const TodoList = memo(({
               {yesterdayIncompleteTodos.length > 0 ? (
                 yesterdayIncompleteTodos.map(todo => (
                   <div key={todo.id} className="opacity-75 hover:opacity-100 transition-opacity">
-                    <TodoItem todo={todo} compact />
+                    <TodoItem todo={todo} compact onEdit={onEdit} />
                   </div>
                 ))
               ) : (
@@ -418,7 +428,7 @@ const TodoList = memo(({
                           mb-1
                         `}
                       >
-                        <TodoItem todo={todo} />
+                        <TodoItem todo={todo} onEdit={onEdit} />
                       </div>
 
                       {draggedIndex !== null && dragOverIndex === index + 1 && index === sortedIncompleteTodos.length - 1 && (
@@ -481,7 +491,7 @@ const TodoList = memo(({
                     )
                   }
 
-                  return <TodoItem key={todo.id} todo={todo} />
+                  return <TodoItem key={todo.id} todo={todo} onEdit={onEdit} />
                 })}
               </div>
             </div>
@@ -502,7 +512,7 @@ const TodoList = memo(({
               {tomorrowTodos.length > 0 ? (
                 tomorrowTodos.map(todo => (
                   <div key={todo.id} className="opacity-75 hover:opacity-100 transition-opacity">
-                    <TodoItem todo={todo} compact />
+                    <TodoItem todo={todo} compact onEdit={onEdit} />
                   </div>
                 ))
               ) : (
@@ -603,7 +613,7 @@ const TodoList = memo(({
                       mb-1
                     `}
                   >
-                    <TodoItem todo={todo} />
+                    <TodoItem todo={todo} onEdit={onEdit} />
                   </div>
 
                   {draggedIndex !== null && dragOverIndex === index + 1 && index === sortedIncompleteTodos.length - 1 && (
@@ -665,7 +675,7 @@ const TodoList = memo(({
                 )
               }
 
-              return <TodoItem key={todo.id} todo={todo} />
+              return <TodoItem key={todo.id} todo={todo} onEdit={onEdit} />
             })}
           </div>
         </div>
