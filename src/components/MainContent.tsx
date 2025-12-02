@@ -266,7 +266,13 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
         ) : currentView === 'recurring' ? (
           <RecurringManagement />
         ) : currentView === 'history' ? (
-          <CompletedHistoryView />
+          <CompletedHistoryView
+            searchTerm={searchQuery}
+            priorityFilter={filterPriority}
+            typeFilter={typeFilter}
+            projectFilter={projectFilter}
+            tagFilter={filterTags}
+          />
         ) : currentView === 'vacation' ? (
           <VacationDashboard />
         ) : currentView === 'settings' ? (
