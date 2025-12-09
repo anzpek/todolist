@@ -4,7 +4,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/todolist/',
+  base: './',
   plugins: [
     react(),
     // 번들 분석 모드에서만 visualizer 활성화

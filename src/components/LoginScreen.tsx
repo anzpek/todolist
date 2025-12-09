@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { motion } from 'framer-motion'
+import { CheckSquare, ArrowRight, CheckCircle2, Layout, Zap } from 'lucide-react'
 
 const LoginScreen: React.FC = () => {
   const { signInWithGoogle, signInAsGuest } = useAuth()
@@ -33,111 +35,124 @@ const LoginScreen: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* 로고 및 제목 */}
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">📱</div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            TodoList App
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            모바일 최적화된 할일 관리
-          </p>
-        </div>
+    <div className="min-h-screen w-full flex bg-white font-sans">
+      {/* Left Side - Visual & Brand (Desktop Only) */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-slate-900 text-white z-0">
+        {/* Background Gradients */}
+        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-blue-600/20 via-slate-900 to-slate-900 z-0" />
+        <div className="absolute -top-20 -left-20 w-96 h-96 bg-blue-500/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-full h-1/2 bg-gradient-to-t from-slate-900 to-transparent z-10" />
 
-        {/* 로그인 카드 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 space-y-4">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              시작하기
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              로그인하여 데이터를 클라우드에 안전하게 보관하세요
+        <div className="relative z-20 flex flex-col justify-between p-16 w-full">
+          <div>
+            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 mb-8">
+              <CheckSquare className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold leading-tight mb-6 tracking-tight">
+              Manage your work <br />
+              <span className="text-blue-400">efficiently.</span>
+            </h1>
+            <p className="text-slate-400 text-lg max-w-sm leading-relaxed">
+              복잡한 일정을 심플하게 관리하세요. <br />
+              개인, 팀, 기업 모두를 위한 최고의 생산성 도구.
             </p>
           </div>
 
-          {/* 에러 메시지 */}
+          <div className="grid gap-6">
+            {[
+              { icon: Layout, title: "직관적인 보드 뷰", desc: "한눈에 파악하는 업무 흐름" },
+              { icon: Zap, title: "실시간 동기화", desc: "언제 어디서나 끊김 없는 연결" },
+              { icon: CheckCircle2, title: "스마트한 알림", desc: "놓치지 않는 중요한 일정" }
+            ].map((feature, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + idx * 0.1 }}
+                className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors"
+              >
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <feature.icon className="w-5 h-5 text-blue-300" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white mb-1">{feature.title}</h3>
+                  <p className="text-sm text-slate-400">{feature.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="text-xs text-slate-600 mt-12">
+            © 2025 Todolist Corp. Trusted by leaders.
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 bg-white relative z-50">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-md space-y-8"
+        >
+          <div className="text-center lg:text-left">
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">로그인</h2>
+            <p className="mt-2 text-slate-500">계정을 선택하여 계속하세요</p>
+          </div>
+
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
-              <div className="flex items-center gap-2">
-                <span className="text-red-500">⚠️</span>
-                <span className="text-sm text-red-800 dark:text-red-200">{error}</span>
-              </div>
+            <div className="p-4 bg-red-50 text-red-600 text-sm font-medium rounded-lg flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
+              {error}
             </div>
           )}
 
-          {/* 구글 로그인 버튼 */}
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={loading !== null}
-            className="w-full flex items-center justify-center gap-3 p-3 bg-white border-2 border-gray-200 hover:border-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading === 'google' ? (
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-            ) : (
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-            )}
-            <span className="text-gray-700 font-medium">
-              {loading === 'google' ? '로그인 중...' : 'Google로 시작하기'}
-            </span>
-          </button>
+          <div className="space-y-4">
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading !== null}
+              className="w-full h-14 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold flex items-center justify-center gap-3 hover:bg-slate-50 hover:border-slate-300 transition-all focus:ring-4 focus:ring-slate-100 disabled:opacity-70 disabled:cursor-not-allowed group"
+            >
+              {loading === 'google' ? (
+                <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+              ) : (
+                <>
+                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                  <span className="group-hover:text-slate-900 transition-colors">Google 계정으로 계속하기</span>
+                </>
+              )}
+            </button>
 
-          {/* 구분선 */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200 dark:border-gray-600" />
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-100"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-slate-400">또는</span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">또는</span>
-            </div>
+
+            <button
+              onClick={handleGuestSignIn}
+              disabled={loading !== null}
+              className="w-full h-14 bg-slate-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all focus:ring-4 focus:ring-slate-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-xl shadow-slate-200"
+            >
+              {loading === 'guest' ? (
+                <div className="w-5 h-5 border-2 border-slate-600 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>게스트로 체험하기</span>
+                  <ArrowRight className="w-4 h-4 text-slate-400" />
+                </>
+              )}
+            </button>
           </div>
 
-          {/* 게스트 로그인 버튼 */}
-          <button
-            onClick={handleGuestSignIn}
-            disabled={loading !== null}
-            className="w-full flex items-center justify-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading === 'guest' ? (
-              <div className="w-5 h-5 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin" />
-            ) : (
-              <span className="text-lg">👤</span>
-            )}
-            <span className="text-gray-700 dark:text-gray-200 font-medium">
-              {loading === 'guest' ? '로그인 중...' : '게스트로 시작하기'}
-            </span>
-          </button>
-
-          {/* 안내 문구 */}
-          <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-600">
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-              게스트 로그인 시 데이터는 기기에만 저장됩니다.<br />
-              구글 로그인을 통해 클라우드 동기화를 이용하세요.
-            </p>
-          </div>
-        </div>
-
-        {/* 기능 미리보기 */}
-        <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div className="text-2xl mb-1">✅</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">할일 관리</div>
-          </div>
-          <div>
-            <div className="text-2xl mb-1">📅</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">캘린더 뷰</div>
-          </div>
-          <div>
-            <div className="text-2xl mb-1">☁️</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">클라우드 동기화</div>
-          </div>
-        </div>
+          <p className="text-center text-xs text-slate-400 mt-8">
+            계속 진행시 이용약관 및 개인정보처리방침에 동의하게 됩니다.
+          </p>
+        </motion.div>
       </div>
     </div>
   )

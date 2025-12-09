@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { TodoProvider } from './contexts/TodoContext'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { VacationProvider } from './contexts/VacationContext'
 import { KeyboardProvider } from './contexts/KeyboardContext'
 import { FontSizeProvider } from './contexts/FontSizeContext'
@@ -15,6 +15,7 @@ import './index.css'
 import type { ViewType } from './types/views'
 
 // 레이지 로딩 컴포넌트들
+const LoginScreen = lazy(() => import('./components/LoginScreen'))
 const Sidebar = lazy(() => import('./components/Sidebar'))
 const PWAInstallPrompt = lazy(() => import('./components/PWAInstallPrompt'))
 import MainContent from './components/MainContent';
@@ -118,6 +119,7 @@ function AppInner({
 }
 
 function AppContent() {
+  const { currentUser, loading } = useAuth()
   const [currentView, setCurrentView] = useState<ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings'>('today')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
@@ -289,6 +291,9 @@ function AppContent() {
   const handleSwitchToMonthView = () => {
     setCurrentView('month')
   }
+
+  if (loading) return <LoadingSpinner />
+  if (!currentUser) return <LoginScreen />
 
   return (
     <div>

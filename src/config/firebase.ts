@@ -1,12 +1,12 @@
 import { initializeApp, getApps } from 'firebase/app'
-import { 
-  getAuth, 
+import {
+  getAuth,
   GoogleAuthProvider,
   signInAnonymously,
   connectAuthEmulator
 } from 'firebase/auth'
-import { 
-  getFirestore, 
+import {
+  getFirestore,
   enableNetwork,
   disableNetwork,
   deleteField,
@@ -30,18 +30,18 @@ const firebaseConfig = {
 // 보안 검증
 const validateFirebaseConfig = () => {
   const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId']
-  
+
   for (const field of requiredFields) {
     if (!firebaseConfig[field as keyof typeof firebaseConfig]) {
       throw new Error(`Firebase configuration missing: ${field}`)
     }
   }
-  
+
   // API 키 유효성 검사 (기본적인)
   if (!firebaseConfig.apiKey.startsWith('AIzaSy')) {
     throw new Error('Invalid Firebase API key format')
   }
-  
+
   debug.log('Firebase configuration validated')
 }
 
@@ -49,7 +49,7 @@ const validateFirebaseConfig = () => {
 let app
 try {
   validateFirebaseConfig()
-  
+
   const apps = getApps()
   if (apps.length === 0) {
     app = initializeApp(firebaseConfig)
@@ -95,16 +95,17 @@ googleProvider.setCustomParameters({
 // Firebase 보안 상태 검증
 const validateSecurityStatus = () => {
   // HTTPS 검증 (프로덕션 환경)
-  if (!import.meta.env.DEV && window.location.protocol !== 'https:') {
-    debug.error('Firebase requires HTTPS in production')
-    throw new Error('HTTPS required for Firebase in production')
-  }
-  
+  // Capacitor 환경(http/localhost)을 위해 주석 처리
+  // if (!import.meta.env.DEV && window.location.protocol !== 'https:') {
+  //   debug.error('Firebase requires HTTPS in production')
+  //   throw new Error('HTTPS required for Firebase in production')
+  // }
+
   // 보안 컨텍스트 검증
   if (!window.isSecureContext) {
     debug.warn('Not running in secure context - some Firebase features may be limited')
   }
-  
+
   debug.log('Firebase security status validated')
 }
 
@@ -123,7 +124,7 @@ export const signInAsGuest = async () => {
     if (!window.isSecureContext) {
       throw new Error('Anonymous sign-in requires secure context')
     }
-    
+
     const result = await signInAnonymously(auth)
     debug.log('Anonymous sign-in successful')
     return result.user

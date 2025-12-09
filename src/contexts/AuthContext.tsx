@@ -8,8 +8,12 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  type User as FirebaseUser
+  type User as FirebaseUser,
+  GoogleAuthProvider,
+  signInWithCredential
 } from 'firebase/auth'
+import { Capacitor } from '@capacitor/core'
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { auth, googleProvider } from '../config/firebase'
 
 interface User {
@@ -81,6 +85,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     if (auth) {
       await signOut(auth)
+      // GoogleAuth 로그아웃도 함께 처리 (선택사항, 하지만 권장)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await FirebaseAuthentication.signOut()
+        } catch (e) {
+          console.log('GoogleAuth signOut failed (maybe not signed in)', e)
+        }
+      }
     } else {
       setCurrentUser(null)
     }
@@ -120,14 +132,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const signInWithGoogle = async () => {
-    if (!auth || !googleProvider) {
+    if (!auth) {
       throw new Error('Firebase 인증이 초기화되지 않았습니다.')
     }
 
     try {
-      const result = await signInWithPopup(auth, googleProvider)
-      console.log('구글 로그인 성공:', result.user)
-      return result.user
+      if (Capacitor.isNativePlatform()) {
+        // Native Google Login via @capacitor-firebase/authentication
+        console.log('Starting Native Google Sign-In (Capacitor Firebase)...')
+
+        const result = await FirebaseAuthentication.signInWithGoogle()
+        console.log('FirebaseAuthentication Result:', result)
+
+        const credential = GoogleAuthProvider.credential(result.credential?.idToken)
+        const userCredential = await signInWithCredential(auth, credential)
+        console.log('Mobile Google Sign-In Success:', userCredential.user)
+        return userCredential.user
+      } else {
+        // Web Google Login
+        if (!googleProvider) throw new Error('Google Provider missing')
+        const result = await signInWithPopup(auth, googleProvider)
+        console.log('구글 로그인 성공:', result.user)
+        return result.user
+      }
     } catch (error: any) {
       console.error('구글 로그인 실패:', error)
 
@@ -141,8 +168,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('네트워크 연결을 확인해주세요.')
       }
 
-      // 기타 오류
-      throw new Error('로그인 중 오류가 발생했습니다: ' + error.message)
+      // 기타 오류 (GoogleAuth 에러 포함)
+      throw new Error('로그인 중 오류가 발생했습니다: ' + (error.message || JSON.stringify(error)))
     }
   }
 
