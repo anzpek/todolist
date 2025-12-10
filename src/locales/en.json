@@ -106,19 +106,19 @@
             "setup": "Setup Notifications",
             "desc": "Deadlines, celebrations, etc."
         },
-        "updateNotification": {
-            "title": "System Update",
-            "newFeatures": "What's New",
-            "changes": [
-                "Multi-language Support (Korean/English)",
-                "Language switching in settings",
-                "UI Improvements & Bug Fixes",
-                "System Stability Improvements"
-            ],
-            "dontShowAgain": "Don't show again",
-            "close": "Close"
-        },
         "appInfo": "Designed for simplicity & productivity"
+    },
+    "updateNotification": {
+        "title": "System Update",
+        "newFeatures": "What's New",
+        "changes": [
+            "Multi-language Support (Korean/English)",
+            "Language switching in settings",
+            "UI Improvements & Bug Fixes",
+            "System Stability Improvements"
+        ],
+        "dontShowAgain": "Don't show again",
+        "close": "Close"
     },
     "common": {
         "loading": "Loading...",
