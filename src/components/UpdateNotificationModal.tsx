@@ -52,16 +52,20 @@ const UpdateNotificationModal = () => {
                 {/* Content */}
                 <div className="p-6">
                     <div className="space-y-4 mb-6">
-                        {(t('updateNotification.changes', { returnObjects: true }) as string[]).map((change, index) => (
-                            <div key={index} className="flex items-start gap-3">
-                                <div className="mt-0.5 p-1 bg-green-100 dark:bg-green-900/30 rounded-full">
-                                    <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
+                        {(() => {
+                            const changes = t('updateNotification.changes', { returnObjects: true });
+                            const changesArray = Array.isArray(changes) ? changes : [];
+                            return changesArray.map((change, index) => (
+                                <div key={index} className="flex items-start gap-3">
+                                    <div className="mt-0.5 p-1 bg-green-100 dark:bg-green-900/30 rounded-full">
+                                        <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                    </div>
+                                    <span className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                                        {change}
+                                    </span>
                                 </div>
-                                <span className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                                    {change}
-                                </span>
-                            </div>
-                        ))}
+                            ));
+                        })()}
                     </div>
 
                     {/* Footer */}
