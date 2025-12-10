@@ -291,6 +291,70 @@ function AppContent() {
     addTodoModalRef.current?.open()
   }
 
+  // --- 강력한 버전 체크 및 자동 업데이트 로직 ---
+  useEffect(() => {
+    const APP_VERSION = '2025-12-10-v1'; // 현재 코드의 버전
+
+    const checkVersion = async () => {
+      try {
+        // 캐시 무시하고 version.json 가져오기
+        const response = await fetch('/todolist/version.json?t=' + Date.now(), {
+          cache: 'no-store',
+          headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const serverVersion = data.version;
+
+        if (serverVersion && serverVersion !== APP_VERSION) {
+          debug.log(`새로운 버전 발견! Server: ${serverVersion}, Local: ${APP_VERSION}`);
+
+          // 1. 서비스 워커 등록 해제
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+              await registration.unregister();
+            }
+          }
+
+          // 2. 캐시 스토리지 전체 삭제
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(key => caches.delete(key)));
+          }
+
+          // 3. 강제 새로고침 (서버에서 다시 받아오기)
+          alert('새로운 업데이트가 있습니다. 앱을 새로고침합니다.');
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('버전 체크 실패:', error);
+      }
+    };
+
+    // 앱 시작 시 체크
+    checkVersion();
+
+    // 1분마다 주기적으로 체크 (앱이 켜져있는 동안 업데이트 감지)
+    const interval = setInterval(checkVersion, 60 * 1000);
+
+    // 페이지가 다시 포커스될 때 체크 (앱 전환 후 복귀 시)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkVersion();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+  // --- 버전 체크 로직 끝 ---
+
   const handleFocusSearch = () => {
     searchInputRef.current?.focus()
   }
