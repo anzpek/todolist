@@ -1,10 +1,9 @@
 // 서비스 워커 - TodoList 오프라인 지원
-const CACHE_NAME = 'todolist-v1'
+const CACHE_NAME = 'todolist-v2-20251210' // Version bump to force update
 const urlsToCache = [
-  '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/manifest.json'
+  '/todolist/',
+  '/todolist/index.html',
+  '/todolist/manifest.json'
 ]
 
 // 설치 이벤트
@@ -41,7 +40,7 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response
         }
-        
+
         // 없으면 네트워크에서 가져오기
         return fetch(event.request)
       })
