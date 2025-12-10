@@ -293,7 +293,7 @@ function AppContent() {
 
   // --- 강력한 버전 체크 및 자동 업데이트 로직 ---
   useEffect(() => {
-    const APP_VERSION = '2025-12-10-v2'; // 버전을 v2로 업데이트 (version.json과 일치)
+    const APP_VERSION = '2025-12-10-v3'; // 버전을 v3로 업데이트 (version.json과 일치)
 
     const checkVersion = async () => {
       try {
