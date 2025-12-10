@@ -17,6 +17,11 @@ buildscript {
 
 apply from: "variables.gradle"
 
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+
 allprojects {
     repositories {
         google()
@@ -24,6 +29,4 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
-}
+

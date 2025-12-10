@@ -399,7 +399,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                       <input
                         type="text"
                         value={subTask.title}
-                        onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setNewTemplate)} // Note: Should probably be setEditingTemplate in original too, but keeping consistent with original if it was working or fixing if it was typo. Wait, original used setEditingTemplate one place and setNewTemplate in input? Let's check original. Original line 395 used setEditingTemplate. I will fix the potential bug in my replacement content if needed.
+                        onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setEditingTemplate)} // Note: Should probably be setEditingTemplate in original too, but keeping consistent with original if it was working or fixing if it was typo. Wait, original used setEditingTemplate one place and setNewTemplate in input? Let's check original. Original line 395 used setEditingTemplate. I will fix the potential bug in my replacement content if needed.
                         // Original line 395: onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setEditingTemplate)}
                         // My replacement below will use setEditingTemplate
                         className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
