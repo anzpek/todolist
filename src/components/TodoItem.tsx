@@ -197,10 +197,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
             </button>
           </div>
 
-          {/* 모바일용 날짜 표시 (버튼 바로 아래) */}
-          <div className="md:hidden mt-1">
-            {renderDateDisplay()}
-          </div>
+
         </div>
 
         <div className="flex items-start gap-4">
@@ -254,6 +251,11 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
 
             {/* 하단 정보 (태그 등) */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
+              {/* 모바일에서 날짜를 하단에 표시 (PC에서는 상단 유지) */}
+              <div className="md:hidden">
+                {renderDateDisplay()}
+              </div>
+
               {todo.tags && todo.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {todo.tags.map((tag, index) => (
