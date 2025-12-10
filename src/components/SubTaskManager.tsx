@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, forwardRef, useImperativeHandle } from 'react'
 import { Plus, X, Edit2, Check } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import type { SubTask } from '../types/todo'
@@ -8,26 +8,41 @@ interface SubTaskManagerProps {
   subTasks: SubTask[]
 }
 
+export interface SubTaskManagerHandle {
+  savePending: () => void
+}
+
 interface EditingSubTask {
   id: string
   title: string
 }
 
-const SubTaskManager = ({ todoId, subTasks }: SubTaskManagerProps) => {
+const SubTaskManager = forwardRef<SubTaskManagerHandle, SubTaskManagerProps>(({ todoId, subTasks }, ref) => {
   const { addSubTask, updateSubTask, deleteSubTask, toggleSubTask } = useTodos()
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('')
   const [isAddingSubTask, setIsAddingSubTask] = useState(false)
   const [editingSubTask, setEditingSubTask] = useState<EditingSubTask | null>(null)
 
-  const handleAddSubTask = (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const handleAddSubTask = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+
     if (!newSubTaskTitle.trim()) return
 
     addSubTask(todoId, newSubTaskTitle.trim())
     setNewSubTaskTitle('')
     setIsAddingSubTask(false)
   }
+
+  useImperativeHandle(ref, () => ({
+    savePending: () => {
+      if (newSubTaskTitle.trim()) {
+        handleAddSubTask()
+      }
+      if (editingSubTask?.title.trim()) {
+        handleSaveEdit()
+      }
+    }
+  }))
 
   const handleStartEdit = (subTask: SubTask) => {
     setEditingSubTask({ id: subTask.id, title: subTask.title })
@@ -214,6 +229,8 @@ const SubTaskManager = ({ todoId, subTasks }: SubTaskManagerProps) => {
       </div>
     </div>
   )
-}
+})
+
+SubTaskManager.displayName = 'SubTaskManager'
 
 export default SubTaskManager

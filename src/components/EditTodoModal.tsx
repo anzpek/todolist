@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Calendar, Clock, Flag, FolderPlus, FileText, Save, Minus, Plus } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
-import SubTaskManager from './SubTaskManager'
+import SubTaskManager, { type SubTaskManagerHandle } from './SubTaskManager'
 import type { Todo, Priority, RecurrenceType, TaskType } from '../types/todo'
 import type { RecurrenceException } from '../utils/simpleRecurring'
 import { getWeekLabel } from '../utils/helpers'
@@ -16,7 +16,7 @@ interface EditTodoModalProps {
 
 const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModalProps) => {
   const { updateTodo, updateRecurringTemplate } = useTodos()
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -38,13 +38,14 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isRecurringTodo, setIsRecurringTodo] = useState(false)
+  const subTaskManagerRef = useRef<SubTaskManagerHandle>(null)
 
   // 할일 데이터가 변경되면 폼 초기화
   useEffect(() => {
     if (todo && isOpen) {
       const isRecurring = todo.id.startsWith('recurring_')
       setIsRecurringTodo(isRecurring)
-      
+
       setFormData({
         title: todo.title.replace('🔄 ', ''), // 반복 표시 제거
         description: todo.description || '',
@@ -68,17 +69,17 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-    
+
     if (!formData.title.trim()) {
       newErrors.title = '할일 제목을 입력해주세요.'
     }
-    
+
     // 시작일과 마감일 비교 검증
     if (formData.startDate && formData.dueDate) {
       try {
         const startDateTime = new Date(`${formData.startDate}T${formData.startTime || '00:00'}`)
         const dueDateTime = new Date(`${formData.dueDate}T${formData.dueTime || '23:59'}`)
-        
+
         if (startDateTime >= dueDateTime) {
           newErrors.startDate = '시작일은 마감일보다 이전이어야 합니다'
         }
@@ -87,15 +88,20 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
         newErrors.general = '날짜 형식을 확인해주세요'
       }
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm() || !todo) return
+
+    // 저장 전 하위작업 입력 중인 내용이 있다면 저장
+    if (subTaskManagerRef.current) {
+      subTaskManagerRef.current.savePending()
+    }
 
     try {
       if (isRecurringTodo) {
@@ -145,10 +151,10 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
             const dateStr = formData.dueDate
             const timeStr = formData.dueTime || '23:59' // 마감시간 없으면 입력한 날짜의 23:59로 설정
             const combinedDateTimeStr = `${dateStr}T${timeStr}:00`
-            
+
             updates.dueDate = new Date(combinedDateTimeStr)
             console.log(`수정: 마감일 설정: ${dateStr} ${timeStr} →`, updates.dueDate)
-            
+
             // dueTime은 별도 저장하지 않고 dueDate에 포함
             if (formData.dueTime) {
               console.log('수정: 마감시간이 dueDate에 포함됨:', formData.dueTime)
@@ -172,7 +178,7 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
     }
   }
 
-  const handleChange = (field: string, value: string | number | string[]) => {
+  const handleChange = (field: string, value: string | number | string[] | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }))
@@ -197,7 +203,7 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
   const updateException = (index: number, field: keyof RecurrenceException, value: any) => {
     setFormData(prev => ({
       ...prev,
-      exceptions: prev.exceptions.map((exception, i) => 
+      exceptions: prev.exceptions.map((exception, i) =>
         i === index ? { ...exception, [field]: value } : exception
       )
     }))
@@ -206,7 +212,7 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
   const updateExceptionValues = (index: number, values: number[] | string[]) => {
     setFormData(prev => ({
       ...prev,
-      exceptions: prev.exceptions.map((exception, i) => 
+      exceptions: prev.exceptions.map((exception, i) =>
         i === index ? { ...exception, values } : exception
       )
     }))
@@ -226,11 +232,10 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
 
   return createPortal(
     <div className={`fixed inset-0 bg-black bg-opacity-50 z-[9999] ${isMobile ? '' : 'flex items-center justify-center p-4'}`}>
-      <div className={`bg-white dark:bg-gray-800 shadow-xl overflow-y-auto ${
-        isMobile 
-          ? 'w-full h-full fixed inset-0' 
-          : 'w-full max-w-2xl max-h-[90vh] rounded-lg'
-      }`}>
+      <div className={`bg-white dark:bg-gray-800 shadow-xl overflow-y-auto ${isMobile
+        ? 'w-full h-full fixed inset-0'
+        : 'w-full max-w-2xl max-h-[90vh] rounded-lg'
+        }`}>
         <div className={`flex items-center justify-between border-b border-gray-200 dark:border-gray-700 ${isMobile ? 'px-4 py-3' : 'p-6'}`}>
           <h2 className={`font-semibold text-gray-900 dark:text-white ${isMobile ? 'text-lg' : 'text-xl'}`}>
             할일 수정 {isRecurringTodo ? '(반복 할일)' : ''}
@@ -262,9 +267,8 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
                 type="text"
                 value={formData.title}
                 onChange={(e) => handleChange('title', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
-                  errors.title ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${errors.title ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  }`}
                 placeholder="할일을 입력하세요"
               />
               {errors.title && (
@@ -449,9 +453,10 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
             {/* 하위 작업 (프로젝트 타입인 경우만) */}
             {formData.type === 'project' && todo && !isRecurringTodo && (
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <SubTaskManager 
-                  todoId={todo.id} 
-                  subTasks={todo.subTasks || []} 
+                <SubTaskManager
+                  ref={subTaskManagerRef}
+                  todoId={todo.id}
+                  subTasks={todo.subTasks || []}
                 />
               </div>
             )}
@@ -573,9 +578,9 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       {exception.values.length > 0 && (
                         <span>
-                          선택된 {exception.type === 'date' ? '날짜' : 
-                                  exception.type === 'weekday' ? '요일' :
-                                  exception.type === 'week' ? '주차' : '월'}: {exception.values.join(', ')}
+                          선택된 {exception.type === 'date' ? '날짜' :
+                            exception.type === 'weekday' ? '요일' :
+                              exception.type === 'week' ? '주차' : '월'}: {exception.values.join(', ')}
                         </span>
                       )}
                     </div>

@@ -95,8 +95,20 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
     setLoading(true)
     try {
       debug.log('템플릿 업데이트', { template: editingTemplate })
+      // 안전한 데이터 변환: undefined 필드 제거 및 subTasks 데이터 정제
+      const cleanSubTasks = editingTemplate.subTasks.map(st => ({
+        ...st,
+        completedAt: st.completedAt ? new Date(st.completedAt) : undefined
+      }))
+
       const { id, createdAt, updatedAt, ...updateData } = editingTemplate
-      await firestoreService.updateProjectTemplate(id, updateData, currentUser.uid)
+
+      const param = {
+        ...updateData,
+        subTasks: cleanSubTasks
+      }
+
+      await firestoreService.updateProjectTemplate(id, param, currentUser.uid)
       setEditingTemplate(null)
     } catch (error) {
       debug.error('템플릿 업데이트 실패:', error)
@@ -391,7 +403,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                           const now = new Date()
                           updateSubTaskInTemplate(editingTemplate, index, {
                             completed: e.target.checked,
-                            completedAt: e.target.checked ? now : null as any
+                            completedAt: e.target.checked ? now : undefined
                           }, setEditingTemplate)
                         }}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
