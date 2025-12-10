@@ -1,11 +1,13 @@
 import { useTodos } from '../contexts/TodoContext'
 import { CheckCircle, Clock, Calendar, AlertTriangle, PieChart, TrendingUp, Activity, Target } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface StatsCardProps {
   layout?: 'compact' | 'sidebar' | 'full'
 }
 
 const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
+  const { t } = useTranslation()
   const { todos, getTodayTodos, getWeekTodos, getOverdueTodos } = useTodos()
 
   const totalTodos = todos.length
@@ -61,7 +63,7 @@ const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
 
   const stats = [
     {
-      title: '전체 완료율',
+      title: t('detailedStats.totalCompletion'),
       value: `${completionRate}%`,
       icon: <PieChart className="w-5 h-5" />,
       textColor: 'text-green-600',
@@ -70,7 +72,7 @@ const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
       chart: <CircularProgress value={completionRate} color="text-green-500" />
     },
     {
-      title: '오늘 진행률',
+      title: t('detailedStats.todayProgress'),
       value: `${todayCompleted}/${todayTotal}`,
       icon: <Target className="w-5 h-5" />,
       textColor: 'text-blue-600',
@@ -86,7 +88,7 @@ const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
       )
     },
     {
-      title: '주간 달성',
+      title: t('detailedStats.weeklyProgress'),
       value: `${weekRate}%`,
       icon: <TrendingUp className="w-5 h-5" />,
       textColor: 'text-purple-600',
@@ -95,7 +97,7 @@ const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
       chart: <CircularProgress value={weekRate} color="text-purple-500" />
     },
     {
-      title: '지연된 할일',
+      title: t('detailedStats.overdue'),
       value: overdueTodos.toString(),
       icon: <AlertTriangle className="w-5 h-5" />,
       textColor: 'text-red-600',
@@ -114,19 +116,19 @@ const StatsCard = ({ layout = 'sidebar' }: StatsCardProps) => {
       <div className="flex gap-2">
         <div className="text-center min-w-[28px]">
           <p className="text-green-600 text-xs font-bold leading-none">{completionRate}%</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">완료율</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('detailedStats.completionRate')}</p>
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-blue-600 text-xs font-bold leading-none">{todayCompleted}/{todayTotal}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">오늘</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('detailedStats.daily')}</p>
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-purple-600 text-xs font-bold leading-none">{weekRate}%</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">주간</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('detailedStats.weekly')}</p>
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-red-600 text-xs font-bold leading-none">{overdueTodos}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">지연</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('detailedStats.overdueLabel')}</p>
         </div>
       </div>
     )

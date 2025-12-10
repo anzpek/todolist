@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useSwipe } from '../hooks/useSwipe'
 import { isAdmin } from '../constants/admin'
 import type { ViewType } from '../types/views'
+import { useTranslation } from 'react-i18next'
 import TodoItem from './TodoItem'
 import VacationItem from './VacationItem'
 import type { Todo, Priority, TaskType } from '../types/todo'
@@ -36,6 +37,7 @@ const TodoList = memo(({
   onDateChange,
   onEdit
 }: TodoListProps) => {
+  const { t, i18n } = useTranslation()
   const { todos, getTodayTodos, getWeekTodos, getMonthTodos, reorderTodos, getYesterdayIncompleteTodos, getTomorrowTodos } = useTodos()
   const { currentUser } = useAuth()
   const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
@@ -317,7 +319,7 @@ const TodoList = memo(({
           <div className="glass-card p-3 sm:p-4 rounded-xl">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
               <RotateCcw className="w-4 h-4" />
-              어제 못한 일
+              {t('todo.yesterday.title')}
               <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
                 {yesterdayIncompleteTodos.length}
               </span>
@@ -330,7 +332,7 @@ const TodoList = memo(({
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">어제 미완료된 할일이 없습니다</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">{t('todo.yesterday.empty')}</p>
               )}
             </div>
           </div>
@@ -343,7 +345,7 @@ const TodoList = memo(({
             <div className="glass-card p-4 sm:p-6 relative overflow-hidden group mb-4 sm:mb-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2 relative z-10">
                 <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
-                오늘의 휴가 <span className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-300 ml-1">({vacationsForDate.length})</span>
+                {t('todo.vacation.title')} <span className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-300 ml-1">({vacationsForDate.length})</span>
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                 {vacationsForDate.map(vacation => {
@@ -364,12 +366,12 @@ const TodoList = memo(({
           {/* 진행 중인 할일 섹션 */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              진행 중인 할일 ({sortedIncompleteTodos.length})
+              {t('todo.inprogress.title')} ({sortedIncompleteTodos.length})
             </h3>
 
             {sortedIncompleteTodos.length === 0 && vacationsForDate.length === 0 ? (
               <div className="glass-card p-12 text-center text-gray-500 dark:text-gray-400">
-                <p className="text-lg">할일이 없습니다</p>
+                <p className="text-lg">{t('todo.inprogress.empty')}</p>
               </div>
             ) : (
               <div
@@ -446,7 +448,7 @@ const TodoList = memo(({
             <div>
               <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-4 flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5" />
-                완료된 할일 ({sortedCompletedTodos.length})
+                {t('todo.completed.title')} ({sortedCompletedTodos.length})
               </h3>
               <div className="space-y-2">
                 {sortedCompletedTodos.map(todo => {
@@ -469,19 +471,19 @@ const TodoList = memo(({
                               {todo.title}
                             </span>
                             <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded border">
-                              하위작업
+                              {t('todo.completed.subtask')}
                             </span>
                           </div>
 
                           <div className="text-xs text-green-700 dark:text-green-300">
-                            <span className="font-medium">상위 프로젝트:</span> {subTask.parentTitle}
+                            <span className="font-medium">{t('todo.completed.parentProject')}:</span> {subTask.parentTitle}
                             {subTask.parentDescription && (
                               <span className="ml-2 opacity-75">• {subTask.parentDescription}</span>
                             )}
                           </div>
 
                           <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                            완료시간: {completedTime.toLocaleTimeString('ko-KR', {
+                            {t('todo.completed.time')}: {completedTime.toLocaleTimeString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
                               hour: '2-digit',
                               minute: '2-digit'
                             })}
@@ -503,7 +505,7 @@ const TodoList = memo(({
           <div className="glass-card p-3 sm:p-4 rounded-xl">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              내일 할일
+              {t('todo.tomorrow.title')}
               <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
                 {tomorrowTodos.length}
               </span>
@@ -516,7 +518,7 @@ const TodoList = memo(({
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">내일 예정된 할일이 없습니다</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">{t('todo.tomorrow.empty')}</p>
               )}
             </div>
           </div>
@@ -533,7 +535,7 @@ const TodoList = memo(({
         <div className="glass-card p-6 relative overflow-hidden group mb-6">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2 relative z-10">
             <Calendar className="w-6 h-6 text-blue-500" />
-            오늘의 휴가 <span className="text-base font-medium text-gray-500 dark:text-gray-300 ml-1">({vacationsForDate.length})</span>
+            {t('todo.vacation.title')} <span className="text-base font-medium text-gray-500 dark:text-gray-300 ml-1">({vacationsForDate.length})</span>
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {vacationsForDate.map(vacation => {
@@ -555,7 +557,7 @@ const TodoList = memo(({
       {sortedIncompleteTodos.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            진행 중인 할일 ({sortedIncompleteTodos.length})
+            {t('todo.inprogress.title')} ({sortedIncompleteTodos.length})
           </h3>
           <div
             className="relative"
@@ -630,7 +632,7 @@ const TodoList = memo(({
         <div>
           <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-4 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5" />
-            완료된 할일 ({sortedCompletedTodos.length})
+            {t('todo.completed.title')} ({sortedCompletedTodos.length})
           </h3>
           <div className="space-y-2">
             {sortedCompletedTodos.map(todo => {
@@ -653,19 +655,19 @@ const TodoList = memo(({
                           {todo.title}
                         </span>
                         <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded border">
-                          하위작업
+                          {t('todo.completed.subtask')}
                         </span>
                       </div>
 
                       <div className="text-xs text-green-700 dark:text-green-300">
-                        <span className="font-medium">상위 프로젝트:</span> {subTask.parentTitle}
+                        <span className="font-medium">{t('todo.completed.parentProject')}:</span> {subTask.parentTitle}
                         {subTask.parentDescription && (
                           <span className="ml-2 opacity-75">• {subTask.parentDescription}</span>
                         )}
                       </div>
 
                       <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        완료시간: {completedTime.toLocaleTimeString('ko-KR', {
+                        {t('todo.completed.time')}: {completedTime.toLocaleTimeString(i18n.language === 'ko' ? 'ko-KR' : 'en-US', {
                           hour: '2-digit',
                           minute: '2-digit'
                         })}

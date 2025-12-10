@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Calendar, Plus, Edit, Trash2, Timer, X } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, isToday, getWeekOfMonth } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import { ko, enUS } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
 import { useTodos } from '../contexts/TodoContext'
 import { useVacation } from '../contexts/VacationContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -39,6 +40,8 @@ const WeeklyCalendarView = ({
   onAddTodo,
   isMobile = false
 }: WeeklyCalendarViewProps) => {
+  const { t, i18n } = useTranslation()
+  const dateLocale = i18n.language === 'ko' ? ko : enUS
   // const [currentWeek, setCurrentWeek] = useState(new Date()) // Removed internal state
   const [holidayInfos, setHolidayInfos] = useState<Record<string, HolidayInfo>>({})
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
@@ -206,13 +209,13 @@ const WeeklyCalendarView = ({
       <div className={`flex items-center ${isMobile ? 'flex-col gap-2' : 'justify-between'}`}>
         <div className={`flex items-center ${isMobile ? 'w-full justify-between' : 'gap-4'}`}>
           <h2 className={`${isMobile ? 'text-base' : 'text-xl'} font-semibold text-gray-900 dark:text-white ${isMobile ? 'flex-1 text-center min-w-0' : ''}`}>
-            {format(currentDate, 'yyyy년 M월', { locale: ko })} {weekOfMonth}째주
+            {format(currentDate, i18n.language === 'ko' ? 'yyyy년 M월' : 'MMMM yyyy', { locale: dateLocale })} {weekOfMonth}{t('calendar.week')}
           </h2>
           <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
             <button
               onClick={goToPreviousWeek}
               className={`${isMobile ? 'p-1' : 'p-2'} hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg`}
-              title="이전 주"
+              title={t('calendar.prevWeek')}
             >
               <ChevronLeft className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </button>
@@ -220,12 +223,12 @@ const WeeklyCalendarView = ({
               onClick={goToCurrentWeek}
               className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'} bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40`}
             >
-              이번 주
+              {t('calendar.thisWeek')}
             </button>
             <button
               onClick={goToNextWeek}
               className={`${isMobile ? 'p-1' : 'p-2'} hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg`}
-              title="다음 주"
+              title={t('calendar.nextWeek')}
             >
               <ChevronRight className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </button>
@@ -235,7 +238,7 @@ const WeeklyCalendarView = ({
         {/* 날짜 범위는 데스크톱에서만 표시 */}
         {!isMobile && (
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            {format(weekDays[0], 'M월 d일', { locale: ko })} - {format(weekDays[6], 'M월 d일', { locale: ko })}
+            {format(weekDays[0], i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })} - {format(weekDays[6], i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })}
           </div>
         )}
       </div>
@@ -278,7 +281,7 @@ const WeeklyCalendarView = ({
                   ? 'text-red-600 dark:text-red-400'
                   : 'text-gray-600 dark:text-gray-400'
                   }`}>
-                  {format(day, 'E', { locale: ko })}
+                  {format(day, 'E', { locale: dateLocale })}
                 </div>
                 <div className="flex items-center justify-center">
                   <div className={`text-lg font-semibold ${isTodayDay
@@ -353,7 +356,7 @@ const WeeklyCalendarView = ({
                     {/* 시간 정보 표시 - showStartTime이나 showDueTime이 체크되었을 때만 표시 */}
                     <div className={`${isMobile ? 'text-[9px]' : 'text-xs'} text-gray-500 dark:text-gray-400 ${isMobile ? 'mt-0.5' : 'mt-1'}`}>
                       {(todo.showStartTime && todo.startTime) && (
-                        <span>시작: {todo.startTime}</span>
+                        <span>{t('calendar.start')}: {todo.startTime}</span>
                       )}
                       {(todo.showStartTime && todo.startTime) && (todo.showDueTime && todo.dueDate && new Date(todo.dueDate).getHours() !== 23 && new Date(todo.dueDate).getMinutes() !== 59) && (
                         <span> | </span>
@@ -362,7 +365,7 @@ const WeeklyCalendarView = ({
                         const dueDate = new Date(todo.dueDate);
                         // 마감시간이 23:59가 아닌 경우에만 시간 표시
                         if (!(dueDate.getHours() === 23 && dueDate.getMinutes() === 59)) {
-                          return <span>마감: {dueDate.toTimeString().slice(0, 5)}</span>
+                          return <span>{t('calendar.due')}: {dueDate.toTimeString().slice(0, 5)}</span>
                         }
                         return null;
                       })()}
@@ -376,7 +379,7 @@ const WeeklyCalendarView = ({
                           toggleTodo(todo.id)
                         }}
                         className="p-1.5 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                        title={todo.completed ? '완료 취소' : '완료 처리'}
+                        title={todo.completed ? t('calendar.completedCancel') : t('calendar.complete')}
                       >
                         <div className={`w-3 h-3 rounded-full ${todo.completed ? 'bg-green-600' : 'border border-gray-400'
                           }`} />
@@ -384,12 +387,12 @@ const WeeklyCalendarView = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (confirm(`"${todo.title}" 할일을 삭제하시겠습니까?`)) {
+                          if (confirm(t('calendar.deleteConfirm'))) {
                             deleteTodo(todo.id)
                           }
                         }}
                         className="p-1.5 bg-white dark:bg-gray-800 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-900/30"
-                        title="삭제"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="w-3 h-3 text-red-600" />
                       </button>
@@ -406,7 +409,7 @@ const WeeklyCalendarView = ({
                       setIsDateModalOpen(true)
                     }}
                   >
-                    +{(dayTodos.length + dayVacations.length) - 8}개 더
+                    +{(dayTodos.length + dayVacations.length) - 8}{t('calendar.more')}
                   </div>
                 )}
 
@@ -414,7 +417,7 @@ const WeeklyCalendarView = ({
                 <button
                   onClick={onAddTodo}
                   className={`w-full ${isMobile ? 'h-6' : 'h-8'} border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-colors`}
-                  title="할일 추가"
+                  title={t('modal.addTodo.title')}
                 >
                   <Plus className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'}`} />
                 </button>
@@ -442,7 +445,7 @@ const WeeklyCalendarView = ({
       }) && (
           <div className="mt-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              이번 주 상세 정보
+              {t('calendar.detailedInfo')}
             </h3>
             <div className="space-y-2">
               {weekDays.map(day => {
@@ -455,10 +458,10 @@ const WeeklyCalendarView = ({
                   <div key={day.toISOString()}>
                     <h4 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
-                      {format(day, 'M월 d일 (E)', { locale: ko })}
+                      {format(day, i18n.language === 'ko' ? 'M월 d일 (E)' : 'MMM d (E)', { locale: dateLocale })}
                       {isToday(day) && (
                         <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 rounded">
-                          오늘
+                          {t('calendar.today')}
                         </span>
                       )}
                     </h4>
@@ -546,10 +549,9 @@ const WeeklyCalendarView = ({
             {/* 모달 헤더 */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
                 {selectedDateTodos.length > 0 && selectedDateTodos[0].dueDate ?
-                  format(selectedDateTodos[0].dueDate, 'M월 d일 (E)', { locale: ko }) :
-                  '할일 및 휴가'
+                  format(selectedDateTodos[0].dueDate, i18n.language === 'ko' ? 'M월 d일 (E)' : 'MMM d (E)', { locale: dateLocale }) :
+                  t('calendar.tasksAndVacations')
                 } ({selectedDateTodos.length + selectedDateVacations.length}개)
               </h3>
               <button
@@ -639,7 +641,7 @@ const WeeklyCalendarView = ({
                           {((todo.showStartTime && todo.startTime) || (todo.showDueTime && todo.dueDate)) && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {(todo.showStartTime && todo.startTime) && (
-                                <span>시작: {todo.startTime}</span>
+                                <span>{t('calendar.start')}: {todo.startTime}</span>
                               )}
                               {(todo.showStartTime && todo.startTime) && (todo.showDueTime && todo.dueDate) && (() => {
                                 const dueDate = new Date(todo.dueDate);
@@ -653,7 +655,7 @@ const WeeklyCalendarView = ({
                                 const dueDate = new Date(todo.dueDate);
                                 // 마감시간이 23:59가 아닌 경우에만 시간 표시
                                 if (!(dueDate.getHours() === 23 && dueDate.getMinutes() === 59)) {
-                                  return <span>마감: {dueDate.toTimeString().slice(0, 5)}</span>
+                                  return <span>{t('calendar.due')}: {dueDate.toTimeString().slice(0, 5)}</span>
                                 }
                                 return null;
                               })()}
@@ -666,7 +668,7 @@ const WeeklyCalendarView = ({
                               ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
                               : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
                               }`}>
-                              {todo.project === 'longterm' ? '롱텀' : '숏텀'}
+                              {todo.project === 'longterm' ? (t('projectTemplate.longterm') || 'Long-term') : (t('projectTemplate.shortterm') || 'Short-term')}
                             </span>
                           )}
                           {todo.priority && todo.priority !== 'medium' && (
@@ -676,7 +678,7 @@ const WeeklyCalendarView = ({
                                 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
                                 : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                               }`}>
-                              {todo.priority === 'urgent' ? '긴급' : todo.priority === 'high' ? '높음' : '낮음'}
+                              {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : todo.priority === 'high' ? t('modal.addTodo.high') : t('modal.addTodo.low')}
                             </span>
                           )}
                           <button
@@ -685,7 +687,7 @@ const WeeklyCalendarView = ({
                               toggleTodo(todo.id)
                             }}
                             className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
-                            title={todo.completed ? '완료 취소' : '완료 처리'}
+                            title={todo.completed ? t('calendar.completedCancel') : t('calendar.complete')}
                           >
                             <div className={`w-3 h-3 rounded-full ${todo.completed ? 'bg-green-600' : 'border border-gray-400'
                               }`} />
@@ -693,7 +695,7 @@ const WeeklyCalendarView = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              if (confirm(`"${todo.title}" 할일을 삭제하시겠습니까?`)) {
+                              if (confirm(t('calendar.deleteConfirm'))) {
                                 deleteTodo(todo.id)
                                 // 모달에서 삭제된 할일 제거
                                 const updatedTodos = selectedDateTodos.filter(t => t.id !== todo.id)
@@ -703,7 +705,7 @@ const WeeklyCalendarView = ({
                               }
                             }}
                             className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-800 border border-gray-200 dark:border-gray-600"
-                            title="삭제"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="w-3 h-3 text-red-600" />
                           </button>
@@ -714,18 +716,18 @@ const WeeklyCalendarView = ({
                 </div>
               ) : (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  선택한 날짜에 할일이 없습니다.
+                  {t('calendar.noTasks')}
                 </div>
               )}
             </div>
 
             {/* 모달 푸터 */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            < div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end" >
               <button
                 onClick={() => setIsDateModalOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
-                닫기
+                {t('calendar.close')}
               </button>
             </div>
           </div>

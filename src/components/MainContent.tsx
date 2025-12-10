@@ -16,7 +16,7 @@ import {
   User
 } from 'lucide-react'
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import { ko, enUS } from 'date-fns/locale'
 import TodoList from './TodoList'
 import WeeklyCalendarView from './WeeklyCalendarView'
 import MonthlyCalendarView from './MonthlyCalendarView'
@@ -33,6 +33,7 @@ import SearchFilter from './SearchFilter'
 import TodoItem from './TodoItem'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 import type { Priority, TaskType, Todo } from '../types/todo'
 
 interface MainContentProps {
@@ -45,6 +46,8 @@ interface MainContentProps {
 }
 
 const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputRef, isMobile }: MainContentProps) => {
+  const { t, i18n } = useTranslation()
+  const dateLocale = i18n.language === 'ko' ? ko : enUS
   const { currentUser } = useAuth()
   const { allTags } = useTodos()
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -115,14 +118,14 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
               <h1 className="text-2xl font-bold text-gray-900">
-                {currentView === 'today' && 'Today'}
-                {currentView === 'week' && 'Weekly Calendar'}
-                {currentView === 'month' && 'Monthly Calendar'}
-                {currentView === 'settings' && 'Settings'}
-                {currentView === 'analytics' && 'Analytics'}
-                {currentView === 'recurring' && 'Recurring Tasks'}
-                {currentView === 'history' && 'History'}
-                {currentView === 'vacation' && 'Vacation Management'}
+                {currentView === 'today' && t('nav.today')}
+                {currentView === 'week' && t('nav.weekly')}
+                {currentView === 'month' && t('nav.monthly')}
+                {currentView === 'settings' && t('nav.settings')}
+                {currentView === 'analytics' && t('nav.analytics')}
+                {currentView === 'recurring' && t('nav.recurring')}
+                {currentView === 'history' && t('nav.history')}
+                {currentView === 'vacation' && t('nav.vacation')}
               </h1>
             </div>
 
@@ -133,7 +136,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 className="hidden sm:flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
               >
                 <Plus className="w-5 h-5" />
-                <span className="font-medium">할일 추가</span>
+                <span className="font-medium">{t('common.addTodo')}</span>
               </button>
 
               <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
@@ -187,10 +190,10 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                   <CalendarIcon className="w-5 h-5 text-indigo-600" />
                   <span className="text-lg font-medium text-gray-900 dark:text-white">
                     {currentView === 'week'
-                      ? `${format(startOfWeek(selectedDate, { weekStartsOn: 0 }), 'M월 d일', { locale: ko })} - ${format(endOfWeek(selectedDate, { weekStartsOn: 0 }), 'M월 d일', { locale: ko })}`
+                      ? `${format(startOfWeek(selectedDate, { weekStartsOn: 0 }), i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })} - ${format(endOfWeek(selectedDate, { weekStartsOn: 0 }), i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })}`
                       : currentView === 'month'
-                        ? format(selectedDate, 'yyyy년 M월', { locale: ko })
-                        : format(selectedDate, 'yyyy년 M월 d일 (EEE)', { locale: ko })
+                        ? format(selectedDate, i18n.language === 'ko' ? 'yyyy년 M월' : 'MMMM yyyy', { locale: dateLocale })
+                        : format(selectedDate, i18n.language === 'ko' ? 'yyyy년 M월 d일 (EEE)' : 'MMM d yyyy (EEE)', { locale: dateLocale })
                     }
                   </span>
                 </div>
@@ -201,7 +204,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                   onClick={handleToday}
                   className="px-3 py-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md border border-indigo-200 dark:border-indigo-500/30 ml-2"
                 >
-                  Today
+                  {t('common.today')}
                 </button>
               </div>
             )}

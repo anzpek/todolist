@@ -34,3 +34,8 @@ real-mobile-*.js
 # Firebase debug files
 firebase-debug.log
 .firebase/
+
+# Android keys
+*.jks
+*.keystore
+release-key

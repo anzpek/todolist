@@ -14,7 +14,10 @@ interface AddTodoModalProps {
   initialDate?: Date
 }
 
+import { useTranslation } from 'react-i18next'
+
 const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
+  const { t } = useTranslation()
   const { addTodo, allTags } = useTodos()
   const { currentUser } = useAuth()
   const [text, setText] = useState('')
@@ -243,7 +246,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                새로운 할일
+                {t('modal.addTodo.title')}
               </h2>
               <button
                 onClick={onClose}
@@ -259,7 +262,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <FileText className="w-4 h-4 inline mr-1" />
-                    제목 *
+                    {t('modal.addTodo.taskTitle')} *
                   </label>
                   <div className="relative">
                     <input
@@ -273,7 +276,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                           setFormData(prev => ({ ...prev, ...parsed }))
                         }
                       }}
-                      placeholder={isNaturalLanguageMode && formData.type === 'simple' ? "예: 내일 오후 2시 회의 !긴급 #업무" : "할일을 입력하세요"}
+                      placeholder={isNaturalLanguageMode && formData.type === 'simple' ? t('modal.addTodo.naturalLanguageHint') : t('modal.addTodo.placeholder')}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${errors.text ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                     />
@@ -298,14 +301,14 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                 {/* 설명 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    설명
+                    {t('modal.addTodo.description')}
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => handleChange('description', e.target.value)}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
-                    placeholder="할일에 대한 자세한 설명을 입력하세요"
+                    placeholder={t('modal.addTodo.descPlaceholder')}
                   />
                 </div>
 
@@ -314,32 +317,32 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       <FolderPlus className="w-4 h-4 inline mr-1" />
-                      유형
+                      {t('modal.addTodo.type')}
                     </label>
                     <select
                       value={formData.type}
                       onChange={(e) => handleChange('type', e.target.value as TaskType)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     >
-                      <option value="simple">단일 태스크</option>
-                      <option value="project">프로젝트</option>
+                      <option value="simple">{t('modal.addTodo.simpleTask')}</option>
+                      <option value="project">{t('modal.addTodo.project')}</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       <Flag className="w-4 h-4 inline mr-1" />
-                      우선순위
+                      {t('modal.addTodo.priority')}
                     </label>
                     <select
                       value={formData.priority}
                       onChange={(e) => handleChange('priority', e.target.value as Priority)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     >
-                      <option value="low">낮음</option>
-                      <option value="medium">보통</option>
-                      <option value="high">높음</option>
-                      <option value="urgent">긴급</option>
+                      <option value="low">{t('modal.addTodo.low')}</option>
+                      <option value="medium">{t('modal.addTodo.medium')}</option>
+                      <option value="high">{t('modal.addTodo.high')}</option>
+                      <option value="urgent">{t('modal.addTodo.urgent')}</option>
                     </select>
                   </div>
                 </div>
@@ -349,7 +352,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                   <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        프로젝트 구분
+                        {t('modal.addTodo.projectCategory')}
                       </label>
                       <button
                         type="button"
@@ -357,7 +360,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                         className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium flex items-center gap-1"
                       >
                         <Briefcase className="w-3 h-3" />
-                        템플릿 관리
+                        {t('modal.addTodo.manageTemplates')}
                       </button>
                     </div>
 
@@ -368,7 +371,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                         onChange={(e) => handleTemplateSelect(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white"
                       >
-                        <option value="">템플릿 선택 안함</option>
+                        <option value="">{t('modal.addTodo.noTemplate')}</option>
                         {templates.map(template => (
                           <option key={template.id} value={template.id}>
                             {template.name} ({template.subTasks.length}개 하위작업)
@@ -386,7 +389,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                           onChange={(e) => handleChange('projectCategory', e.target.value)}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">숏텀 프로젝트</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('modal.addTodo.shortTerm')}</span>
                       </label>
                       <label className="flex items-center">
                         <input
@@ -396,7 +399,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                           onChange={(e) => handleChange('projectCategory', e.target.value)}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">롱텀 프로젝트</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('modal.addTodo.longTerm')}</span>
                       </label>
                     </div>
 
@@ -404,7 +407,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         <Layers className="w-4 h-4 inline mr-1" />
-                        하위 작업 ({formData.subTasks.length})
+                        {t('modal.addTodo.subtasks')} ({formData.subTasks.length})
                       </label>
                       <div className="space-y-2 mb-2">
                         {formData.subTasks.map((st, index) => (
@@ -427,7 +430,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                           value={newSubTaskTitle}
                           onChange={(e) => setNewSubTaskTitle(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubTask())}
-                          placeholder="하위 작업 추가..."
+                          placeholder={t('modal.addTodo.addSubtaskPlaceholder')}
                           className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                         />
                         <button
@@ -435,7 +438,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                           onClick={handleAddSubTask}
                           className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                         >
-                          추가
+                          {t('common.add')}
                         </button>
                       </div>
                     </div>
@@ -447,7 +450,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       <Calendar className="w-4 h-4 inline mr-1" />
-                      시작 날짜
+                      {t('modal.addTodo.startDate')}
                     </label>
                     <input
                       type="date"
@@ -459,7 +462,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       <Clock className="w-4 h-4 inline mr-1" />
-                      시작 시간
+                      {t('modal.addTodo.startTime')}
                     </label>
                     <input
                       type="time"
@@ -478,14 +481,14 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                     className="flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-2"
                   >
                     {formData.showDueDate ? <ChevronUp className="w-4 h-4 mr-1" /> : <ChevronDown className="w-4 h-4 mr-1" />}
-                    {formData.showDueDate ? '마감일 설정 숨기기' : '마감일 설정 추가 (선택)'}
+                    {formData.showDueDate ? t('modal.addTodo.hideDueDate') : t('modal.addTodo.showDueDate')}
                   </button>
 
                   {formData.showDueDate && (
                     <div className="grid grid-cols-2 gap-4 animate-fadeIn">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          마감 날짜
+                          {t('modal.addTodo.dueDate')}
                         </label>
                         <input
                           type="date"
@@ -496,7 +499,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          마감 시간
+                          {t('modal.addTodo.dueTime')}
                         </label>
                         <input
                           type="time"
@@ -513,7 +516,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <Tag className="w-4 h-4 inline mr-1" />
-                    태그
+                    {t('modal.addTodo.tags')}
                   </label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {allTags.map(tag => (
@@ -534,7 +537,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                       onClick={() => setShowTagInput(true)}
                       className="px-3 py-1 rounded-full text-sm border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      + 태그 추가
+                      {t('modal.addTodo.addTag')}
                     </button>
                   </div>
                   {showTagInput && (
@@ -543,7 +546,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                         type="text"
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
-                        placeholder="새 태그 입력"
+                        placeholder={t('modal.addTodo.newTagPlaceholder')}
                         className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                         onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                       />
@@ -552,7 +555,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                         onClick={handleAddTag}
                         className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                       >
-                        추가
+                        {t('common.add')}
                       </button>
                     </div>
                   )}
@@ -562,18 +565,18 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <Repeat className="w-4 h-4 inline mr-1" />
-                    반복 설정
+                    {t('modal.addTodo.recurrence')}
                   </label>
                   <select
                     value={formData.recurrence}
                     onChange={(e) => handleChange('recurrence', e.target.value as RecurrenceType)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   >
-                    <option value="none">반복 안함</option>
-                    <option value="daily">매일</option>
-                    <option value="weekly">매주</option>
-                    <option value="monthly">매달</option>
-                    <option value="yearly">매년</option>
+                    <option value="none">{t('modal.addTodo.recurrenceNone')}</option>
+                    <option value="daily">{t('modal.addTodo.daily')}</option>
+                    <option value="weekly">{t('modal.addTodo.weekly')}</option>
+                    <option value="monthly">{t('modal.addTodo.monthly')}</option>
+                    <option value="yearly">{t('modal.addTodo.yearly')}</option>
                   </select>
                 </div>
 
@@ -600,7 +603,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                     {/* 월간 반복 타입 선택 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        반복 방식
+                        {t('modal.addTodo.recurrenceType')}
                       </label>
                       <div className="flex space-x-4">
                         <label className="flex items-center">
@@ -610,7 +613,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                             onChange={() => setFormData(prev => ({ ...prev, monthlyRecurrenceType: 'by_date' }))}
                             className="mr-2"
                           />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">날짜 기준 (예: 매월 15일)</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{t('modal.addTodo.byDate')}</span>
                         </label>
                         <label className="flex items-center">
                           <input
@@ -619,7 +622,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                             onChange={() => setFormData(prev => ({ ...prev, monthlyRecurrenceType: 'by_weekday' }))}
                             className="mr-2"
                           />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">요일 기준 (예: 매월 첫째주 월요일)</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{t('modal.addTodo.byWeekday')}</span>
                         </label>
                       </div>
                     </div>
@@ -628,7 +631,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                     {formData.monthlyRecurrenceType === 'by_date' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          날짜 선택
+                          {t('modal.addTodo.selectDate')}
                         </label>
                         <select
                           value={formData.recurrenceDate}
@@ -648,7 +651,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            주차 선택
+                            {t('modal.addTodo.selectWeek')}
                           </label>
                           <select
                             value={formData.weekOfMonth}
@@ -664,7 +667,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            요일 선택
+                            {t('modal.addTodo.selectDay')}
                           </label>
                           <select
                             value={formData.recurrenceDay}
@@ -685,20 +688,20 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                 {formData.recurrence !== 'none' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      공휴일 처리
+                      {t('modal.addTodo.holidayHandling')}
                     </label>
                     <select
                       value={formData.holidayHandling}
                       onChange={(e) => handleChange('holidayHandling', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     >
-                      <option value="show">그대로 표시 (기본)</option>
-                      <option value="skip">건너뛰기 (다음 반복일에 생성)</option>
-                      <option value="next_day">다음 날로 미루기</option>
-                      <option value="prev_day">이전 날로 당기기</option>
+                      <option value="show">{t('modal.addTodo.holidayShow')}</option>
+                      <option value="skip">{t('modal.addTodo.holidaySkip')}</option>
+                      <option value="next_day">{t('modal.addTodo.holidayNext')}</option>
+                      <option value="prev_day">{t('modal.addTodo.holidayPrev')}</option>
                     </select>
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      * 반복 예정일이 공휴일인 경우 어떻게 처리할지 설정합니다.
+                      {t('modal.addTodo.holidayHint')}
                     </p>
                   </div>
                 )}
@@ -711,14 +714,14 @@ const AddTodoModal = ({ isOpen, onClose, initialDate }: AddTodoModalProps) => {
                   onClick={onClose}
                   className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  취소
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  추가하기
+                  {t('modal.addTodo.submit')}
                 </button>
               </div>
             </form>

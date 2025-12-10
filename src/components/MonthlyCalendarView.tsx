@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Calendar, Plus, Edit, Trash2, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, addMonths, subMonths, isSameMonth, isSameDay, isToday, getDay } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import { ko, enUS } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
 import { useTodos } from '../contexts/TodoContext'
 import { useVacation } from '../contexts/VacationContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -38,6 +39,8 @@ const MonthlyCalendarView = ({
   onAddTodo,
   isMobile = false
 }: MonthlyCalendarViewProps) => {
+  const { t, i18n } = useTranslation()
+  const dateLocale = i18n.language === 'ko' ? ko : enUS
   // const [currentMonth, setCurrentMonth] = useState(new Date()) // Removed internal state
   const [holidayInfos, setHolidayInfos] = useState<Record<string, HolidayInfo>>({})
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
@@ -203,7 +206,7 @@ const MonthlyCalendarView = ({
       <div className={`flex items-center ${isMobile ? 'flex-col gap-2' : 'justify-between'}`}>
         <div className={`flex items-center ${isMobile ? 'w-full justify-between' : 'gap-4'}`}>
           <h2 className={`${isMobile ? 'text-base' : 'text-xl'} font-semibold text-gray-900 dark:text-white ${isMobile ? 'flex-1 text-center min-w-0' : ''}`}>
-            {format(currentDate, 'yyyy년 M월', { locale: ko })}
+            {format(currentDate, i18n.language === 'ko' ? 'yyyy년 M월' : 'MMMM yyyy', { locale: dateLocale })}
           </h2>
           <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
             <button
@@ -217,7 +220,7 @@ const MonthlyCalendarView = ({
               onClick={goToCurrentMonth}
               className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'} bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40`}
             >
-              이번 달
+              {t('calendar.thisMonth', { defaultValue: 'This Month' })}
             </button>
             <button
               onClick={goToNextMonth}
@@ -234,7 +237,7 @@ const MonthlyCalendarView = ({
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* 요일 헤더 */}
         <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-          {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
+          {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map((day, index) => (
             <div
               key={day}
               className={`text-center py-2 text-sm font-medium ${index === 0 ? 'text-red-600 dark:text-red-400' :
@@ -242,7 +245,7 @@ const MonthlyCalendarView = ({
                   'text-gray-600 dark:text-gray-400'
                 }`}
             >
-              {day}
+              {t(`days.${day}`)}
             </div>
           ))}
         </div>
@@ -379,8 +382,8 @@ const MonthlyCalendarView = ({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
                 {selectedDateTodos.length > 0 && selectedDateTodos[0].dueDate ?
-                  format(selectedDateTodos[0].dueDate, 'M월 d일 (E)', { locale: ko }) :
-                  '할일 및 휴가'
+                  format(selectedDateTodos[0].dueDate, i18n.language === 'ko' ? 'M월 d일 (E)' : 'MMM d (E)', { locale: dateLocale }) :
+                  t('calendar.tasksAndVacations')
                 } ({selectedDateTodos.length + selectedDateVacations.length}개)
               </h3>
               <button
@@ -545,7 +548,7 @@ const MonthlyCalendarView = ({
                 </div>
               ) : (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  선택한 날짜에 할일이 없습니다.
+                  {t('calendar.noTasks')}
                 </div>
               )}
             </div>
@@ -556,7 +559,7 @@ const MonthlyCalendarView = ({
                 onClick={() => setIsDateModalOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
-                닫기
+                {t('common.close')}
               </button>
             </div>
           </div>

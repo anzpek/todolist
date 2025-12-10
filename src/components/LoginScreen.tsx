@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { CheckSquare, ArrowRight, CheckCircle2, Layout, Zap } from 'lucide-react'
+import { CheckSquare, ArrowRight, CheckCircle2, Layout, Zap, Globe } from 'lucide-react'
 
 const LoginScreen: React.FC = () => {
+  const { t, i18n } = useTranslation()
   const { signInWithGoogle, signInAsGuest } = useAuth()
   const [loading, setLoading] = useState<'google' | 'guest' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -14,7 +16,7 @@ const LoginScreen: React.FC = () => {
       setError(null)
       await signInWithGoogle()
     } catch (error: any) {
-      setError('구글 로그인에 실패했습니다.')
+      setError(t('common.error')) // 간단한 에러 메시지로 대체하거나 키 추가 필요
       console.error('Google sign-in error:', error)
     } finally {
       setLoading(null)
@@ -26,8 +28,11 @@ const LoginScreen: React.FC = () => {
       setLoading('guest')
       setError(null)
       await signInAsGuest()
+      setLoading('guest')
+      setError(null)
+      await signInAsGuest()
     } catch (error: any) {
-      setError('게스트 로그인에 실패했습니다.')
+      setError(t('common.error'))
       console.error('Guest sign-in error:', error)
     } finally {
       setLoading(null)
@@ -49,20 +54,19 @@ const LoginScreen: React.FC = () => {
               <CheckSquare className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-4xl font-bold leading-tight mb-6 tracking-tight">
-              Manage your work <br />
-              <span className="text-blue-400">efficiently.</span>
+              {t('auth.brandTitle')} <br />
+              <span className="text-blue-400">{t('auth.brandTitleHighlight')}</span>
             </h1>
-            <p className="text-slate-400 text-lg max-w-sm leading-relaxed">
-              복잡한 일정을 심플하게 관리하세요. <br />
-              개인, 팀, 기업 모두를 위한 최고의 생산성 도구.
+            <p className="text-slate-400 text-lg max-w-sm leading-relaxed whitespace-pre-line">
+              {t('auth.brandSubtitle')}
             </p>
           </div>
 
           <div className="grid gap-6">
             {[
-              { icon: Layout, title: "직관적인 보드 뷰", desc: "한눈에 파악하는 업무 흐름" },
-              { icon: Zap, title: "실시간 동기화", desc: "언제 어디서나 끊김 없는 연결" },
-              { icon: CheckCircle2, title: "스마트한 알림", desc: "놓치지 않는 중요한 일정" }
+              { icon: Layout, title: t('auth.features.boardView.title'), desc: t('auth.features.boardView.desc') },
+              { icon: Zap, title: t('auth.features.sync.title'), desc: t('auth.features.sync.desc') },
+              { icon: CheckCircle2, title: t('auth.features.smartNotify.title'), desc: t('auth.features.smartNotify.desc') }
             ].map((feature, idx) => (
               <motion.div
                 key={idx}
@@ -83,13 +87,31 @@ const LoginScreen: React.FC = () => {
           </div>
 
           <div className="text-xs text-slate-600 mt-12">
-            © 2025 Todolist Corp. Trusted by leaders.
+            {t('auth.footer')}
           </div>
         </div>
       </div>
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 bg-white relative z-50">
+        {/* Language Toggle */}
+        <div className="absolute top-8 right-8 flex gap-2">
+          <button
+            onClick={() => i18n.changeLanguage('ko')}
+            className={`p-2 rounded-lg transition-all ${i18n.language === 'ko' ? 'bg-blue-50 ring-2 ring-blue-100' : 'hover:bg-slate-50'}`}
+            title="한국어"
+          >
+            <span className="text-2xl">🇰🇷</span>
+          </button>
+          <button
+            onClick={() => i18n.changeLanguage('en')}
+            className={`p-2 rounded-lg transition-all ${i18n.language === 'en' ? 'bg-blue-50 ring-2 ring-blue-100' : 'hover:bg-slate-50'}`}
+            title="English"
+          >
+            <span className="text-2xl">🇺🇸</span>
+          </button>
+        </div>
+
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -97,8 +119,8 @@ const LoginScreen: React.FC = () => {
           className="w-full max-w-md space-y-8"
         >
           <div className="text-center lg:text-left">
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">로그인</h2>
-            <p className="mt-2 text-slate-500">계정을 선택하여 계속하세요</p>
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">{t('auth.loginTitle')}</h2>
+            <p className="mt-2 text-slate-500">{t('auth.loginSubtitle')}</p>
           </div>
 
           {error && (
@@ -119,7 +141,7 @@ const LoginScreen: React.FC = () => {
               ) : (
                 <>
                   <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-                  <span className="group-hover:text-slate-900 transition-colors">Google 계정으로 계속하기</span>
+                  <span className="group-hover:text-slate-900 transition-colors">{t('auth.googleSignIn')}</span>
                 </>
               )}
             </button>
@@ -129,7 +151,7 @@ const LoginScreen: React.FC = () => {
                 <div className="w-full border-t border-slate-100"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-slate-400">또는</span>
+                <span className="px-2 bg-white text-slate-400">{t('auth.or')}</span>
               </div>
             </div>
 
@@ -142,7 +164,7 @@ const LoginScreen: React.FC = () => {
                 <div className="w-5 h-5 border-2 border-slate-600 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>게스트로 체험하기</span>
+                  <span>{t('auth.guestSignIn')}</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
                 </>
               )}
@@ -150,7 +172,7 @@ const LoginScreen: React.FC = () => {
           </div>
 
           <p className="text-center text-xs text-slate-400 mt-8">
-            계속 진행시 이용약관 및 개인정보처리방침에 동의하게 됩니다.
+            {t('auth.terms')}
           </p>
         </motion.div>
       </div>

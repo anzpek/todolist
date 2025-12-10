@@ -3,6 +3,7 @@ import { X, Plus, Minus, Flag, Repeat, Calendar, AlertCircle, Trash2, Check, Bri
 import { useTodos } from '../contexts/TodoContext'
 import type { SimpleRecurringTemplate, RecurrenceException, ConflictException } from '../utils/simpleRecurring'
 import { getWeekLabel } from '../utils/helpers'
+import { useTranslation } from 'react-i18next'
 
 interface AddRecurringModalProps {
   isOpen: boolean
@@ -11,6 +12,7 @@ interface AddRecurringModalProps {
 
 const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
   const { addRecurringTemplate, recurringTemplates } = useTodos()
+  const { t } = useTranslation()
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -92,13 +94,13 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
 
   // 요일 옵션
   const weekdays = [
-    { value: 0, label: '일요일' },
-    { value: 1, label: '월요일' },
-    { value: 2, label: '화요일' },
-    { value: 3, label: '수요일' },
-    { value: 4, label: '목요일' },
-    { value: 5, label: '금요일' },
-    { value: 6, label: '토요일' }
+    { value: 0, label: t('days.sunday') },
+    { value: 1, label: t('days.monday') },
+    { value: 2, label: t('days.tuesday') },
+    { value: 3, label: t('days.wednesday') },
+    { value: 4, label: t('days.thursday') },
+    { value: 5, label: t('days.friday') },
+    { value: 6, label: t('days.saturday') }
   ]
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,7 +157,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
       })
     } catch (error) {
       console.error('반복 템플릿 추가 실패:', error)
-      alert('반복 템플릿 추가에 실패했습니다.')
+      alert(t('common.error'))
     } finally {
       setIsLoading(false)
     }
@@ -174,7 +176,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
         >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              반복 템플릿 추가
+              {t('recurring.addTemplate')}
             </h2>
             <button
               type="button"
@@ -189,13 +191,13 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
             {/* 제목 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                제목
+                {t('recurring.form.title')}
               </label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="반복 할일 제목을 입력하세요"
+                placeholder={t('modal.addTodo.placeholder')}
                 className="w-full text-lg px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-0 rounded-xl focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:text-white"
                 required
               />
@@ -204,12 +206,12 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
             {/* 설명 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                설명 (선택사항)
+                {t('recurring.form.description')}
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="설명을 입력하세요"
+                placeholder={t('modal.addTodo.descPlaceholder')}
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-0 rounded-xl focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:text-white resize-none"
                 rows={2}
               />
@@ -219,14 +221,14 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Flag className="w-4 h-4 inline mr-1" />
-                우선순위
+                {t('recurring.form.priority')}
               </label>
               <div className="flex gap-2">
                 {[
-                  { value: 'urgent', label: '긴급', color: 'text-red-700 bg-red-100 dark:bg-red-900/40 border-red-200 dark:border-red-800' },
-                  { value: 'high', label: '높음', color: 'text-orange-700 bg-orange-100 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800' },
-                  { value: 'medium', label: '보통', color: 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/40 border-yellow-200 dark:border-yellow-800' },
-                  { value: 'low', label: '낮음', color: 'text-green-700 bg-green-100 dark:bg-green-900/40 border-green-200 dark:border-green-800' }
+                  { value: 'urgent', label: t('modal.addTodo.urgent'), color: 'text-red-700 bg-red-100 dark:bg-red-900/40 border-red-200 dark:border-red-800' },
+                  { value: 'high', label: t('modal.addTodo.high'), color: 'text-orange-700 bg-orange-100 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800' },
+                  { value: 'medium', label: t('modal.addTodo.medium'), color: 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/40 border-yellow-200 dark:border-yellow-800' },
+                  { value: 'low', label: t('modal.addTodo.low'), color: 'text-green-700 bg-green-100 dark:bg-green-900/40 border-green-200 dark:border-green-800' }
                 ].map(priority => (
                   <label
                     key={priority.value}
@@ -253,16 +255,16 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Repeat className="w-4 h-4 inline mr-1" />
-                반복 주기
+                {t('recurring.form.recurrenceType')}
               </label>
               <select
                 value={formData.recurrenceType}
                 onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as any })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
               >
-                <option value="daily">매일</option>
-                <option value="weekly">매주</option>
-                <option value="monthly">매월</option>
+                <option value="daily">{t('recurring.form.daily')}</option>
+                <option value="weekly">{t('recurring.form.weekly')}</option>
+                <option value="monthly">{t('recurring.form.monthly')}</option>
               </select>
             </div>
 
@@ -270,7 +272,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
             {formData.recurrenceType === 'weekly' && (
               <div className="animate-fadeIn">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  요일 선택
+                  {t('recurring.form.selectWeekday')}
                 </label>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {weekdays.map(day => (
@@ -279,8 +281,8 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                       type="button"
                       onClick={() => setFormData({ ...formData, weekday: day.value })}
                       className={`flex-1 min-w-[60px] py-2 rounded-lg text-sm font-medium transition-colors ${formData.weekday === day.value
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 ring-2 ring-blue-500'
-                          : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 ring-2 ring-blue-500'
+                        : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
                     >
                       {day.label}
@@ -295,7 +297,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
               <div className="space-y-4 animate-fadeIn">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    월간 패턴
+                    {t('recurring.form.monthlyPattern')}
                   </label>
                   <div className="flex gap-4">
                     <label className="flex items-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex-1">
@@ -305,7 +307,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                         onChange={() => setFormData({ ...formData, monthlyPattern: 'date' })}
                         className="mr-3 w-4 h-4 text-blue-600"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">날짜 기준 (예: 15일)</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{t('recurring.form.byDate')}</span>
                     </label>
                     <label className="flex items-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex-1">
                       <input
@@ -314,7 +316,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                         onChange={() => setFormData({ ...formData, monthlyPattern: 'weekday' })}
                         className="mr-3 w-4 h-4 text-blue-600"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">요일 기준 (예: 첫째주 월요일)</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{t('recurring.form.byWeekday')}</span>
                     </label>
                   </div>
                 </div>
@@ -322,7 +324,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                 {formData.monthlyPattern === 'date' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      날짜 선택
+                      {t('recurring.form.selectDate')}
                     </label>
                     <select
                       value={formData.monthlyDate}
@@ -330,11 +332,11 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     >
                       {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                        <option key={day} value={day}>{day}일</option>
+                        <option key={day} value={day}>{day}{t('calendar.daySuffix', { defaultValue: '' })}</option>
                       ))}
-                      <option value={-1}>말일</option>
-                      <option value={-2}>첫 번째 근무일</option>
-                      <option value={-3}>마지막 근무일</option>
+                      <option value={-1}>{t('recurring.form.lastDay')}</option>
+                      <option value={-2}>{t('recurring.form.firstWorkDay')}</option>
+                      <option value={-3}>{t('recurring.form.lastWorkDay')}</option>
                     </select>
                   </div>
                 )}
@@ -343,23 +345,23 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        주차
+                        {t('recurring.form.week')}
                       </label>
                       <select
                         value={formData.monthlyWeek}
                         onChange={(e) => setFormData({ ...formData, monthlyWeek: e.target.value as any })}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                       >
-                        <option value="first">첫 번째 주</option>
-                        <option value="second">두 번째 주</option>
-                        <option value="third">세 번째 주</option>
-                        <option value="fourth">네 번째 주</option>
-                        <option value="last">마지막 주</option>
+                        <option value="first">{t('recurring.firstWeek')}</option>
+                        <option value="second">{t('recurring.secondWeek')}</option>
+                        <option value="third">{t('recurring.thirdWeek')}</option>
+                        <option value="fourth">{t('recurring.fourthWeek')}</option>
+                        <option value="last">{t('recurring.lastWeek')}</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        요일
+                        {t('recurring.form.weekday')}
                       </label>
                       <select
                         value={formData.monthlyWeekday}
@@ -379,19 +381,19 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
             {/* 공휴일 처리 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                공휴일 처리
+                {t('recurring.form.holidayHandling')}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { value: 'before', label: '이전으로 이동' },
-                  { value: 'after', label: '이후로 이동' },
-                  { value: 'show', label: '그대로 표시' }
+                  { value: 'before', label: t('recurring.form.moveBefore') },
+                  { value: 'after', label: t('recurring.form.moveAfter') },
+                  { value: 'show', label: t('recurring.form.show') }
                 ].map(option => (
                   <label
                     key={option.value}
                     className={`flex items-center justify-center p-2 rounded-lg cursor-pointer border transition-all ${formData.holidayHandling === option.value
-                        ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300'
-                        : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                      ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300'
+                      : 'bg-white border-gray-200 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                       }`}
                   >
                     <input
@@ -413,7 +415,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   <Minus className="w-4 h-4 inline mr-1" />
-                  예외 설정 (제외할 조건)
+                  {t('recurring.form.exceptionSettings')}
                 </label>
                 <button
                   type="button"
@@ -421,7 +423,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
                 >
                   <Plus className="w-3 h-3" />
-                  예외 추가
+                  {t('recurring.form.addException')}
                 </button>
               </div>
 
@@ -433,11 +435,11 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                       onChange={(e) => updateException(index, 'type', e.target.value)}
                       className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white mr-2"
                     >
-                      <option value="date">특정 날짜 제외</option>
-                      <option value="weekday">특정 요일 제외</option>
-                      <option value="week">특정 주차 제외</option>
-                      <option value="month">특정 달 제외</option>
-                      <option value="conflict">다른 템플릿과 중복</option>
+                      <option value="date">{t('recurring.form.byDateOption')}</option>
+                      <option value="weekday">{t('recurring.form.byWeekdayOption')}</option>
+                      <option value="week">{t('recurring.form.byWeekOption')}</option>
+                      <option value="month">{t('recurring.form.byMonthOption')}</option>
+                      <option value="conflict">{t('recurring.form.conflictOption')}</option>
                     </select>
                     <button
                       type="button"
@@ -464,12 +466,10 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                           }}
                           className="rounded text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="text-xs text-gray-600 dark:text-gray-300">{day}일</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{day}{t('calendar.daySuffix', { defaultValue: '' })}</span>
                       </label>
                     ))}
 
-                    {/* ... (다른 예외 타입들도 비슷한 스타일 적용) ... */}
-                    {/* 간결함을 위해 일부 반복 코드는 생략하지 않고 유지하되 스타일만 적용 */}
                     {exception.type === 'weekday' && weekdays.map(day => (
                       <label key={day.value} className="flex items-center space-x-2 p-1 hover:bg-white dark:hover:bg-gray-600 rounded cursor-pointer">
                         <input
@@ -520,7 +520,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                           }}
                           className="rounded text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="text-xs text-gray-600 dark:text-gray-300">{month}월</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{month}{t('common.monthSuffix', { defaultValue: '월' })}</span>
                       </label>
                     ))}
                   </div>
@@ -532,7 +532,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                         <div key={conflictIndex} className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                           <div className="flex items-center justify-between mb-3">
                             <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                              중복 예외 규칙 {conflictIndex + 1}
+                              {t('recurring.form.conflictRule')} {conflictIndex + 1}
                             </span>
                             <button
                               type="button"
@@ -546,14 +546,14 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                           <div className="space-y-3">
                             <div>
                               <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
-                                대상 템플릿
+                                {t('recurring.form.targetTemplate')}
                               </label>
                               <select
                                 value={conflictException.targetTemplateTitle}
                                 onChange={(e) => updateConflictException(index, conflictIndex, 'targetTemplateTitle', e.target.value)}
                                 className="w-full px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
                               >
-                                <option value="">템플릿 선택</option>
+                                <option value="">{t('recurring.form.selectTemplate')}</option>
                                 {recurringTemplates.map(t => (
                                   <option key={t.id} value={t.title}>
                                     {t.title}
@@ -564,16 +564,16 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
 
                             <div>
                               <label className="block text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
-                                중복 조건
+                                {t('recurring.form.conflictCondition')}
                               </label>
                               <select
                                 value={conflictException.scope}
                                 onChange={(e) => updateConflictException(index, conflictIndex, 'scope', e.target.value)}
                                 className="w-full px-2 py-1 text-sm border border-blue-300 dark:border-blue-600 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
                               >
-                                <option value="same_date">같은 날짜 중복</option>
-                                <option value="same_week">같은 주 중복</option>
-                                <option value="same_month">같은 달 중복</option>
+                                <option value="same_date">{t('recurring.form.sameDate')}</option>
+                                <option value="same_week">{t('recurring.form.sameWeek')}</option>
+                                <option value="same_month">{t('recurring.form.sameMonth')}</option>
                               </select>
                             </div>
                           </div>
@@ -586,7 +586,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
                         className="w-full py-2 px-3 text-sm border-2 border-dashed border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center justify-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
-                        중복 규칙 추가
+                        {t('recurring.form.addConflictRule')}
                       </button>
                     </div>
                   )}
@@ -603,7 +603,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
               className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
               disabled={isLoading}
             >
-              취소
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -611,7 +611,7 @@ const AddRecurringModal = ({ isOpen, onClose }: AddRecurringModalProps) => {
               disabled={isLoading || !formData.title.trim()}
             >
               <Plus className="w-4 h-4" />
-              {isLoading ? '저장 중...' : '추가하기'}
+              {isLoading ? t('recurring.form.saving') : t('recurring.addTemplate')}
             </button>
           </div>
         </form>

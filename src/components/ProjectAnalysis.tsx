@@ -1,5 +1,6 @@
 import { useTodos } from '../contexts/TodoContext'
 import { Folder, Calendar, Clock, CheckSquare, Layers, Zap, Archive } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface ProjectAnalysisProps {
   layout?: 'compact' | 'full'
@@ -7,6 +8,7 @@ interface ProjectAnalysisProps {
 
 const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
   const { todos } = useTodos()
+  const { t } = useTranslation()
 
   const projectTodos = todos.filter(todo => todo.type === 'project')
   const longtermProjects = projectTodos.filter(todo => todo.project === 'longterm').length
@@ -96,7 +98,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
         </svg>
         <div className="absolute flex flex-col items-center">
           <span className="text-xl lg:text-3xl font-bold text-gray-800 dark:text-white">{total}</span>
-          <span className="text-[10px] lg:text-xs text-gray-500">Total</span>
+          <span className="text-[10px] lg:text-xs text-gray-500">{t('analysis.total')}</span>
         </div>
       </div>
     )
@@ -104,7 +106,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
 
   const stats = [
     {
-      label: '총 프로젝트',
+      label: t('analysis.totalProjects'),
       value: projectTodos.length,
       icon: <Folder className="w-5 h-5" />,
       color: 'text-blue-600 dark:text-blue-400',
@@ -112,7 +114,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
       borderColor: 'border-blue-100 dark:border-blue-800'
     },
     {
-      label: '롱텀 프로젝트',
+      label: t('analysis.longTerm'),
       value: longtermProjects,
       icon: <Archive className="w-5 h-5" />,
       color: 'text-purple-600 dark:text-purple-400',
@@ -120,7 +122,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
       borderColor: 'border-purple-100 dark:border-purple-800'
     },
     {
-      label: '숏텀 프로젝트',
+      label: t('analysis.shortTerm'),
       value: shorttermProjects,
       icon: <Zap className="w-5 h-5" />,
       color: 'text-green-600 dark:text-green-400',
@@ -128,7 +130,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
       borderColor: 'border-green-100 dark:border-green-800'
     },
     {
-      label: '단일 태스크',
+      label: t('analysis.singleTasks'),
       value: singleTasks,
       icon: <CheckSquare className="w-5 h-5" />,
       color: 'text-orange-600 dark:text-orange-400',
@@ -142,19 +144,19 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
       <div className="flex gap-2">
         <div className="text-center min-w-[28px]">
           <p className="text-blue-600 text-xs font-bold leading-none">{projectTodos.length}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">프로젝트</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.project')}</p>
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-orange-600 text-xs font-bold leading-none">{singleTasks}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">단일</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.single')}</p>
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-purple-600 text-xs font-bold leading-none">{longtermProjects}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">롱텀</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.longterm')}</p>
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-green-600 text-xs font-bold leading-none">{shorttermProjects}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">숏텀</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.shortterm')}</p>
         </div>
       </div>
     )
@@ -167,7 +169,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
           <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
             <Layers className="w-6 h-6 text-gray-600 dark:text-gray-300" />
           </div>
-          <h3 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-white">프로젝트 분석</h3>
+          <h3 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-white">{t('analysis.title')}</h3>
         </div>
       </div>
 
@@ -176,7 +178,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
         <div className="flex-shrink-0 relative">
           <DonutChart size={180} />
           <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-sm font-medium text-gray-500 whitespace-nowrap">
-            전체 프로젝트 분포
+            {t('analysis.distribution')}
           </div>
         </div>
 

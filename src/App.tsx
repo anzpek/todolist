@@ -12,6 +12,9 @@ import { performanceMonitor, measureRenderTime } from './utils/performance'
 import { errorTracker } from './utils/errorTracking'
 import { initializeSecurity, generateSecurityReport } from './utils/security'
 import './index.css'
+import './i18n' // I18n initialization
+import { useTranslation } from 'react-i18next'
+import { firestoreService } from './services/firestoreService'
 import type { ViewType } from './types/views'
 
 // 레이지 로딩 컴포넌트들
@@ -127,6 +130,18 @@ function AppContent() {
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const addTodoModalRef = useRef<{ open: () => void }>(null)
+  const { i18n } = useTranslation()
+
+  // 언어 설정 로드
+  useEffect(() => {
+    if (currentUser && !currentUser.isAnonymous) {
+      firestoreService.getUserSettings(currentUser.uid).then(settings => {
+        if (settings?.language) {
+          i18n.changeLanguage(settings.language)
+        }
+      }).catch(err => console.error('Failed to load language:', err))
+    }
+  }, [currentUser, i18n])
 
   // 앱 시작 시 보안, 성능 모니터링 시작
   useEffect(() => {

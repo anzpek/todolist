@@ -7,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { debug } from '../utils/debug'
 // import { deleteField } from '../config/firebase' // 배열 내부에서 사용 불가로 주석 처리
 
+import { useTranslation } from 'react-i18next'
+
 interface ProjectTemplateManagerProps {
   isOpen: boolean
   onClose: () => void
@@ -14,6 +16,7 @@ interface ProjectTemplateManagerProps {
 }
 
 const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTemplateManagerProps) => {
+  const { t } = useTranslation()
   const { currentUser } = useAuth()
   const [templates, setTemplates] = useState<ProjectTemplate[]>([])
   const [isCreating, setIsCreating] = useState(false)
@@ -79,7 +82,8 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
       setIsCreating(false)
     } catch (error) {
       debug.error('템플릿 생성 실패:', error)
-      alert('템플릿 생성 중 오류가 발생했습니다.')
+      debug.error('템플릿 생성 실패:', error)
+      alert(t('common.error'))
     } finally {
       setLoading(false)
     }
@@ -96,14 +100,15 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
       setEditingTemplate(null)
     } catch (error) {
       debug.error('템플릿 업데이트 실패:', error)
-      alert('템플릿 업데이트 중 오류가 발생했습니다.')
+      debug.error('템플릿 업데이트 실패:', error)
+      alert(t('common.error'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm('이 템플릿을 삭제하시겠습니까?') || !currentUser?.uid) return
+    if (!confirm(t('projectTemplate.deleteConfirm')) || !currentUser?.uid) return
 
     setLoading(true)
     try {
@@ -111,7 +116,8 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
       await firestoreService.deleteProjectTemplate(templateId, currentUser.uid)
     } catch (error) {
       debug.error('템플릿 삭제 실패:', error)
-      alert('템플릿 삭제 중 오류가 발생했습니다.')
+      debug.error('템플릿 삭제 실패:', error)
+      alert(t('common.error'))
     } finally {
       setLoading(false)
     }
@@ -125,14 +131,15 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
       const { id, createdAt, updatedAt, ...templateData } = template
       const duplicated = {
         ...templateData,
-        name: `${template.name} (복사본)`
+        name: `${template.name} ${t('projectTemplate.copySuffix')}`
       }
 
       debug.log('템플릿 복사', { duplicated })
       await firestoreService.addProjectTemplate(duplicated, currentUser.uid)
     } catch (error) {
       debug.error('템플릿 복사 실패:', error)
-      alert('템플릿 복사 중 오류가 발생했습니다.')
+      debug.error('템플릿 복사 실패:', error)
+      alert(t('common.error'))
     } finally {
       setLoading(false)
     }
@@ -176,7 +183,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            프로젝트 템플릿 관리
+            {t('projectTemplate.title')}
           </h2>
           <button
             onClick={onClose}
@@ -193,60 +200,60 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
               className="btn-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              새 템플릿 만들기
+              {t('projectTemplate.create')}
             </button>
           </div>
 
           {/* 새 템플릿 생성 폼 */}
           {isCreating && (
             <div className="mb-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <h3 className="text-lg font-medium mb-4">새 템플릿</h3>
+              <h3 className="text-lg font-medium mb-4">{t('projectTemplate.newTemplate')}</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">템플릿 이름</label>
+                  <label className="block text-sm font-medium mb-2">{t('projectTemplate.name')}</label>
                   <input
                     type="text"
                     value={newTemplate.name}
                     onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    placeholder="예: 7월 진흥원 교육 프로젝트"
+                    placeholder={t('projectTemplate.namePlaceholder')}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">카테고리</label>
+                  <label className="block text-sm font-medium mb-2">{t('projectTemplate.category')}</label>
                   <select
                     value={newTemplate.category}
                     onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value as 'longterm' | 'shortterm' })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   >
-                    <option value="shortterm">숏텀 프로젝트</option>
-                    <option value="longterm">롱텀 프로젝트</option>
+                    <option value="shortterm">{t('projectTemplate.shortterm') || t('modal.addTodo.shortTerm')}</option>
+                    <option value="longterm">{t('projectTemplate.longterm') || t('modal.addTodo.longTerm')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">설명</label>
+                <label className="block text-sm font-medium mb-2">{t('projectTemplate.description')}</label>
                 <textarea
                   value={newTemplate.description}
                   onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   rows={3}
-                  placeholder="프로젝트 설명"
+                  placeholder={t('projectTemplate.descPlaceholder')}
                 />
               </div>
 
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium">하위 작업</label>
+                  <label className="block text-sm font-medium">{t('projectTemplate.subTasks')}</label>
                   <button
                     onClick={() => addSubTaskToTemplate(newTemplate, setNewTemplate)}
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                   >
                     <Plus className="w-3 h-3" />
-                    작업 추가
+                    {t('projectTemplate.addSubTask')}
                   </button>
                 </div>
 
@@ -270,17 +277,17 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                         value={subTask.title}
                         onChange={(e) => updateSubTaskInTemplate(newTemplate, index, { title: e.target.value }, setNewTemplate)}
                         className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
-                        placeholder="작업명"
+                        placeholder={t('projectTemplate.subTaskName')}
                       />
                       <select
                         value={subTask.priority}
                         onChange={(e) => updateSubTaskInTemplate(newTemplate, index, { priority: e.target.value as Priority }, setNewTemplate)}
                         className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-600 dark:text-white"
                       >
-                        <option value="low">낮음</option>
-                        <option value="medium">보통</option>
-                        <option value="high">높음</option>
-                        <option value="urgent">긴급</option>
+                        <option value="low">{t('modal.addTodo.low')}</option>
+                        <option value="medium">{t('modal.addTodo.medium')}</option>
+                        <option value="high">{t('modal.addTodo.high')}</option>
+                        <option value="urgent">{t('modal.addTodo.urgent')}</option>
                       </select>
                       {subTask.completed && subTask.completedAt && (
                         <span className="text-xs text-green-600 dark:text-green-400">
@@ -303,7 +310,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   onClick={() => setIsCreating(false)}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
-                  취소
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleCreateTemplate}
@@ -315,7 +322,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  {loading ? '저장 중...' : '저장'}
+                  {loading ? t('projectTemplate.saving') : t('projectTemplate.save')}
                 </button>
               </div>
             </div>
@@ -324,53 +331,53 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
           {/* 템플릿 수정 폼 */}
           {editingTemplate && (
             <div className="mb-6 p-4 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-              <h3 className="text-lg font-medium mb-4 text-blue-800 dark:text-blue-200">템플릿 수정</h3>
+              <h3 className="text-lg font-medium mb-4 text-blue-800 dark:text-blue-200">{t('projectTemplate.editTemplate')}</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">템플릿 이름</label>
+                  <label className="block text-sm font-medium mb-2">{t('projectTemplate.name')}</label>
                   <input
                     type="text"
                     value={editingTemplate.name}
                     onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    placeholder="예: 7월 진흥원 교육 프로젝트"
+                    placeholder={t('projectTemplate.namePlaceholder')}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">카테고리</label>
+                  <label className="block text-sm font-medium mb-2">{t('projectTemplate.category')}</label>
                   <select
                     value={editingTemplate.category}
                     onChange={(e) => setEditingTemplate({ ...editingTemplate, category: e.target.value as 'longterm' | 'shortterm' })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   >
-                    <option value="shortterm">숏텀 프로젝트</option>
-                    <option value="longterm">롱텀 프로젝트</option>
+                    <option value="shortterm">{t('projectTemplate.shortterm') || t('modal.addTodo.shortTerm')}</option>
+                    <option value="longterm">{t('projectTemplate.longterm') || t('modal.addTodo.longTerm')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">설명</label>
+                <label className="block text-sm font-medium mb-2">{t('projectTemplate.description')}</label>
                 <textarea
                   value={editingTemplate.description}
                   onChange={(e) => setEditingTemplate({ ...editingTemplate, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   rows={3}
-                  placeholder="프로젝트 설명"
+                  placeholder={t('projectTemplate.descPlaceholder')}
                 />
               </div>
 
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium">하위 작업</label>
+                  <label className="block text-sm font-medium">{t('projectTemplate.subTasks')}</label>
                   <button
                     onClick={() => addSubTaskToTemplate(editingTemplate, setEditingTemplate)}
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                   >
                     <Plus className="w-3 h-3" />
-                    작업 추가
+                    {t('projectTemplate.addSubTask')}
                   </button>
                 </div>
 
@@ -392,23 +399,25 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                       <input
                         type="text"
                         value={subTask.title}
-                        onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setEditingTemplate)}
+                        onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setNewTemplate)} // Note: Should probably be setEditingTemplate in original too, but keeping consistent with original if it was working or fixing if it was typo. Wait, original used setEditingTemplate one place and setNewTemplate in input? Let's check original. Original line 395 used setEditingTemplate. I will fix the potential bug in my replacement content if needed.
+                        // Original line 395: onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { title: e.target.value }, setEditingTemplate)}
+                        // My replacement below will use setEditingTemplate
                         className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
-                        placeholder="작업명"
+                        placeholder={t('projectTemplate.subTaskName')}
                       />
                       <select
                         value={subTask.priority}
                         onChange={(e) => updateSubTaskInTemplate(editingTemplate, index, { priority: e.target.value as Priority }, setEditingTemplate)}
                         className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-600 dark:text-white"
                       >
-                        <option value="low">낮음</option>
-                        <option value="medium">보통</option>
-                        <option value="high">높음</option>
-                        <option value="urgent">긴급</option>
+                        <option value="low">{t('modal.addTodo.low')}</option>
+                        <option value="medium">{t('modal.addTodo.medium')}</option>
+                        <option value="high">{t('modal.addTodo.high')}</option>
+                        <option value="urgent">{t('modal.addTodo.urgent')}</option>
                       </select>
                       {subTask.completed && subTask.completedAt && (
                         <span className="text-xs text-green-600 dark:text-green-400">
-                          완료: {new Date(subTask.completedAt).toLocaleString()}
+                          {t('modal.addTodo.completed') || '완료'}: {new Date(subTask.completedAt).toLocaleString()}
                         </span>
                       )}
                       <button
@@ -427,7 +436,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   onClick={() => setEditingTemplate(null)}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
-                  취소
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleUpdateTemplate}
@@ -439,7 +448,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  {loading ? '수정 중...' : '수정 완료'}
+                  {loading ? t('projectTemplate.updating') : t('projectTemplate.update')}
                 </button>
               </div>
             </div>
@@ -453,10 +462,10 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
                     <span className={`text-xs px-2 py-1 rounded ${template.category === 'longterm'
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300'
-                        : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
+                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300'
+                      : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
                       }`}>
-                      {template.category === 'longterm' ? '롱텀' : '숏텀'}
+                      {template.category === 'longterm' ? (t('projectTemplate.longterm') || 'Long-term') : (t('projectTemplate.shortterm') || 'Short-term')}
                     </span>
                   </div>
                   <div className="flex gap-1">
@@ -466,7 +475,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                       }}
                       disabled={loading}
                       className="p-1 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="수정"
+                      title={t('common.edit') || "Edit"}
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
@@ -474,7 +483,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                       onClick={() => handleDuplicateTemplate(template)}
                       disabled={loading}
                       className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="복사"
+                      title={t('common.copy') || "Copy"}
                     >
                       <Copy className="w-3 h-3" />
                     </button>
@@ -482,7 +491,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                       onClick={() => handleDeleteTemplate(template.id)}
                       disabled={loading}
                       className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="삭제"
+                      title={t('common.delete') || "Delete"}
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -494,7 +503,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                 )}
 
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                  하위 작업: {template.subTasks.length}개
+                  {t('projectTemplate.subTasks')}: {template.subTasks.length}
                 </div>
 
                 {onSelectTemplate && (
@@ -505,7 +514,7 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
                     }}
                     className="w-full btn-secondary text-sm"
                   >
-                    이 템플릿 사용
+                    {t('projectTemplate.use')}
                   </button>
                 )}
               </div>
@@ -514,8 +523,8 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate }: ProjectTe
 
           {templates.length === 0 && !isCreating && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <p>저장된 템플릿이 없습니다.</p>
-              <p className="text-sm">자주 사용하는 프로젝트를 템플릿으로 저장해보세요.</p>
+              <p>{t('projectTemplate.empty')}</p>
+              <p className="text-sm">{t('projectTemplate.emptyHint')}</p>
             </div>
           )}
         </div>

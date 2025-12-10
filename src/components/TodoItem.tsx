@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Check, Trash2, Edit, MoreVertical, Calendar, Clock, ArrowRight, Flag, Play, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 import { format, isAfter, isBefore, startOfDay, addDays } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import { ko, enUS } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
 import { useTodos } from '../contexts/TodoContext'
 import { useSwipe } from '../hooks/useSwipe'
 import type { Todo } from '../types/todo'
@@ -14,6 +15,8 @@ interface TodoItemProps {
 }
 
 const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
+  const { t, i18n } = useTranslation()
+  const dateLocale = i18n.language === 'ko' ? ko : enUS
   const { toggleTodo, deleteTodo, updateTodo } = useTodos()
   const [isSwiping, setIsSwiping] = useState(false)
   const itemRef = useRef<HTMLDivElement>(null)
@@ -31,7 +34,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
 
   // 날짜 포맷팅 함수
   const formatDate = (date: Date | string) => {
-    return format(new Date(date), 'yyyy.MM.dd', { locale: ko })
+    return format(new Date(date), 'yyyy.MM.dd', { locale: dateLocale })
   }
 
   // 날짜 표시 렌더링
@@ -82,7 +85,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
   // 스와이프 핸들러
   const swipeHandlers = useSwipe({
     onSwipeLeft: () => {
-      if (confirm('할일을 삭제하시겠습니까?')) {
+      if (confirm(t('calendar.deleteConfirm'))) {
         deleteTodo(todo.id)
       }
     },
@@ -126,7 +129,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
             {todo.recurrence && todo.recurrence !== 'none' && (
               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800 flex items-center gap-1">
                 <ArrowRight className="w-3 h-3" />
-                반복
+                {t('modal.addTodo.recurrence')}
               </span>
             )}
 
@@ -135,13 +138,13 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
                 ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
                 : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
                 }`}>
-                {todo.priority === 'urgent' ? '긴급' : '높음'}
+                {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : t('modal.addTodo.high')}
               </span>
             )}
 
             {todo.type === 'project' && (
               <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-full border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
-                {todo.project === 'longterm' ? '장기' : '단기'}
+                {todo.project === 'longterm' ? t('projectTemplate.longterm') : t('projectTemplate.shortterm')}
                 {hasSubTasks && (
                   <span className="ml-1 opacity-80">
                     {completedSubTasks}/{totalSubTasks}
@@ -162,7 +165,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
           )}
           {todo.type === 'project' && todo.project === 'longterm' && (
             <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-full border border-indigo-200 dark:border-indigo-800">
-              장기
+              {t('projectTemplate.longterm')}
             </span>
           )}
         </div>
@@ -176,19 +179,19 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
                 onEdit?.(todo)
               }}
               className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-              title="수정"
+              title={t('common.edit')}
             >
               <Edit className="w-4 h-4" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                if (window.confirm('정말 삭제하시겠습니까?')) {
+                if (window.confirm(t('calendar.deleteConfirm'))) {
                   deleteTodo(todo.id)
                 }
               }}
               className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              title="삭제"
+              title={t('common.delete')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -269,7 +272,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
             {hasSubTasks && !todo.completed && (
               <div className="mt-3 w-full">
                 <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-                  <span>진행률</span>
+                  <span>{t('common.progress')}</span>
                   <span>{Math.round(progress)}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">

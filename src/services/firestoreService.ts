@@ -775,4 +775,34 @@ export const firestoreService = {
       }
     });
   },
+
+  // User Settings
+  getUserSettings: async (uid: string): Promise<any> => {
+    return withRetry(async () => {
+      try {
+        const userRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          return userSnap.data();
+        }
+        return null;
+      } catch (error) {
+        debug.error('Firestore getUserSettings 실패:', error);
+        throw error;
+      }
+    });
+  },
+
+  updateUserLanguage: async (uid: string, language: string): Promise<void> => {
+    return withRetry(async () => {
+      try {
+        const userRef = doc(db, 'users', uid);
+        await setDoc(userRef, { language, updatedAt: serverTimestamp() }, { merge: true });
+        debug.log(`User ${uid} language updated to ${language}`);
+      } catch (error) {
+        debug.error('Firestore updateUserLanguage 실패:', error);
+        throw error;
+      }
+    });
+  },
 };

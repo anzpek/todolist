@@ -5,9 +5,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { useVacation } from '../contexts/VacationContext'
 import { isAdmin } from '../constants/admin'
 import ThemeToggle from './ThemeToggle'
-import DataBackup from './DataBackup'
 import StatsCard from './StatsCard'
 import ProjectAnalysis from './ProjectAnalysis'
+import { useTranslation } from 'react-i18next'
 
 interface SidebarProps {
   currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings'
@@ -20,6 +20,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false, forceMobile = null, onToggleForceMobile }: SidebarProps) => {
+  const { t } = useTranslation()
   const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, getRecurringTodos, getTodayTodos } = useTodos()
   const { currentUser } = useAuth()
   const { showVacationsInTodos, toggleVacationDisplay } = useVacation()
@@ -33,14 +34,14 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
   const activeTemplates = recurringTemplates.filter(template => template.isActive)
 
   const menuItems = [
-    { id: 'today', label: '오늘 할일', icon: Calendar, count: todayTodos.filter(t => !t.completed).length },
-    { id: 'week', label: '주간 캘린더', icon: CalendarDays },
-    { id: 'month', label: '월간 캘린더', icon: Calendar },
-    { id: 'recurring', label: '반복 관리', icon: Repeat, count: activeTemplates.length },
-    { id: 'history', label: '완료 기록', icon: History },
-    { id: 'analytics', label: '통계/분석', icon: Users },
-    { id: 'vacation', label: '휴가 관리', icon: Calendar },
-    { id: 'settings', label: '설정', icon: Settings },
+    { id: 'today', label: t('nav.today'), icon: Calendar, count: todayTodos.filter(t => !t.completed).length },
+    { id: 'week', label: t('nav.week'), icon: CalendarDays },
+    { id: 'month', label: t('nav.month'), icon: Calendar },
+    { id: 'recurring', label: t('nav.recurring'), icon: Repeat, count: activeTemplates.length },
+    { id: 'history', label: t('nav.history'), icon: History },
+    { id: 'analytics', label: t('nav.analytics'), icon: Users },
+    { id: 'vacation', label: t('nav.vacation'), icon: Calendar },
+    { id: 'settings', label: t('nav.settings'), icon: Settings },
   ]
 
   return (
@@ -125,11 +126,11 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
               <div className="glass-panel p-4 rounded-xl border-l-4 border-l-orange-400 group hover:scale-[1.02] transition-transform duration-200 bg-orange-50/30 dark:bg-orange-900/10">
                 <div className="flex items-center gap-2 mb-2 text-orange-600 dark:text-orange-400">
                   <AlertTriangle className="w-4 h-4" />
-                  <span className="text-sm font-bold">어제 미완료</span>
+                  <span className="text-sm font-bold">{t('nav.summary.yesterday')}</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                   {yesterdayTodos.length}
-                  <span className="text-sm font-normal text-gray-500 ml-1">개</span>
+                  <span className="text-sm font-normal text-gray-500 ml-1">{t('nav.summary.count')}</span>
                 </div>
               </div>
             )}
@@ -139,11 +140,11 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
               <div className="glass-panel p-4 rounded-xl border-l-4 border-l-red-500 group hover:scale-[1.02] transition-transform duration-200 bg-red-50/30 dark:bg-red-900/10">
                 <div className="flex items-center gap-2 mb-2 text-red-600 dark:text-red-400">
                   <Clock className="w-4 h-4" />
-                  <span className="text-sm font-bold">지연된 할일</span>
+                  <span className="text-sm font-bold">{t('nav.summary.overdue')}</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                   {overdueTodos.length}
-                  <span className="text-sm font-normal text-gray-500 ml-1">개</span>
+                  <span className="text-sm font-normal text-gray-500 ml-1">{t('nav.summary.count')}</span>
                 </div>
               </div>
             )}
@@ -152,11 +153,11 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
             <div className="glass-panel p-4 rounded-xl border-l-4 border-l-blue-400 group hover:scale-[1.02] transition-transform duration-200 bg-blue-50/30 dark:bg-blue-900/10">
               <div className="flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
                 <Calendar className="w-4 h-4" />
-                <span className="text-sm font-bold">내일 예정</span>
+                <span className="text-sm font-bold">{t('nav.summary.tomorrow')}</span>
               </div>
               <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                 {tomorrowTodos.length}
-                <span className="text-sm font-normal text-gray-500 ml-1">개</span>
+                <span className="text-sm font-normal text-gray-500 ml-1">{t('nav.summary.count')}</span>
               </div>
             </div>
           </div>
@@ -165,7 +166,6 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
         {/* 하단 영역 - 정리됨 */}
         <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm shrink-0 space-y-4">
           <ThemeToggle />
-          <DataBackup />
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-200/30 dark:border-gray-700/30">
             <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
