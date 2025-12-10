@@ -122,41 +122,43 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
         }
       `}>
 
-        {/* 우측 상단 메타데이터 영역 (태그 + 날짜) - PC 버전 */}
-        <div className="hidden md:flex absolute top-4 right-20 flex-col items-end gap-1.5 z-10">
-          {/* 1행: 태그들 */}
-          <div className="flex items-center gap-1.5">
-            {todo.recurrence && todo.recurrence !== 'none' && (
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800 flex items-center gap-1">
-                <ArrowRight className="w-3 h-3" />
-                {t('modal.addTodo.recurrence')}
-              </span>
-            )}
+        {/* 우측 상단 메타데이터 영역 (태그 + 날짜) - PC 버전 (Compact 모드에서는 숨김) */}
+        {!compact && (
+          <div className="hidden md:flex absolute top-4 right-20 flex-col items-end gap-1.5 z-10">
+            {/* 1행: 태그들 */}
+            <div className="flex items-center gap-1.5">
+              {todo.recurrence && todo.recurrence !== 'none' && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800 flex items-center gap-1">
+                  <ArrowRight className="w-3 h-3" />
+                  {t('modal.addTodo.recurrence')}
+                </span>
+              )}
 
-            {todo.priority && todo.priority !== 'medium' && (
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border flex items-center gap-1 ${todo.priority === 'urgent'
-                ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
-                : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
-                }`}>
-                {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : t('modal.addTodo.high')}
-              </span>
-            )}
+              {todo.priority && todo.priority !== 'medium' && (
+                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border flex items-center gap-1 ${todo.priority === 'urgent'
+                  ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+                  : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+                  }`}>
+                  {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : t('modal.addTodo.high')}
+                </span>
+              )}
 
-            {todo.type === 'project' && (
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-full border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
-                {todo.project === 'longterm' ? t('projectTemplate.longterm') : t('projectTemplate.shortterm')}
-                {hasSubTasks && (
-                  <span className="ml-1 opacity-80">
-                    {completedSubTasks}/{totalSubTasks}
-                  </span>
-                )}
-              </span>
-            )}
+              {todo.type === 'project' && (
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-full border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                  {todo.project === 'longterm' ? t('projectTemplate.longterm') : t('projectTemplate.shortterm')}
+                  {hasSubTasks && (
+                    <span className="ml-1 opacity-80">
+                      {completedSubTasks}/{totalSubTasks}
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+
+            {/* 2행: 날짜 정보 (우측 정렬) */}
+            {renderDateDisplay()}
           </div>
-
-          {/* 2행: 날짜 정보 (우측 정렬) */}
-          {renderDateDisplay()}
-        </div>
+        )}
 
         {/* 모바일용 메타데이터 (반복 아이콘, 장기 뱃지) */}
         <div className="md:hidden absolute top-4 right-20 flex items-center gap-1.5 z-10">
@@ -251,8 +253,8 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
 
             {/* 하단 정보 (태그 등) */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              {/* 모바일에서 날짜를 하단에 표시 (PC에서는 상단 유지) */}
-              <div className="md:hidden">
+              {/* 모바일(또는 Compact 모드)에서 날짜를 하단에 표시 */}
+              <div className={compact ? '' : 'md:hidden'}>
                 {renderDateDisplay()}
               </div>
 
