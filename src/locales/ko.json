@@ -106,6 +106,18 @@
             "setup": "알림 설정",
             "desc": "마감 알림, 완료 축하 등 설정"
         },
+        "updateNotification": {
+            "title": "시스템 업데이트 안내",
+            "newFeatures": "새로운 기능",
+            "changes": [
+                "다국어 지원 추가 (한국어/영어)",
+                "설정에서 언어 변경 가능",
+                "UI 개선 및 버그 수정",
+                "시스템 안정성 향상"
+            ],
+            "dontShowAgain": "다시 보지 않기",
+            "close": "닫기"
+        },
         "appInfo": "Designed for simplicity & productivity"
     },
     "common": {
@@ -281,8 +293,8 @@
         "total": "Total",
         "project": "프로젝트",
         "single": "단일",
-        "longterm": "롱텀",
-        "shortterm": "숏텀"
+        "longTermLabel": "롱텀",
+        "shortTermLabel": "숏텀"
     },
     "recurring": {
         "title": "반복 관리",

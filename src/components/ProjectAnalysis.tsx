@@ -114,7 +114,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
       borderColor: 'border-blue-100 dark:border-blue-800'
     },
     {
-      label: t('analysis.longTerm'),
+      label: t('analysis.longTermLabel'),
       value: longtermProjects,
       icon: <Archive className="w-5 h-5" />,
       color: 'text-purple-600 dark:text-purple-400',
@@ -122,7 +122,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
       borderColor: 'border-purple-100 dark:border-purple-800'
     },
     {
-      label: t('analysis.shortTerm'),
+      label: t('analysis.shortTermLabel'),
       value: shorttermProjects,
       icon: <Zap className="w-5 h-5" />,
       color: 'text-green-600 dark:text-green-400',
@@ -152,11 +152,11 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-purple-600 text-xs font-bold leading-none">{longtermProjects}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.longterm')}</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.longTermLabel')}</p>
         </div>
         <div className="text-center min-w-[28px]">
           <p className="text-green-600 text-xs font-bold leading-none">{shorttermProjects}</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.shortterm')}</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none mt-0.5">{t('analysis.shortTermLabel')}</p>
         </div>
       </div>
     )

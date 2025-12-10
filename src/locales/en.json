@@ -106,6 +106,18 @@
             "setup": "Setup Notifications",
             "desc": "Deadlines, celebrations, etc."
         },
+        "updateNotification": {
+            "title": "System Update",
+            "newFeatures": "What's New",
+            "changes": [
+                "Multi-language Support (Korean/English)",
+                "Language switching in settings",
+                "UI Improvements & Bug Fixes",
+                "System Stability Improvements"
+            ],
+            "dontShowAgain": "Don't show again",
+            "close": "Close"
+        },
         "appInfo": "Designed for simplicity & productivity"
     },
     "common": {
@@ -281,8 +293,8 @@
         "total": "Total",
         "project": "Project",
         "single": "Single",
-        "longterm": "Long-term",
-        "shortterm": "Short-term"
+        "longTermLabel": "Long-term",
+        "shortTermLabel": "Short-term"
     },
     "recurring": {
         "title": "Recurring Management",
@@ -316,7 +328,7 @@
         "exceptionDateHint": "Skip or move recurring tasks on specific dates.",
         "holidayTitle": "Holiday Management",
         "holidayDesc": "Holiday management features coming soon.",
-        "plannedFatureList": {
+        "plannedFeatureList": {
             "vacation": "Vacation Scheduling",
             "autoAdjust": "Auto-adjust Recurring Tasks",
             "notification": "Vacation Alerts",
