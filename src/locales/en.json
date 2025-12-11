@@ -420,42 +420,42 @@
     },
     "guide": {
         "title": "User Manual",
-        "subtitle": "Learn how to use 100% of the features.",
+        "subtitle": "Learn how to use 100% of the features in detail.",
         "basics": {
-            "title": "Basics",
+            "title": "1. Basics",
             "add": "Add Task",
-            "addDesc": "Click the + button or press (N) to add a task quickly.",
-            "complete": "Complete",
-            "completeDesc": "Click the checkbox to complete. View done items in 'History'.",
+            "addDesc": "Click the round '+' button at the bottom right or press 'N' on your keyboard to quickly add a new task. You can set the title, description, due date, and priority to manage your work efficiently.",
+            "complete": "Complete & Todo",
+            "completeDesc": "Click the checkbox to the left of an item to mark it as complete. If you completed it by mistake, you can undo it immediately or restore it from the 'History' tab.",
             "edit": "Edit & Delete",
-            "editDesc": "Click a task to edit. Click trash icon to delete."
+            "editDesc": "Click on a task to open the details popup. You can edit the content or click the trash icon at the top right to delete it."
         },
         "calendar": {
-            "title": "Schedule",
-            "views": "Today/Week/Month",
-            "viewsDesc": "View tasks by Today, Week, or Month via tabs or sidebar.",
+            "title": "2. Schedule & Calendar",
+            "views": "Calendar Views",
+            "viewsDesc": "Switch between 'Today', 'Weekly', and 'Monthly' views via the sidebar or bottom menu. 'Weekly' is great for workflow, and 'Monthly' for overview.",
             "nav": "Navigation",
-            "navDesc": "Use date arrows to move to past/future dates."
+            "navDesc": "Use the navigation arrows (<, >) at the top to move to past or future dates. Click 'Today' to return to the current date immediately."
         },
         "advanced": {
-            "title": "Advanced",
-            "recurring": "Recurring Tasks",
-            "recurringDesc": "Set daily/weekly/monthly tasks in 'Recurring' tab.",
+            "title": "3. Advanced Features",
+            "recurring": "Recurring Management (Important)",
+            "recurringDesc": "**Note:** You cannot set 'recurrence' in the quick add popup. Recurring tasks (daily, weekly) must be registered and managed separately in the **'Recurring'** tab on the sidebar. More precise settings like exceptions are available there.",
             "subtasks": "Subtasks",
-            "subtasksDesc": "Break down complex tasks into subtasks in the details view.",
-            "tags": "Tags & Priority",
-            "tagsDesc": "Use #tags or set priority to manage important work."
+            "subtasksDesc": "Break down large projects into smaller steps. Use 'Add Subtask' in the task details view to track progress more granularly.",
+            "tags": "Tags & Filters",
+            "tagsDesc": "Use hashtags like #work or #personal when adding tasks. You can filter by specific tags or priority levels in the main search bar."
         },
         "account": {
-            "title": "Account & Security",
-            "login": "Google Login",
-            "loginDesc": "Login to sync data across devices.",
-            "backup": "Cloud Backup",
-            "backupDesc": "All data is securely saved in the cloud."
+            "title": "4. Account & Data",
+            "login": "Login Methods",
+            "loginDesc": "Login with Google to sync cloud data across multiple devices (PC, Tablet, Mobile). Guest mode saves data locally only.",
+            "security": "Security & Backup",
+            "securityDesc": "All data is securely transmitted and stored. Guest data may be lost if the app is deleted, so Google Login is recommended for data protection."
         },
         "more": {
             "title": "Have Questions?",
-            "contact": "Contact developer via Settings > Contact.",
+            "contact": "If you need further assistance or have suggestions, please use 'Contact Us' in the Settings menu.",
             "button": "Contact Us"
         }
     }

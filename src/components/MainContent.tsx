@@ -188,9 +188,37 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 <button onClick={handlePrev} className="p-1 hover:bg-gray-200 rounded-full">
                   <ChevronLeft className="w-5 h-5 text-gray-600" />
                 </button>
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-indigo-600" />
-                  <span className="text-lg font-medium text-gray-900 dark:text-white">
+                <div
+                  onClick={() => {
+                    const input = document.getElementById('date-picker-input') as HTMLInputElement
+                    if (input && 'showPicker' in HTMLInputElement.prototype) {
+                      try {
+                        input.showPicker()
+                      } catch (err) {
+                        // Fallback or ignore
+                        input.focus()
+                      }
+                    } else if (input) {
+                      input.focus()
+                      input.click() // Try triggering click directly on input
+                    }
+                  }}
+                  className="relative flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+                >
+                  <input
+                    id="date-picker-input"
+                    type="date"
+                    value={format(selectedDate, 'yyyy-MM-dd')}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleDateChange(new Date(e.target.value))
+                      }
+                    }}
+                    className="sr-only"
+                    aria-label="Select date"
+                  />
+                  <CalendarIcon className="w-5 h-5 text-indigo-600 group-hover:text-indigo-700 dark:text-indigo-400 dark:group-hover:text-indigo-300 transition-colors" />
+                  <span className="text-lg font-medium text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     {currentView === 'week'
                       ? `${format(startOfWeek(selectedDate, { weekStartsOn: 0 }), i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })} - ${format(endOfWeek(selectedDate, { weekStartsOn: 0 }), i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })}`
                       : currentView === 'month'

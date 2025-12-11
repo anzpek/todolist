@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Calendar, Plus, Settings, Pause, Play, Trash2, Edit, Minus, X, Flag, Repeat, AlertCircle, Check, Briefcase, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import type { SimpleRecurringTemplate, ConflictException } from '../utils/simpleRecurring'
-import AddRecurringModal from './AddRecurringModal'
+import AddTodoModal from './AddTodoModal'
 import { getWeekLabel } from '../utils/helpers'
 import { useTranslation } from 'react-i18next'
 
@@ -459,9 +459,10 @@ const RecurringManagement = () => {
       </div>
 
       {/* 추가 모달 */}
-      <AddRecurringModal
+      <AddTodoModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
+        initialTab="recurring"
       />
 
       {/* 수정 모달 */}

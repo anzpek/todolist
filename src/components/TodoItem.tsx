@@ -112,6 +112,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
         relative group mb-3 transition-all duration-300 ease-out
         ${todo.completed ? 'opacity-60' : 'opacity-100'}
       `}
+      onClick={() => onEdit?.(todo)}
       {...swipeHandlers}
     >
       <div className={`
@@ -174,7 +175,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
 
         {/* Action Buttons (Always visible) */}
         <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-1">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -188,7 +189,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                if (window.confirm(t('calendar.deleteConfirm'))) {
+                if (window.confirm(t('common.deleteConfirm'))) {
                   deleteTodo(todo.id)
                 }
               }}
@@ -198,14 +199,15 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
-
-
         </div>
 
         <div className="flex items-start gap-4">
           {/* 모던 체크박스 */}
           <button
-            onClick={handleToggle}
+            onClick={(e) => {
+              e.stopPropagation()
+              handleToggle()
+            }}
             className={`
               flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 mt-1
               ${todo.completed
@@ -237,7 +239,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
                     e.stopPropagation()
                     setIsExpanded(!isExpanded)
                   }}
-                  className="p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors"
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                 >
                   {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>

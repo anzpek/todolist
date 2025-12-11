@@ -15,7 +15,7 @@ interface EditTodoModalProps {
 }
 
 const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModalProps) => {
-  const { updateTodo, updateRecurringTemplate } = useTodos()
+  const { updateTodo, updateRecurringTemplate, deleteTodo } = useTodos()
 
   const [formData, setFormData] = useState({
     title: '',
@@ -591,11 +591,23 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
           </div>
 
           {/* 버튼 */}
-          <div className={`flex justify-end space-x-3 ${isMobile ? 'mt-6' : 'mt-8'}`}>
+          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('정말로 이 할일을 삭제하시겠습니까?')) {
+                  deleteTodo(todo.id)
+                  onClose()
+                }
+              }}
+              className="px-5 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors mr-auto"
+            >
+              삭제
+            </button>
             <button
               type="button"
               onClick={onClose}
-              className={`text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg ${isMobile ? 'px-6 py-3' : 'px-4 py-2'}`}
+              className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
             >
               취소
             </button>
