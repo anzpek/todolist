@@ -1,3 +1,5 @@
 {
-    "version": "2025-12-10-v3"
+    "version": "1.2.0",
+    "build": 3,
+    "forceUpdate": false
 }

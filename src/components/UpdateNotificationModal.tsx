@@ -2,19 +2,28 @@ import { useState, useEffect } from 'react'
 import { X, Sparkles, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { useUpdateCheck } from '../hooks/useUpdateCheck'
+
 const UPDATE_VERSION_KEY = 'hideUpdateModal_v1_multilang'
 
 const UpdateNotificationModal = () => {
     const { t } = useTranslation()
     const [isOpen, setIsOpen] = useState(false)
     const [dontShowAgain, setDontShowAgain] = useState(false)
+    const { isUpdateAvailable } = useUpdateCheck()
 
     useEffect(() => {
+        // If real update available, always show (ignoring localStorage for now, or use a new key)
+        if (isUpdateAvailable) {
+            setIsOpen(true)
+            return
+        }
+
         const hidden = localStorage.getItem(UPDATE_VERSION_KEY)
         if (!hidden) {
             setIsOpen(true)
         }
-    }, [])
+    }, [isUpdateAvailable])
 
     const handleClose = () => {
         if (dontShowAgain) {
