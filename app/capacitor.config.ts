@@ -12,10 +12,6 @@ const config: CapacitorConfig = {
     }
   },
   android: {
-  },
-  server: {
-    url: 'https://anzpek.github.io/todolist/',
-    cleartext: true
   }
 };
 

@@ -24,19 +24,8 @@ const LoginScreen: React.FC = () => {
   }
 
   const handleGuestSignIn = async () => {
-    try {
-      setLoading('guest')
-      setError(null)
-      await signInAsGuest()
-      setLoading('guest')
-      setError(null)
-      await signInAsGuest()
-    } catch (error: any) {
-      setError(t('common.error'))
-      console.error('Guest sign-in error:', error)
-    } finally {
-      setLoading(null)
-    }
+    // 앱 내 체험하기 대신 웹 버전으로 리다이렉트 (요청 사항)
+    window.open('https://anzpek.github.io/todolist/', '_system')
   }
 
   return (
