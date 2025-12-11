@@ -28,6 +28,7 @@ import VacationDashboard from './VacationManagement/VacationDashboard'
 import SettingsView from './SettingsView'
 import FloatingActionButton from './FloatingActionButton'
 import AddTodoModal from './AddTodoModal'
+import HelpGuide from './HelpGuide'
 import EditTodoModal from './EditTodoModal'
 import SearchFilter from './SearchFilter'
 import TodoItem from './TodoItem'
@@ -37,7 +38,7 @@ import { useTranslation } from 'react-i18next'
 import type { Priority, TaskType, Todo } from '../types/todo'
 
 interface MainContentProps {
-  currentView: 'today' | 'week' | 'month' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation'
+  currentView: 'today' | 'week' | 'month' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide'
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   searchInputRef?: any
@@ -126,6 +127,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 {currentView === 'recurring' && t('nav.recurring')}
                 {currentView === 'history' && t('nav.history')}
                 {currentView === 'vacation' && t('nav.vacation')}
+                {currentView === 'guide' && t('guide.title')}
               </h1>
             </div>
 
@@ -280,6 +282,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
           <VacationDashboard />
         ) : currentView === 'settings' ? (
           <SettingsView />
+        ) : currentView === 'guide' ? (
+          <HelpGuide />
         ) : null}
       </div>
 

@@ -1,4 +1,4 @@
-import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff, Settings } from 'lucide-react'
+import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff, Settings, Book } from 'lucide-react'
 import type { ViewType } from '../types/views'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -10,8 +10,8 @@ import ProjectAnalysis from './ProjectAnalysis'
 import { useTranslation } from 'react-i18next'
 
 interface SidebarProps {
-  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings'
-  onViewChange: (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings') => void
+  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide'
+  onViewChange: (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide') => void
   isOpen: boolean
   onToggle: () => void
   isMobile?: boolean
@@ -41,6 +41,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
     { id: 'history', label: t('nav.history'), icon: History },
     { id: 'analytics', label: t('nav.analytics'), icon: Users },
     { id: 'vacation', label: t('nav.vacation'), icon: Calendar },
+    { id: 'guide', label: t('guide.title'), icon: Book },
     { id: 'settings', label: t('nav.settings'), icon: Settings },
   ]
 

@@ -36,8 +36,8 @@ const LoadingSpinner = () => (
 )
 
 interface AppInnerProps {
-  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings'
-  setCurrentView: (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings') => void
+  currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide'
+  setCurrentView: (view: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide') => void
   isSidebarOpen: boolean
   setIsSidebarOpen: (open: boolean) => void
   searchInputRef: React.RefObject<HTMLInputElement | null>
@@ -127,7 +127,7 @@ function AppInner({
 
 function AppContent() {
   const { currentUser, loading } = useAuth()
-  const [currentView, setCurrentView] = useState<ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings'>('today')
+  const [currentView, setCurrentView] = useState<ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide'>('today')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [forceMobile, setForceMobile] = useState<boolean | null>(null) // null = 자동감지, true = 강제모바일, false = 강제데스크톱

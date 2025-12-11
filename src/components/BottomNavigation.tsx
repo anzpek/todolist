@@ -2,8 +2,8 @@ import { Calendar, Home, List, Settings, BarChart2 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 
 interface BottomNavigationProps {
-    currentView: 'today' | 'week' | 'month' | 'settings' | 'analytics'
-    onViewChange: (view: 'today' | 'week' | 'month' | 'settings' | 'analytics') => void
+    currentView: 'today' | 'week' | 'month' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide'
+    onViewChange: (view: 'today' | 'week' | 'month' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide') => void
     onToggleSidebar: () => void
 }
 

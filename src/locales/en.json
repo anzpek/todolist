@@ -417,5 +417,46 @@
         "completedMonth": "Months Completed",
         "empty": "No completed tasks yet",
         "emptyHint": "History will appear here when you complete tasks."
+    },
+    "guide": {
+        "title": "User Manual",
+        "subtitle": "Learn how to use 100% of the features.",
+        "basics": {
+            "title": "Basics",
+            "add": "Add Task",
+            "addDesc": "Click the + button or press (N) to add a task quickly.",
+            "complete": "Complete",
+            "completeDesc": "Click the checkbox to complete. View done items in 'History'.",
+            "edit": "Edit & Delete",
+            "editDesc": "Click a task to edit. Click trash icon to delete."
+        },
+        "calendar": {
+            "title": "Schedule",
+            "views": "Today/Week/Month",
+            "viewsDesc": "View tasks by Today, Week, or Month via tabs or sidebar.",
+            "nav": "Navigation",
+            "navDesc": "Use date arrows to move to past/future dates."
+        },
+        "advanced": {
+            "title": "Advanced",
+            "recurring": "Recurring Tasks",
+            "recurringDesc": "Set daily/weekly/monthly tasks in 'Recurring' tab.",
+            "subtasks": "Subtasks",
+            "subtasksDesc": "Break down complex tasks into subtasks in the details view.",
+            "tags": "Tags & Priority",
+            "tagsDesc": "Use #tags or set priority to manage important work."
+        },
+        "account": {
+            "title": "Account & Security",
+            "login": "Google Login",
+            "loginDesc": "Login to sync data across devices.",
+            "backup": "Cloud Backup",
+            "backupDesc": "All data is securely saved in the cloud."
+        },
+        "more": {
+            "title": "Have Questions?",
+            "contact": "Contact developer via Settings > Contact.",
+            "button": "Contact Us"
+        }
     }
 }
