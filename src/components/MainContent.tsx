@@ -107,7 +107,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     <main className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
       }`}>
       {/* Header Section */}
-      <header className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-white/10 sticky top-0 z-20">
+      <header className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-white/10 sticky top-0 z-20 pt-[env(safe-area-inset-top)]">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">

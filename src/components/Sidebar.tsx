@@ -60,7 +60,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
           ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
           ${isMobile ? 'w-[280px]' : 'w-64'}
           glass-card border-r border-white/40 dark:border-gray-700/40 rounded-none
-          flex flex-col shadow-2xl`}
+          flex flex-col shadow-2xl pt-[env(safe-area-inset-top)]`}
       >
         {/* 헤더 영역 */}
         <div className="p-6 flex items-center justify-between relative overflow-hidden shrink-0">
