@@ -48,12 +48,7 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
     const [formData, setFormData] = useState(initialFormState)
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [newSubTaskTitle, setNewSubTaskTitle] = useState('')
-    const inputRef = useRef<HTMLInputElement>(null)
-
     useEffect(() => {
-        if (inputRef.current) {
-            inputRef.current.focus()
-        }
         setFormData(prev => ({
             ...prev,
             startDate: format(initialDate || new Date(), 'yyyy-MM-dd')
@@ -226,7 +221,6 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
                     </label>
                     <div className="relative">
                         <input
-                            ref={inputRef}
                             type="text"
                             value={text}
                             onChange={(e) => {
