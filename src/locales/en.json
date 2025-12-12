@@ -112,10 +112,10 @@
         "title": "System Update",
         "newFeatures": "What's New",
         "changes": [
-            "Multi-language Support (Korean/English)",
-            "Language switching in settings",
-            "UI Improvements & Bug Fixes",
-            "System Stability Improvements"
+            "Improved Android Back Button (Closes modals -> Confirm Exit)",
+            "Fixed Auto-focus issue on 'Add Task' popup",
+            "Resolved White Screen issue on startup (Stability fix)",
+            "Adjusted FAB position & UI improvements"
         ],
         "dontShowAgain": "Don't show again",
         "close": "Close"
