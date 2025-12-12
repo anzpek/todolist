@@ -134,6 +134,7 @@
         "close": "Close",
         "today": "Today",
         "addTodo": "Add Task",
+        "confirmExit": "Are you sure you want to exit?",
         "progress": "Progress"
     },
     "days": {
@@ -222,6 +223,7 @@
         }
     },
     "projectTemplate": {
+        "manage": "Manage Templates",
         "title": "Manage Templates",
         "create": "Create New Template",
         "newTemplate": "New Template",
