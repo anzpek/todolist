@@ -12,7 +12,7 @@ const FloatingActionButton = ({ onClick }: FloatingActionButtonProps) => {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-20 right-4 z-50 group"
+      className="fixed bottom-24 right-4 z-50 group md:bottom-8"
       aria-label="할일 추가"
     >
       {/* 글로우 효과 */}
