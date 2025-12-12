@@ -221,6 +221,8 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
                     </label>
                     <div className="relative">
                         <input
+                            autoFocus={false}
+                            autoComplete="off"
                             type="text"
                             value={text}
                             onChange={(e) => {
