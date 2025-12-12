@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
     // 압축 최적화 (esbuild 사용)
     minify: 'esbuild',
-    target: 'esnext'
+    target: 'es2020'
   },
   // 의존성 사전 번들링 최적화
   optimizeDeps: {
