@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useUpdateCheck } from '../hooks/useUpdateCheck'
 
-const UPDATE_VERSION_KEY = 'hideUpdateModal_v1_multilang'
+const UPDATE_VERSION_KEY = 'hideUpdateModal_v1.2.6'
 
 const UpdateNotificationModal = () => {
     const { t } = useTranslation()
