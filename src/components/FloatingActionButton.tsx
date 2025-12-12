@@ -16,17 +16,17 @@ const FloatingActionButton = ({ onClick }: FloatingActionButtonProps) => {
       aria-label="할일 추가"
     >
       {/* 글로우 효과 */}
-      <div className="absolute inset-0 rounded-full bg-blue-500 blur-lg opacity-40 group-hover:opacity-60 transition-opacity duration-300 animate-pulse" />
+      <div className="absolute inset-0 rounded-full bg-primary-500 blur-lg opacity-40 group-hover:opacity-60 transition-opacity duration-300 animate-pulse" />
 
       {/* 버튼 본체 */}
       <div className={`
         relative flex items-center justify-center 
         w-14 h-14 rounded-full
-        bg-gradient-to-r from-blue-600 to-indigo-600
-        text-white shadow-lg shadow-blue-500/40
+        bg-gradient-to-r from-primary-600 to-primary-500
+        text-white shadow-lg shadow-primary-500/40
         transform transition-all duration-300
         group-hover:scale-110 group-active:scale-95
-        group-hover:shadow-blue-500/60
+        group-hover:shadow-primary-500/60
       `}>
         <Plus className="w-7 h-7 transition-transform duration-300 group-hover:rotate-90" strokeWidth={2.5} />
       </div>

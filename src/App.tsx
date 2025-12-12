@@ -71,7 +71,8 @@ function AppInner({
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      <div className={`h-screen flex bg-gray-50 dark:bg-gray-900 ${isMobile ? 'flex-col' : ''}`}>
+      {/* Main App Container - Must be transparent to show body background (Theme Wallpaper) */}
+      <div className={`h-screen flex bg-transparent ${isMobile ? 'flex-col' : ''}`}>
         {/* 모바일에서 사이드바 오버레이 */}
         {isMobile && isSidebarOpen && (
           <div

@@ -20,6 +20,7 @@ import { ko, enUS } from 'date-fns/locale'
 import TodoList from './TodoList'
 import WeeklyCalendarView from './WeeklyCalendarView'
 import MonthlyCalendarView from './MonthlyCalendarView'
+import BoardView from './BoardView'
 import StatsCard from './StatsCard'
 import ProjectAnalysis from './ProjectAnalysis'
 import RecurringManagement from './RecurringManagement'
@@ -37,9 +38,10 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import type { Priority, TaskType, Todo } from '../types/todo'
 import { App } from '@capacitor/app'
+import { useTheme } from '../contexts/ThemeContext' // Added import
 
 interface MainContentProps {
-  currentView: 'today' | 'week' | 'month' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide'
+  currentView: 'today' | 'week' | 'month' | 'board' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide'
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   searchInputRef?: any
@@ -52,9 +54,14 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
   const dateLocale = i18n.language === 'ko' ? ko : enUS
   const { currentUser } = useAuth()
   const { allTags } = useTodos()
+  // Add useTheme hook
+  const { currentTheme, isDark } = useTheme()
+  const isVisualTheme = !!currentTheme.bg
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [initialDateForAdd, setInitialDateForAdd] = useState<Date | undefined>(undefined)
 
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -63,6 +70,13 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
   const [projectFilter, setProjectFilter] = useState<'all' | 'longterm' | 'shortterm'>('all')
   const [filterTags, setFilterTags] = useState<string[]>([])
   const [completionDateFilter, setCompletionDateFilter] = useState<'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'>('all')
+
+  // View change side effects
+  useEffect(() => {
+    if (currentView === 'board') {
+      setCompletionDateFilter('today')
+    }
+  }, [currentView])
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date)
@@ -115,6 +129,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
       // 1. Close Add Modal if open
       if (isAddModalOpen) {
         setIsAddModalOpen(false);
+        setInitialDateForAdd(undefined);
         return;
       }
 
@@ -186,7 +201,14 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     <main className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
       }`}>
       {/* Header Section */}
-      <header className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-white/10 sticky top-0 z-20 pt-[env(safe-area-inset-top)]">
+      <header
+        className={`border-b border-white/20 dark:border-white/10 sticky top-0 z-20 pt-[env(safe-area-inset-top)] 
+          ${isVisualTheme
+            ? 'shadow-none border-white/30 dark:border-white/20 backdrop-blur-none transition-[background-color] duration-200'
+            : 'bg-white/70 dark:bg-gray-900/70 backdrop-blur-md'
+          }`}
+        style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
+      >
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
@@ -200,6 +222,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 {currentView === 'today' && t('nav.today')}
                 {currentView === 'week' && t('nav.weekly')}
                 {currentView === 'month' && t('nav.monthly')}
+                {currentView === 'board' && (t('nav.board') || 'Kanban Board')}
                 {currentView === 'settings' && t('nav.settings')}
                 {currentView === 'analytics' && t('nav.analytics')}
                 {currentView === 'recurring' && t('nav.recurring')}
@@ -212,8 +235,11 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             {/* User Profile & Add Button */}
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
+                onClick={() => {
+                  setInitialDateForAdd(undefined)
+                  setIsAddModalOpen(true)
+                }}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium">{t('common.addTodo')}</span>
@@ -226,11 +252,11 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{currentUser?.displayName || 'User'}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser?.email || 'user@example.com'}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border border-indigo-200">
+                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden border border-primary-200">
                   {currentUser?.photoURL ? (
                     <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-6 h-6 text-indigo-600" />
+                    <User className="w-6 h-6 text-primary-600" />
                   )}
                 </div>
               </div>
@@ -261,7 +287,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             </div>
 
             {/* Date Navigation (Only for calendar views) */}
-            {(currentView === 'today' || currentView === 'week' || currentView === 'month') && (
+            {(currentView === 'today' || currentView === 'week' || currentView === 'month' || currentView === 'board') && (
               <div className="flex items-center justify-center gap-4 glass-panel p-2">
                 <button onClick={handlePrev} className="p-1 hover:bg-gray-200 rounded-full">
                   <ChevronLeft className="w-5 h-5 text-gray-600" />
@@ -295,8 +321,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                     className="sr-only"
                     aria-label="Select date"
                   />
-                  <CalendarIcon className="w-5 h-5 text-indigo-600 group-hover:text-indigo-700 dark:text-indigo-400 dark:group-hover:text-indigo-300 transition-colors" />
-                  <span className="text-lg font-medium text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <CalendarIcon className="w-5 h-5 text-primary-600 group-hover:text-primary-700 dark:text-primary-400 dark:group-hover:text-primary-300 transition-colors" />
+                  <span className="text-lg font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                     {currentView === 'week'
                       ? `${format(startOfWeek(selectedDate, { weekStartsOn: 0 }), i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })} - ${format(endOfWeek(selectedDate, { weekStartsOn: 0 }), i18n.language === 'ko' ? 'M월 d일' : 'MMM d', { locale: dateLocale })}`
                       : currentView === 'month'
@@ -310,7 +336,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
                 </button>
                 <button
                   onClick={handleToday}
-                  className="px-3 py-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md border border-indigo-200 dark:border-indigo-500/30 ml-2"
+                  className="px-3 py-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-md border border-primary-200 dark:border-primary-500/30 ml-2"
                 >
                   {t('common.today')}
                 </button>
@@ -345,7 +371,10 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             projectFilter={projectFilter}
             tagFilter={filterTags}
             completionDateFilter={completionDateFilter}
-            onAddTodo={() => setIsAddModalOpen(true)}
+            onAddTodo={(date) => {
+              setInitialDateForAdd(date)
+              setIsAddModalOpen(true)
+            }}
             isMobile={isMobile}
           />
         ) : currentView === 'month' ? (
@@ -359,7 +388,10 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               projectFilter={projectFilter}
               tagFilter={filterTags}
               completionDateFilter={completionDateFilter}
-              onAddTodo={() => setIsAddModalOpen(true)}
+              onAddTodo={(date) => {
+                setInitialDateForAdd(date)
+                setIsAddModalOpen(true)
+              }}
               isMobile={isMobile}
             />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -369,6 +401,24 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               </div>
             </div>
           </div>
+        ) : currentView === 'board' ? (
+          <BoardView
+            searchTerm={searchQuery}
+            priorityFilter={filterPriority}
+            typeFilter={typeFilter}
+            projectFilter={projectFilter}
+            tagFilter={filterTags}
+            completionDateFilter={completionDateFilter}
+            onAddTodo={(priority) => {
+              // We can pre-select priority!
+              // But AddTodoModal doesn't accept priority prop yet?
+              // Let's check AddTodoModal props or just open standard logic
+              setInitialDateForAdd(undefined)
+              setIsAddModalOpen(true)
+            }}
+            onEdit={handleEditTodo}
+            isMobile={isMobile}
+          />
         ) : currentView === 'analytics' ? (
           <div className="w-full space-y-8">
             <StatsCard />
@@ -395,13 +445,20 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
 
       {/* Mobile Floating Action Button */}
       <div className="md:hidden">
-        <FloatingActionButton onClick={() => setIsAddModalOpen(true)} />
+        <FloatingActionButton onClick={() => {
+          setInitialDateForAdd(undefined)
+          setIsAddModalOpen(true)
+        }} />
       </div>
 
       {/* Add Todo Modal */}
       <AddTodoModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false)
+          setInitialDateForAdd(undefined)
+        }}
+        initialDate={initialDateForAdd}
       />
 
       {/* Edit Todo Modal */}

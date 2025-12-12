@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Calendar, Plus, Settings, Pause, Play, Trash2, Edit, Minus, X, Flag, Repeat, AlertCircle, Check, Briefcase, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
+import { useTheme } from '../contexts/ThemeContext' // Added
 import type { SimpleRecurringTemplate, ConflictException } from '../utils/simpleRecurring'
 import AddTodoModal from './AddTodoModal'
 import { getWeekLabel } from '../utils/helpers'
@@ -9,6 +10,8 @@ import { useTranslation } from 'react-i18next'
 const RecurringManagement = () => {
   const { recurringTemplates, recurringInstances, updateRecurringTemplate, deleteRecurringTemplate, cleanupDuplicateTemplates } = useTodos()
   const { t } = useTranslation()
+  const { currentTheme, isDark } = useTheme() // Added
+  const isVisualTheme = !!currentTheme.bg // Added
   const [activeTab, setActiveTab] = useState<'templates' | 'exceptions' | 'holidays'>('templates')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -110,7 +113,13 @@ const RecurringManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div
+      className={`space-y-6 transition-all duration-300 ${isVisualTheme
+        ? 'rounded-2xl border border-white/20 shadow-lg backdrop-blur-md'
+        : 'glass-card'
+        }`}
+      style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, 0.2)` } : {}}
+    >
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('recurring.title')}</h2>
@@ -170,7 +179,13 @@ const RecurringManagement = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {activeTemplates.map(template => (
-                  <div key={template.id} className="card p-3 bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
+                  <div key={template.id}
+                    className={`p-3 border-green-200 dark:border-green-800 transition-all ${isVisualTheme
+                      ? 'rounded-xl backdrop-blur-sm hover:bg-green-50/30'
+                      : 'card bg-green-50 dark:bg-green-900/10'
+                      }`}
+                    style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, 0.2)` } : {}}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-gray-900 dark:text-white mb-1 truncate">
@@ -228,7 +243,13 @@ const RecurringManagement = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {inactiveTemplates.map(template => (
-                  <div key={template.id} className="card p-3 bg-gray-50 dark:bg-gray-800 opacity-75">
+                  <div key={template.id}
+                    className={`p-3 opacity-75 border-gray-200 dark:border-gray-700 transition-all ${isVisualTheme
+                      ? 'rounded-xl backdrop-blur-sm hover:bg-white/20'
+                      : 'card bg-gray-50 dark:bg-gray-800'
+                      }`}
+                    style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, 0.1)` } : {}}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1 truncate">
@@ -285,7 +306,13 @@ const RecurringManagement = () => {
       {/* 예외 처리 탭 */}
       {activeTab === 'exceptions' && (
         <div className="space-y-6">
-          <div className="card p-4">
+          <div
+            className={`p-4 transition-all ${isVisualTheme
+              ? 'rounded-xl backdrop-blur-sm border border-white/20'
+              : 'card'
+              }`}
+            style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, 0.2)` } : {}}
+          >
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {t('recurring.exceptionTitle')}
             </h3>
@@ -419,7 +446,13 @@ const RecurringManagement = () => {
           <p className="text-gray-500 dark:text-gray-400 mb-4">
             {t('recurring.holidayDesc')}
           </p>
-          <div className="card p-6 max-w-md mx-auto">
+          <div
+            className={`p-6 max-w-md mx-auto transition-all ${isVisualTheme
+              ? 'rounded-xl backdrop-blur-sm border border-white/20'
+              : 'card'
+              }`}
+            style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, 0.2)` } : {}}
+          >
             <h4 className="font-medium mb-3">{t('recurring.plannedFeatures')}</h4>
             <ul className="text-sm text-gray-600 dark:text-gray-300 text-left space-y-2">
               <li>• {t('recurring.plannedFeatureList.vacation', { defaultValue: 'Vacation Scheduling' })}</li>
@@ -432,7 +465,13 @@ const RecurringManagement = () => {
       )}
 
       {/* 통계 정보 */}
-      <div className="card p-4">
+      <div
+        className={`p-4 transition-all ${isVisualTheme
+          ? 'rounded-xl backdrop-blur-sm border border-white/20'
+          : 'card'
+          }`}
+        style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, 0.2)` } : {}}
+      >
         <div className="flex items-center justify-between">
           <div className="text-center">
             <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-1">{t('recurring.totalTemplates')}</h4>
@@ -494,6 +533,8 @@ interface EditRecurringModalProps {
 const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalProps) => {
   const { recurringTemplates } = useTodos()
   const { t } = useTranslation()
+  const { currentTheme } = useTheme()
+  const isVisualTheme = !!currentTheme.bg
 
   const [formData, setFormData] = useState({
     title: template.title,
@@ -658,7 +699,10 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
       <div className="flex min-h-full items-center justify-center p-4">
         <form
           onSubmit={handleSubmit}
-          className="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 transform transition-all"
+          className={`relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 transform transition-all ${isVisualTheme
+            ? 'glass-card backdrop-blur-xl border border-white/20'
+            : 'bg-white dark:bg-gray-800'
+            }`}
         >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">

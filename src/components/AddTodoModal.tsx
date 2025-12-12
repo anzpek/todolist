@@ -64,7 +64,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate, initialTab = 'todo' }: Add
             <button
               onClick={() => setActiveTab('todo')}
               className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'todo'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
             >
@@ -73,7 +73,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate, initialTab = 'todo' }: Add
             <button
               onClick={() => setActiveTab('recurring')}
               className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'recurring'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
             >
@@ -82,7 +82,7 @@ const AddTodoModal = ({ isOpen, onClose, initialDate, initialTab = 'todo' }: Add
             <button
               onClick={() => setActiveTab('template')}
               className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'template'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
             >

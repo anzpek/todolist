@@ -58,7 +58,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
     if (todo.startDate) {
       return (
         <div className="flex items-center gap-1 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
-          <Play className="w-3 h-3 text-blue-500" />
+          <Play className="w-3 h-3 text-primary-500" />
           <span>{formatDate(todo.startDate)}</span>
         </div>
       )
@@ -100,7 +100,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
     switch (todo.priority) {
       case 'urgent': return 'border-red-500 dark:border-red-500'
       case 'high': return 'border-orange-500 dark:border-orange-500'
-      case 'medium': return 'border-blue-500 dark:border-blue-500' // 일반(보통)도 색상 표시
+      case 'medium': return 'border-primary-500 dark:border-primary-500' // 일반(보통)도 색상 표시
       default: return 'border-gray-200 dark:border-gray-700'
     }
   }
@@ -138,9 +138,15 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
               {todo.priority && todo.priority !== 'medium' && (
                 <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border flex items-center gap-1 ${todo.priority === 'urgent'
                   ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
-                  : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+                  : todo.priority === 'high'
+                    ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+                    : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-800'
                   }`}>
-                  {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : t('modal.addTodo.high')}
+                  {todo.priority === 'urgent'
+                    ? t('modal.addTodo.urgent')
+                    : todo.priority === 'high'
+                      ? t('modal.addTodo.high')
+                      : t('modal.addTodo.low')}
                 </span>
               )}
 
@@ -211,8 +217,8 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
             className={`
               flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 mt-1
               ${todo.completed
-                ? 'bg-blue-500 border-blue-500 text-white scale-110'
-                : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-400 bg-white dark:bg-gray-800'
+                ? 'bg-primary-500 border-primary-500 text-white scale-110'
+                : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-400 bg-white dark:bg-gray-800'
               }
             `}
           >
@@ -283,7 +289,7 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
                 </div>
                 <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-blue-500'
+                    className={`h-full rounded-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-primary-500'
                       }`}
                     style={{ width: `${progress}%` }}
                   />

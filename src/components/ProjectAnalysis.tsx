@@ -1,4 +1,5 @@
 import { useTodos } from '../contexts/TodoContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { Folder, Calendar, Clock, CheckSquare, Layers, Zap, Archive } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +10,16 @@ interface ProjectAnalysisProps {
 const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
   const { todos } = useTodos()
   const { t } = useTranslation()
+  const { currentTheme, isDark } = useTheme()
+  const isVisualTheme = !!currentTheme.bg
+
+  const cardClass = isVisualTheme
+    ? 'glass-card backdrop-blur-none transition-[background-color] duration-200'
+    : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+
+  const cardStyle = isVisualTheme
+    ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass - opacity, 0.1))` }
+    : {}
 
   const projectTodos = todos.filter(todo => todo.type === 'project')
   const longtermProjects = projectTodos.filter(todo => todo.project === 'longterm').length
@@ -163,7 +174,7 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 lg:p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
+    <div className={`${cardClass} rounded - 2xl p - 6 lg: p - 8 shadow - sm border border - gray - 100 dark: border - gray - 700`} style={cardStyle}>
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -187,16 +198,16 @@ const ProjectAnalysis = ({ layout = 'full' }: ProjectAnalysisProps) => {
           {stats.map((stat, index) => (
             <div
               key={index}
-              className={`${stat.bgColor} ${stat.borderColor} rounded-xl p-4 lg:p-5 border transition-all duration-300 hover:shadow-md hover:-translate-y-1`}
+              className={`${stat.bgColor} ${stat.borderColor} rounded - xl p - 4 lg: p - 5 border transition - all duration - 300 hover: shadow - md hover: -translate - y - 1`}
             >
               <div className="flex items-center justify-between mb-3">
-                <div className={`p-2.5 rounded-xl bg-white dark:bg-gray-800 ${stat.color} shadow-sm`}>
+                <div className={`p - 2.5 rounded - xl bg - white dark: bg - gray - 800 ${stat.color} shadow - sm`}>
                   {stat.icon}
                 </div>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{stat.label}</p>
-                <p className={`text-2xl lg:text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                <p className={`text - 2xl lg: text - 3xl font - bold ${stat.color} `}>{stat.value}</p>
               </div>
             </div>
           ))}

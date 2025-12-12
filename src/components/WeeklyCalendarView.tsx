@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useTodos } from '../contexts/TodoContext'
 import { useVacation } from '../contexts/VacationContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext' // Added
 import { useCustomHolidays } from '../contexts/CustomHolidayContext'
 import { isAdmin } from '../constants/admin'
 import { useSwipe } from '../hooks/useSwipe'
@@ -24,7 +25,7 @@ interface WeeklyCalendarViewProps {
   projectFilter: 'all' | 'longterm' | 'shortterm'
   tagFilter: string[]
   completionDateFilter: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
-  onAddTodo: () => void
+  onAddTodo: (date?: Date) => void
   isMobile?: boolean
 }
 
@@ -42,6 +43,8 @@ const WeeklyCalendarView = ({
 }: WeeklyCalendarViewProps) => {
   const { t, i18n } = useTranslation()
   const dateLocale = i18n.language === 'ko' ? ko : enUS
+  const { currentTheme, isDark } = useTheme() // Added
+  const isVisualTheme = !!currentTheme.bg // Added
   // const [currentWeek, setCurrentWeek] = useState(new Date()) // Removed internal state
   const [holidayInfos, setHolidayInfos] = useState<Record<string, HolidayInfo>>({})
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
@@ -244,7 +247,10 @@ const WeeklyCalendarView = ({
       </div>
 
       {/* 주간 캘린더 그리드 */}
-      <div className="grid grid-cols-7 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div
+        className={`grid grid-cols-7 rounded-lg border overflow-hidden ${isVisualTheme ? 'glass-card backdrop-blur-none border-white/20' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
+        style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
+      >
         {/* 요일 헤더 */}
         {weekDays.map((day, index) => {
           const dayTodos = getTodosForDate(day)

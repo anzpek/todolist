@@ -2,9 +2,12 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Book, CheckSquare, Calendar, Repeat, Search, Settings, Shield, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useTheme } from '../contexts/ThemeContext' // Added
 
 const HelpGuide = () => {
     const { t } = useTranslation()
+    const { currentTheme, isDark } = useTheme() // Added
+    const isVisualTheme = !!currentTheme.bg // Added
 
     const sections = [
         {
@@ -66,7 +69,8 @@ const HelpGuide = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.1 }}
-                        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700"
+                        className={`${isVisualTheme ? 'glass-card backdrop-blur-none transition-[background-color] duration-200' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} rounded-2xl p-6 shadow-sm border`}
+                        style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
                     >
                         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
                             <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">

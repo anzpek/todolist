@@ -1,8 +1,9 @@
-import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff, Settings, Book } from 'lucide-react'
+import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff, Settings, Book, Layout } from 'lucide-react'
 import type { ViewType } from '../types/views'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useVacation } from '../contexts/VacationContext'
+import { useTheme } from '../contexts/ThemeContext' // Added
 import { isAdmin } from '../constants/admin'
 import ThemeToggle from './ThemeToggle'
 import StatsCard from './StatsCard'
@@ -24,11 +25,15 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
   const { getOverdueTodos, getTomorrowTodos, getYesterdayIncompleteTodos, recurringTemplates, getRecurringTodos, getTodayTodos } = useTodos()
   const { currentUser } = useAuth()
   const { showVacationsInTodos, toggleVacationDisplay } = useVacation()
+  // Import Theme Context to detect visual theme
+  const { currentTheme, isDark } = useTheme() // You might need to add useTheme to imports if not present
 
   const overdueTodos = getOverdueTodos()
   const tomorrowTodos = getTomorrowTodos()
   const yesterdayTodos = getYesterdayIncompleteTodos()
   const todayTodos = getTodayTodos()
+
+  const isVisualTheme = !!currentTheme.bg
 
   // 반복 템플릿 통계
   const activeTemplates = recurringTemplates.filter(template => template.isActive)
@@ -37,6 +42,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
     { id: 'today', label: t('nav.today'), icon: Calendar, count: todayTodos.filter(t => !t.completed).length },
     { id: 'week', label: t('nav.week'), icon: CalendarDays },
     { id: 'month', label: t('nav.month'), icon: Calendar },
+    { id: 'board', label: t('nav.board') || 'Kanban', icon: Layout },
     { id: 'recurring', label: t('nav.recurring'), icon: Repeat, count: activeTemplates.length },
     { id: 'history', label: t('nav.history'), icon: History },
     { id: 'analytics', label: t('nav.analytics'), icon: Users },
@@ -60,15 +66,20 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
         className={`fixed top-0 left-0 z-50 h-full transition-all duration-300 ease-in-out 
           ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
           ${isMobile ? 'w-[280px]' : 'w-64'}
-          glass-card border-r border-white/40 dark:border-gray-700/40 rounded-none
-          flex flex-col shadow-2xl pt-[env(safe-area-inset-top)]`}
+          glass-card
+          ${isVisualTheme
+            ? 'shadow-none border-r border-white/30 dark:border-white/20 transition-[background-color] duration-200 backdrop-blur-none'
+            : 'border-r border-white/40 dark:border-gray-700/40 shadow-2xl transition-[background-color] duration-200'
+          }
+          flex flex-col pt-[env(safe-area-inset-top)] rounded-none`}
+        style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
       >
         {/* 헤더 영역 */}
         <div className="p-6 flex items-center justify-between relative overflow-hidden shrink-0">
           {/* 배경 장식 */}
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 dark:from-blue-500/5 dark:to-purple-500/5 pointer-events-none" />
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary-500/10 to-purple-500/10 dark:from-primary-500/5 dark:to-purple-500/5 pointer-events-none" />
 
-          <h1 className="text-2xl font-bold text-gradient-blue relative z-10 tracking-tight">
+          <h1 className="text-2xl font-bold text-gradient-primary relative z-10 tracking-tight">
             Todo List
           </h1>
           {isMobile && (
@@ -98,18 +109,18 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
                 }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group
                   ${isActive
-                    ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-100/50 dark:border-blue-500/30 backdrop-blur-sm'
+                    ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 shadow-sm border border-primary-100/50 dark:border-primary-500/30 backdrop-blur-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-200 hover:shadow-sm border border-transparent'
                   }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg transition-colors ${isActive ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-gray-100/50 dark:bg-gray-800/50 group-hover:bg-white dark:group-hover:bg-gray-700'}`}>
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'}`} />
+                  <div className={`p-2 rounded-lg transition-colors ${isActive ? 'bg-primary-100 dark:bg-primary-900/40' : 'bg-gray-100/50 dark:bg-gray-800/50 group-hover:bg-white dark:group-hover:bg-gray-700'}`}>
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'}`} />
                   </div>
                   <span className="font-medium">{item.label}</span>
                 </div>
                 {item.count !== undefined && item.count > 0 && (
-                  <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isActive ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isActive ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
                     {item.count}
                   </span>
                 )}
@@ -151,8 +162,8 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
             )}
 
             {/* 내일 예정 */}
-            <div className="glass-panel p-4 rounded-xl border-l-4 border-l-blue-400 group hover:scale-[1.02] transition-transform duration-200 bg-blue-50/30 dark:bg-blue-900/10">
-              <div className="flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
+            <div className="glass-panel p-4 rounded-xl border-l-4 border-l-primary-400 group hover:scale-[1.02] transition-transform duration-200 bg-primary-50/30 dark:bg-primary-900/10">
+              <div className="flex items-center gap-2 mb-2 text-primary-600 dark:text-primary-400">
                 <Calendar className="w-4 h-4" />
                 <span className="text-sm font-bold">{t('nav.summary.tomorrow')}</span>
               </div>
@@ -176,7 +187,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
               <button
                 onClick={() => onToggleForceMobile(!forceMobile)}
                 className={`p-1.5 rounded-lg transition-all ${forceMobile
-                  ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                  ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
                   : 'hover:bg-white/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400'
                   }`}
                 title={forceMobile ? "데스크톱 뷰로 전환" : "모바일 뷰 테스트"}

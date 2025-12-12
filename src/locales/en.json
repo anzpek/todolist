@@ -29,6 +29,7 @@
         "today": "Today",
         "week": "Weekly Calendar",
         "month": "Monthly Calendar",
+        "board": "Kanban Board",
         "recurring": "Recurring",
         "history": "History",
         "analytics": "Analytics",
@@ -51,13 +52,59 @@
             "sync": "Cloud Sync",
             "syncing": "Syncing...",
             "logout": "Logout",
-            "confirmLogout": "Are you sure you want to logout?"
+            "confirmLogout": "Are you sure you want to logout?",
+            "loggedIn": "Logged in"
         },
-        "theme": {
-            "title": "Theme",
+        "appearance": {
+            "title": "Appearance",
+            "transparency": "Background Transparency",
             "light": "Light",
             "dark": "Dark",
-            "system": "System"
+            "system": "System",
+            "calendarLayout": "Monthly Calendar Layout",
+            "calendarLayoutSplit": "Split View (Calendar + List)",
+            "calendarLayoutFull": "Full Calendar"
+        },
+        "tabs": {
+            "colors": "Colors",
+            "seasonal": "Seasonal",
+            "city": "City"
+        },
+        "seasonal": {
+            "spring": "Spring",
+            "summer": "Summer",
+            "autumn": "Autumn",
+            "winter": "Winter"
+        },
+        "city": {
+            "cairo": "Cairo",
+            "london": "London",
+            "la": "Los Angeles",
+            "moscow": "Moscow",
+            "seoul": "Seoul",
+            "busan": "Busan",
+            "jeju": "Jeju",
+            "gyeongju": "Gyeongju",
+            "gwangju": "Gwangju",
+            "tokyo": "Tokyo",
+            "beijing": "Beijing",
+            "hongkong": "Hong Kong",
+            "bangkok": "Bangkok",
+            "hanoi": "Hanoi"
+        },
+        "colorTheme": {
+            "title": "Accent Color",
+            "blue": "Blue",
+            "sky": "Sky",
+            "teal": "Teal",
+            "forest": "Forest",
+            "lime": "Lime",
+            "sunset": "Sunset",
+            "red": "Red",
+            "berry": "Berry",
+            "purple": "Purple",
+            "indigo": "Indigo",
+            "gray": "Gray"
         },
         "language": {
             "title": "Language",
@@ -65,7 +112,7 @@
             "korean": "Korean",
             "english": "English"
         },
-        "fontSize": {
+        "font": {
             "title": "Font Size",
             "small": "Small",
             "large": "Large",
@@ -73,12 +120,16 @@
         },
         "holiday": {
             "title": "Custom Holidays",
+            "name": "Holiday Name",
+            "date": "Date",
+            "namePlaceholder": "Enter holiday name",
             "datePlaceholder": "Select Date",
             "addPlaceholder": "Holiday Name",
             "recurring": "Repeat Yearly",
             "noHolidays": "No holidays registered.",
             "confirmDelete": "Delete this holiday?",
-            "yearly": "Yearly"
+            "yearly": "Yearly",
+            "everyYear": "Every Year"
         },
         "data": {
             "title": "Data Management",
@@ -92,7 +143,15 @@
             "noCompleted": "No completed items.",
             "importSuccess": "Data imported successfully.",
             "importError": "Failed to read file.",
-            "invalidFormat": "Invalid file format."
+            "invalidFormat": "Invalid file format.",
+            "storage": "Storage",
+            "localOnly": "Using local storage",
+            "backup": "Backup Data",
+            "backupDesc": "Save current data to file",
+            "restore": "Restore Data",
+            "restoreDesc": "Restore from backup file",
+            "restoreSuccess": "Restore Complete",
+            "clearCompleted": "Clear Completed Items"
         },
         "stats": {
             "title": "Statistics",
@@ -101,8 +160,9 @@
             "pending": "Pending",
             "storage": "Storage"
         },
-        "notifications": {
+        "notification": {
             "title": "Notifications",
+            "configure": "Configure Notifications",
             "setup": "Setup Notifications",
             "desc": "Deadlines, celebrations, etc."
         },
@@ -145,6 +205,15 @@
         "thursday": "Thursday",
         "friday": "Friday",
         "saturday": "Saturday"
+    },
+    "appearance": {
+        "title": "Appearance",
+        "theme": "Theme",
+        "calendarLayout": "Monthly Calendar Layout",
+        "calendarLayoutSplit": "Split View (Calendar + List)",
+        "calendarLayoutFull": "Full Calendar",
+        "transparency": "Transparency",
+        "transparencyDesc": "Adjust UI opacity (lower = more transparent)"
     },
     "todo": {
         "yesterday": {

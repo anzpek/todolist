@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useCustomHolidays } from '../contexts/CustomHolidayContext'
 import { isAdmin } from '../constants/admin'
 import { useSwipe } from '../hooks/useSwipe'
+import { useTheme } from '../contexts/ThemeContext'
 import TodoItem from './TodoItem'
 import EditTodoModal from './EditTodoModal'
 import { getHolidayInfoSync, isWeekend, type HolidayInfo } from '../utils/holidays'
@@ -23,7 +24,7 @@ interface MonthlyCalendarViewProps {
   projectFilter: 'all' | 'longterm' | 'shortterm'
   tagFilter: string[]
   completionDateFilter: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
-  onAddTodo: () => void
+  onAddTodo: (date?: Date) => void
   isMobile?: boolean
 }
 
@@ -40,6 +41,8 @@ const MonthlyCalendarView = ({
   isMobile = false
 }: MonthlyCalendarViewProps) => {
   const { t, i18n } = useTranslation()
+  const { currentTheme, isDark } = useTheme() // Added
+  const isVisualTheme = !!currentTheme.bg // Added
   const dateLocale = i18n.language === 'ko' ? ko : enUS
   // const [currentMonth, setCurrentMonth] = useState(new Date()) // Removed internal state
   const [holidayInfos, setHolidayInfos] = useState<Record<string, HolidayInfo>>({})
@@ -193,6 +196,15 @@ const MonthlyCalendarView = ({
     minSwipeDistance: 60
   })
 
+  // Theme Helpers
+  const cardClass = isVisualTheme
+    ? 'glass-card backdrop-blur-none transition-[background-color] duration-200'
+    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+
+  const cardStyle = isVisualTheme
+    ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` }
+    : {}
+
   return (
     <div
       className="space-y-4"
@@ -218,7 +230,7 @@ const MonthlyCalendarView = ({
             </button>
             <button
               onClick={goToCurrentMonth}
-              className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'} bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40`}
+              className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'} bg-primary-100 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-900/40`}
             >
               {t('calendar.thisMonth', { defaultValue: 'This Month' })}
             </button>
@@ -234,7 +246,10 @@ const MonthlyCalendarView = ({
       </div>
 
       {/* 월간 캘린더 그리드 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div
+        className={`${cardClass} rounded-lg border overflow-hidden`}
+        style={cardStyle}
+      >
         {/* 요일 헤더 */}
         <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
           {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map((day, index) => (
@@ -333,7 +348,7 @@ const MonthlyCalendarView = ({
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
                           : todo.priority === 'high'
                             ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                            : 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
                         }`}
                       onClick={(e) => {
                         e.stopPropagation()

@@ -8,24 +8,65 @@ import NotificationSettings from './NotificationSettings'
 import { useTranslation } from 'react-i18next'
 import { firestoreService } from '../services/firestoreService'
 import {
-  Trash2, Plus, User, Palette, Type, Calendar, BarChart2, HardDrive, Bell,
-  LogOut, RefreshCw, Moon, Sun, Monitor, Download, Upload, Check, AlertCircle,
-  ChevronRight, Info, Globe
+  Type, Check, Plus, User, Palette, Calendar, BarChart2, HardDrive, Bell,
+  LogOut, RefreshCw, Moon, Sun, Monitor, Download, Upload, AlertCircle,
+  ChevronRight, Info, Globe, Settings, Trash2
 } from 'lucide-react'
+import { THEMES } from '../constants/themes'
 
 const SettingsView: React.FC = () => {
   const { t, i18n } = useTranslation()
   const { currentUser: user, logout } = useAuth()
   const { exportData, importData, clearCompleted, stats, syncing, syncWithCloud } = useTodos()
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, currentThemeId, setCurrentThemeId, currentTheme, isDark, transparency, setTransparency } = useTheme()
+  const isVisualTheme = !!currentTheme.bg
   const { fontSizeLevel, setFontSizeLevel } = useFontSize()
   const { customHolidays, addCustomHoliday, deleteCustomHoliday } = useCustomHolidays()
   const [importError, setImportError] = useState<string | null>(null)
   const [showImportSuccess, setShowImportSuccess] = useState(false)
+  const [visualTab, setVisualTab] = useState<'colors' | 'seasonal' | 'city'>('colors')
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   const [newHolidayDate, setNewHolidayDate] = useState('')
   const [newHolidayName, setNewHolidayName] = useState('')
   const [newHolidayIsRecurring, setNewHolidayIsRecurring] = useState(false)
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string
+        const success = await importData(content)
+
+        if (success) {
+          setImportError(null)
+          setShowImportSuccess(true)
+          setTimeout(() => setShowImportSuccess(false), 3000)
+        } else {
+          setImportError(t('settings.data.invalidFormat'))
+        }
+      } catch (error) {
+        setImportError(t('settings.data.importError'))
+      }
+    }
+    reader.readAsText(file)
+    event.target.value = ''
+  }
+
+  const handleExport = () => {
+    const data = exportData()
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `todos-backup-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   const handleAddHoliday = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,46 +94,6 @@ const SettingsView: React.FC = () => {
     }
   }
 
-  const handleExport = () => {
-    const data = exportData()
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `todos-backup-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
-  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      try {
-        const content = e.target?.result as string
-        const success = await importData(content)
-
-        if (success) {
-          setImportError(null)
-          setShowImportSuccess(true)
-          setTimeout(() => setShowImportSuccess(false), 3000)
-        } else {
-          setImportError(t('settings.data.invalidFormat'))
-        }
-      } catch (error) {
-        setImportError(t('settings.data.importError'))
-      }
-    }
-    reader.readAsText(file)
-
-    // 파일 입력 초기화
-    event.target.value = ''
-  }
-
   const handleClearCompleted = () => {
     const completedCount = stats?.completed || 0
     if (completedCount === 0) {
@@ -103,20 +104,6 @@ const SettingsView: React.FC = () => {
     if (confirm(t('settings.data.confirmClear', { count: completedCount }))) {
       clearCompleted()
     }
-  }
-
-  const getStorageSize = () => {
-    try {
-      const data = localStorage.getItem('todolist-app-todos')
-      if (data) {
-        const sizeInBytes = new Blob([data]).size
-        const sizeInKB = (sizeInBytes / 1024).toFixed(2)
-        return `${sizeInKB} KB`
-      }
-    } catch (error) {
-      console.error('Storage size calculation failed:', error)
-    }
-    return '0 KB'
   }
 
   const handleLogout = async () => {
@@ -137,432 +124,565 @@ const SettingsView: React.FC = () => {
     }
   }
 
+  const getStorageSize = () => {
+    try {
+      const data = localStorage.getItem('todolist-app-todos')
+      if (data) {
+        const sizeInBytes = new Blob([data]).size
+        const sizeInKB = (sizeInBytes / 1024).toFixed(2)
+        return `${sizeInKB} KB`
+      }
+    } catch (error) {
+      console.error('Storage size calculation failed:', error)
+    }
+    return '0 KB'
+  }
+
   return (
-    <div className="space-y-8 max-w-4xl mx-auto pb-10">
-      {/* 헤더 */}
-      <div className="animate-fade-in">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">{t('settings.title')}</h2>
-        <p className="text-gray-500 dark:text-gray-400 font-medium">
-          {t('settings.subtitle')}
-        </p>
-      </div>
+    <div className="pb-safe min-h-safe bg-transparent">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
 
-      {/* 계정 정보 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.1s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <User className="w-5 h-5" strokeWidth={2} />
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8 animate-fade-in-up">
+          <div className="p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <Settings className="w-8 h-8 text-primary-600 dark:text-primary-400" />
           </div>
-          {t('settings.account.title')}
-        </h3>
-        <div className="space-y-4">
-          <div className="flex items-center gap-4 p-4 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 backdrop-blur-sm">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 rounded-full flex items-center justify-center shadow-inner">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="프로필" className="w-10 h-10 rounded-full object-cover" />
-              ) : (
-                <span className="text-xl font-bold text-blue-600 dark:text-blue-300">
-                  {user?.isAnonymous ? 'G' : user?.email?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-bold text-gray-900 dark:text-white truncate">
-                {user?.isAnonymous ? t('settings.account.guest') : user?.displayName || 'User'}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                {user?.isAnonymous ? t('settings.account.guestDesc') : user?.email}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {!user?.isAnonymous && (
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="flex items-center justify-center gap-2.5 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 group"
-              >
-                {syncing ? (
-                  <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400 group-hover:rotate-180 transition-transform duration-500" />
-                )}
-                <span className="font-semibold text-blue-700 dark:text-blue-300">
-                  {syncing ? t('settings.account.syncing') : t('settings.account.sync')}
-                </span>
-              </button>
-            )}
-
-            <button
-              onClick={handleLogout}
-              className="flex items-center justify-center gap-2.5 p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all active:scale-[0.98] group"
-            >
-              <LogOut className="w-5 h-5 text-red-600 dark:text-red-400 group-hover:-translate-x-1 transition-transform" />
-              <span className="font-semibold text-red-700 dark:text-red-300">{t('settings.account.logout')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 언어 설정 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.15s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <Globe className="w-5 h-5" strokeWidth={2} />
-          </div>
-          {t('settings.language.title')}
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { key: 'ko', label: t('settings.language.korean'), flag: '🇰🇷' },
-            { key: 'en', label: t('settings.language.english'), flag: '🇺🇸' }
-          ].map((option) => {
-            const isActive = i18n.language === option.key
-            return (
-              <button
-                key={option.key}
-                onClick={async () => {
-                  i18n.changeLanguage(option.key)
-                  if (!user?.isAnonymous && user?.uid) {
-                    try {
-                      await firestoreService.updateUserLanguage(user.uid, option.key)
-                    } catch (error) {
-                      console.error('Failed to sync language setting:', error)
-                    }
-                  }
-                }}
-                className={`flex items-center justify-center gap-3 p-5 rounded-2xl border transition-all duration-300 ${isActive
-                  ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 shadow-md scale-[1.02]'
-                  : 'bg-white/50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200'
-                  }`}
-              >
-                <span className="text-2xl">{option.flag}</span>
-                <span className={`text-sm font-semibold ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'
-                  }`}>
-                  {option.label}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* 테마 설정 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.2s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
-            <Palette className="w-5 h-5" strokeWidth={2} />
-          </div>
-          {t('settings.theme.title')}
-        </h3>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { key: 'light', label: t('settings.theme.light'), icon: Sun },
-            { key: 'dark', label: t('settings.theme.dark'), icon: Moon },
-            { key: 'system', label: t('settings.theme.system'), icon: Monitor }
-          ].map((option) => {
-            const Icon = option.icon
-            const isActive = theme === option.key
-            return (
-              <button
-                key={option.key}
-                onClick={() => setTheme(option.key as 'light' | 'dark' | 'system')}
-                className={`flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border transition-all duration-300 ${isActive
-                  ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 shadow-md scale-[1.02]'
-                  : 'bg-white/50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200'
-                  }`}
-              >
-                <Icon className={`w-6 h-6 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
-                <span className={`text-sm font-semibold ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'
-                  }`}>
-                  {option.label}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* 글자 크기 설정 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.3s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <Type className="w-5 h-5" strokeWidth={2} />
-          </div>
-          {t('settings.fontSize.title')}
-        </h3>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between bg-white/50 dark:bg-gray-700/30 p-6 rounded-xl border border-gray-100 dark:border-gray-700/50">
-            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('settings.fontSize.small')}</span>
-            <div className="flex gap-3 items-center flex-wrap justify-center">
-              {[1, 2, 3, 4, 5, 6, 7].map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setFontSizeLevel(level as 1 | 2 | 3 | 4 | 5 | 6 | 7)}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${fontSizeLevel === level
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110'
-                    : 'bg-white dark:bg-gray-600 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-500'
-                    }`}
-                  aria-label={`글자 크기 ${level} 단계`}
-                >
-                  <span style={{ fontSize: `${0.5 + level * 0.1}rem`, fontWeight: 600 }}>A</span>
-                </button>
-              ))}
-            </div>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">{t('settings.fontSize.large')}</span>
-          </div>
-
-          {/* 미리보기 */}
-          <div className="p-5 border border-gray-200/60 dark:border-gray-700/60 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 backdrop-blur-sm">
-            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-2 uppercase tracking-wider">Preview</p>
-            <p className="text-base text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
-              {t('settings.fontSize.preview')}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {t('settings.title')}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              {t('settings.subtitle')}
             </p>
           </div>
         </div>
-      </div>
 
-      {/* 공휴일 설정 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.4s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
-            <Calendar className="w-5 h-5" strokeWidth={2} />
-          </div>
-          {t('settings.holiday.title')}
-        </h3>
-
-        {/* 공휴일 추가 폼 */}
-        <form onSubmit={handleAddHoliday} className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="flex-1 flex gap-3">
-            <input
-              type="text"
-              onFocus={(e) => (e.target.type = 'date')}
-              onBlur={(e) => {
-                if (!e.target.value) e.target.type = 'text';
-              }}
-              value={newHolidayDate}
-              placeholder={t('settings.holiday.datePlaceholder')}
-              onChange={(e) => setNewHolidayDate(e.target.value)}
-              className="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-gray-500"
-              required
-            />
-            <input
-              type="text"
-              value={newHolidayName}
-              onChange={(e) => setNewHolidayName(e.target.value)}
-              placeholder={t('settings.holiday.addPlaceholder')}
-              className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              required
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center h-full px-3 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
-              <input
-                type="checkbox"
-                id="recurringHoliday"
-                checked={newHolidayIsRecurring}
-                onChange={(e) => setNewHolidayIsRecurring(e.target.checked)}
-                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
-              />
-              <label htmlFor="recurringHoliday" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap cursor-pointer select-none">
-                {t('settings.holiday.recurring')}
-              </label>
+        {/* Account Section */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.1s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 dark:text-primary-400">
+              <User className="w-5 h-5" strokeWidth={2} />
             </div>
+            {t('settings.account.title')}
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 backdrop-blur-sm">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900 dark:to-primary-800 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-300 font-bold text-xl shadow-inner">
+                {user?.email?.[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 dark:text-white truncate">
+                  {user?.email}
+                </p>
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  {t('settings.account.loggedIn')}
+                </div>
+              </div>
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className={`p-2.5 rounded-xl border transition-all duration-200 ${syncing
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 border-gray-200 dark:border-gray-600 hover:border-primary-300 hover:shadow-md active:scale-95'
+                  }`}
+                title={t('settings.account.sync')}
+              >
+                <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
             <button
-              type="submit"
-              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center min-w-[3rem]"
-              title={t('common.add')}
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 group relative overflow-hidden"
             >
-              <Plus className="w-5 h-5" />
+              <div className="absolute inset-0 bg-red-100/50 dark:bg-red-900/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+              <LogOut className="w-5 h-5 relative z-10" />
+              <span className="relative z-10">{t('settings.account.logout')}</span>
             </button>
           </div>
-        </form>
+        </div>
 
-        {/* 공휴일 목록 */}
-        <div className="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
-          {customHolidays.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t('settings.holiday.noHolidays')}
-              </p>
+        {/* Theme Settings (Refactored for Appearance Themes) */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.2s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+              <Palette className="w-5 h-5" strokeWidth={2} />
             </div>
-          ) : (
-            customHolidays.map((holiday) => (
-              <div key={holiday.id} className="group flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:border-blue-200 dark:hover:border-blue-800 transition-all hover:shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm border border-red-100 dark:border-red-800/30">
-                    {holiday.date.split('-')[2]}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {holiday.name}
-                      </span>
-                      {holiday.isRecurring && (
-                        <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full font-semibold border border-blue-200 dark:border-blue-800/50">
-                          {t('settings.holiday.yearly')}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {holiday.date}
-                    </div>
-                  </div>
-                </div>
+            {t('settings.appearance.title')}
+          </h3>
+
+          <div className="space-y-6">
+            {/* Theme Mode (Light/Dark/System) */}
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl">
+              {[
+                { key: 'light', icon: Sun, label: t('settings.appearance.light') },
+                { key: 'dark', icon: Moon, label: t('settings.appearance.dark') },
+                { key: 'system', icon: Monitor, label: t('settings.appearance.system') }
+              ].map((option) => (
                 <button
-                  onClick={() => handleDeleteHoliday(holiday.id)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  title={t('common.delete')}
+                  key={option.key}
+                  onClick={() => setTheme(option.key as any)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${theme === option.key
+                    ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <option.icon className="w-4 h-4" />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Visual Theme Tabs */}
+            <div className="space-y-4">
+              <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-2 overflow-x-auto">
+                <button
+                  onClick={() => setVisualTab('colors')}
+                  className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${visualTab === 'colors'
+                    ? 'text-primary-600 border-b-2 border-primary-600'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+                >
+                  {t('settings.tabs.colors') || 'Colors'}
+                </button>
+                <button
+                  onClick={() => setVisualTab('seasonal')}
+                  className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${visualTab === 'seasonal'
+                    ? 'text-primary-600 border-b-2 border-primary-600'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+                >
+                  {t('settings.tabs.seasonal') || 'Seasonal'}
+                </button>
+                <button
+                  onClick={() => setVisualTab('city')}
+                  className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${visualTab === 'city'
+                    ? 'text-primary-600 border-b-2 border-primary-600'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+                >
+                  {t('settings.tabs.city') || 'City'}
                 </button>
               </div>
-            ))
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {visualTab === 'colors' && THEMES.colors.map(themeOption => (
+                  <button
+                    key={themeOption.id}
+                    onClick={() => setCurrentThemeId(themeOption.id)}
+                    className={`group relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all duration-200 ${currentThemeId === themeOption.id
+                      ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
+                      : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                  >
+                    <div className={`w-12 h-12 rounded-full shadow-sm flex items-center justify-center ${themeOption.colorClass} text-white`}>
+                      {currentThemeId === themeOption.id && <Check className="w-6 h-6" />}
+                    </div>
+                    <span className={`text-xs font-medium ${currentThemeId === themeOption.id ? 'text-primary-700 dark:text-primary-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                      {t(themeOption.nameKey)}
+                    </span>
+                  </button>
+                ))}
+
+                {visualTab === 'seasonal' && THEMES.seasonal.map(themeOption => (
+                  <button
+                    key={themeOption.id}
+                    onClick={() => setCurrentThemeId(themeOption.id)}
+                    className={`relative group overflow-hidden rounded-xl aspect-video border-2 transition-all duration-200 ${currentThemeId === themeOption.id ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'
+                      }`}
+                  >
+                    <img
+                      src={themeOption.bg}
+                      alt={t(themeOption.nameKey)}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className={`absolute inset-0 flex items-center justify-center ${currentThemeId === themeOption.id ? 'bg-black/40' : 'bg-black/20 group-hover:bg-black/30'}`}>
+                      <span className="text-white font-medium text-sm drop-shadow-md">{t(themeOption.nameKey)}</span>
+                      {currentThemeId === themeOption.id && (
+                        <div className="absolute top-2 right-2 bg-primary-500 rounded-full p-0.5">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+                {visualTab === 'city' && THEMES.city.map(themeOption => (
+                  <button
+                    key={themeOption.id}
+                    onClick={() => setCurrentThemeId(themeOption.id)}
+                    className={`relative group overflow-hidden rounded-xl aspect-video border-2 transition-all duration-200 ${currentThemeId === themeOption.id ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'
+                      }`}
+                  >
+                    <img
+                      src={themeOption.bg}
+                      alt={t(themeOption.nameKey)}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className={`absolute inset-0 flex items-center justify-center ${currentThemeId === themeOption.id ? 'bg-black/40' : 'bg-black/20 group-hover:bg-black/30'}`}>
+                      <span className="text-white font-medium text-sm drop-shadow-md">{t(themeOption.nameKey)}</span>
+                      {currentThemeId === themeOption.id && (
+                        <div className="absolute top-2 right-2 bg-primary-500 rounded-full p-0.5">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+
+              </div>
+            </div>
+
+            {/* Transparency Control (Only for Visual Themes) */}
+            {currentTheme.bg && (
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('settings.appearance.transparency')}
+                  </span>
+                  <span className="text-sm text-gray-500">{(transparency * 100).toFixed(0)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={transparency}
+                  onChange={(e) => setTransparency(parseFloat(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('settings.appearance.transparencyDesc')}
+                </p>
+              </div>
+            )}
+
+            {/* Font Size & Language Settings (Continued...) */}
+          </div>
+        </div>
+
+        {/* Language Settings */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.25s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <Globe className="w-5 h-5" strokeWidth={2} />
+            </div>
+            {t('settings.language.title')}
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                i18n.changeLanguage('ko')
+                if (user) firestoreService.updateUserLanguage(user.uid, 'ko')
+              }}
+              className={`p-4 rounded-xl border transition-all duration-200 flex flex-col items-center gap-2 ${i18n.language.startsWith('ko')
+                ? (isVisualTheme ? 'bg-primary-500/30 border-primary-400 text-primary-100 font-bold' : 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 text-primary-700 dark:text-primary-300')
+                : (isVisualTheme ? 'glass-card backdrop-blur-none border-white/20 hover:bg-white/10' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700')
+                }`}
+              style={isVisualTheme && !i18n.language.startsWith('ko') ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
+            >
+              <span className="text-2xl">🇰🇷</span>
+              <span className="font-medium text-sm">{t('settings.language.korean')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                i18n.changeLanguage('en')
+                if (user) firestoreService.updateUserLanguage(user.uid, 'en')
+              }}
+              className={`p-4 rounded-xl border transition-all duration-200 flex flex-col items-center gap-2 ${i18n.language.startsWith('en')
+                ? (isVisualTheme ? 'bg-primary-500/30 border-primary-400 text-primary-100 font-bold' : 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 text-primary-700 dark:text-primary-300')
+                : (isVisualTheme ? 'glass-card backdrop-blur-none border-white/20 hover:bg-white/10' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700')
+                }`}
+              style={isVisualTheme && !i18n.language.startsWith('en') ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
+            >
+              <span className="text-2xl">🇺🇸</span>
+              <span className="font-medium text-sm">{t('settings.language.english')}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Font Settings */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.3s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+              <Type className="w-5 h-5" strokeWidth={2} />
+            </div>
+            {t('settings.font.title')}
+          </h3>
+          <div
+            className={`flex items-center gap-4 p-4 rounded-2xl border text-center ${isVisualTheme ? 'glass-card backdrop-blur-none border-white/20' : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}
+            style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
+          >
+            <button
+              onClick={() => setFontSizeLevel(Math.max(1, fontSizeLevel - 1) as any)}
+              disabled={fontSizeLevel <= 1}
+              className="p-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 transition-colors"
+            >
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-300">A</span>
+            </button>
+            <div className="flex-1 px-4">
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary-500 transition-all duration-300"
+                  style={{ width: `${((fontSizeLevel - 1) / 6) * 100}%` }}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => setFontSizeLevel(Math.min(7, fontSizeLevel + 1) as any)}
+              disabled={fontSizeLevel >= 7}
+              className="p-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 transition-colors"
+            >
+              <span className="text-xl font-bold text-gray-600 dark:text-gray-300">A</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Custom Holidays */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.4s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+              <Calendar className="w-5 h-5" strokeWidth={2} />
+            </div>
+            {t('settings.holiday.title')}
+          </h3>
+          <form onSubmit={handleAddHoliday} className="space-y-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.holiday.name')}</label>
+                <input
+                  type="text"
+                  value={newHolidayName}
+                  onChange={(e) => setNewHolidayName(e.target.value)}
+                  placeholder={t('settings.holiday.namePlaceholder')}
+                  className="glass-input w-full focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.holiday.date')}</label>
+                <input
+                  type="date"
+                  value={newHolidayDate}
+                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                  className="glass-input w-full focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={newHolidayIsRecurring}
+                  onChange={(e) => setNewHolidayIsRecurring(e.target.checked)}
+                  className=" rounded border-gray-300 text-primary-600 focus:ring-primary-500 transition-colors"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                  {t('settings.holiday.recurring')}
+                </span>
+                <div className="group relative">
+                  <Info className="w-4 h-4 text-gray-400 hover:text-primary-500 cursor-help transition-colors" />
+                  <div className="absolute left-1/2 -top-10 -translate-x-1/2 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 text-center">
+                    {t('settings.holiday.recurringTooltip')}
+                  </div>
+                </div>
+              </label>
+              <button
+                type="submit"
+                disabled={!newHolidayDate || !newHolidayName}
+                className="btn-primary flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                {t('common.add')}
+              </button>
+            </div>
+          </form>
+
+          {customHolidays.length > 0 ? (
+            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+              {customHolidays.map((holiday) => (
+                <div
+                  key={holiday.id}
+                  className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:border-red-200 dark:hover:border-red-800/50 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${holiday.isRecurring ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                      {holiday.isRecurring ? <RefreshCw className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{holiday.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {holiday.date} {holiday.isRecurring && `• ${t('settings.holiday.everyYear')}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteHoliday(holiday.id)}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    title={t('common.delete')}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+              <Calendar className="w-8 h-8 mx-auto mb-2 opacity-20" />
+              <p>{t('settings.holiday.noHolidays')}</p>
+            </div>
           )}
         </div>
-      </div>
 
-      {/* 데이터 통계 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.5s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
-            <BarChart2 className="w-5 h-5" strokeWidth={2} />
-          </div>
-          {t('settings.stats.title')}
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: t('settings.stats.total'), value: stats?.total || 0, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-            { label: t('settings.stats.completed'), value: stats?.completed || 0, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
-            { label: t('settings.stats.pending'), value: stats?.pending || 0, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-            { label: t('settings.stats.storage'), value: getStorageSize(), color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' }
-          ].map((item, idx) => (
-            <div key={idx} className={`flex flex-col items-center justify-center p-4 rounded-xl ${item.bg} border border-transparent hover:border-current transition-all duration-300`}>
-              <div className={`text-2xl font-bold ${item.color} mb-1`}>
-                {item.value}
-              </div>
-              <div className="text-xs font-medium text-gray-600 dark:text-gray-400">{item.label}</div>
+        {/* Notification Settings */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.45s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-yellow-50 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
+              <Bell className="w-5 h-5" strokeWidth={2} />
             </div>
-          ))}
+            {t('settings.notification.title')}
+          </h3>
+          <div className="bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setShowNotificationSettings(true)}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              <span className="font-medium text-gray-700 dark:text-gray-300">{t('settings.notification.configure')}</span>
+              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* 데이터 관리 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.6s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
-            <HardDrive className="w-5 h-5" strokeWidth={2} />
-          </div>
-          {t('settings.data.title')}
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <button
-            onClick={handleExport}
-            className="flex flex-col items-center justify-center gap-3 p-6 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 transition-all group"
-          >
-            <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
-              <Download className="w-6 h-6" />
+        {/* Statistics */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.5s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <BarChart2 className="w-5 h-5" strokeWidth={2} />
             </div>
-            <div className="text-center">
-              <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300">{t('settings.data.export')}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.data.exportDesc')}</div>
+            {t('settings.stats.title')}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 text-center">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{stats?.total || 0}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">{t('settings.stats.total')}</div>
             </div>
-          </button>
-
-          <div className="relative group">
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportFile}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-            <div className="flex flex-col items-center justify-center gap-3 p-6 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl group-hover:bg-green-50 dark:group-hover:bg-green-900/20 group-hover:border-green-200 dark:group-hover:border-green-800 transition-all h-full">
-              <div className="w-12 h-12 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform duration-300">
-                <Upload className="w-6 h-6" />
-              </div>
-              <div className="text-center">
-                <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-green-700 dark:group-hover:text-green-300">{t('settings.data.import')}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.data.importDesc')}</div>
-              </div>
+            <div className="p-4 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">{stats?.completed || 0}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">{t('settings.stats.completed')}</div>
+            </div>
+            <div className="p-4 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 text-center">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400 mb-1">{stats?.pending || 0}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">{t('settings.stats.pending')}</div>
             </div>
           </div>
+        </div>
+
+        {/* Data Management */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.5s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
+              <HardDrive className="w-5 h-5" strokeWidth={2} />
+            </div>
+            {t('settings.data.title')}
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Stats Card */}
+            <div className="p-4 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                  <BarChart2 className="w-4 h-4" />
+                  <span className="text-xs font-medium uppercase tracking-wider">{t('settings.data.storage')}</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{getStorageSize()}</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-600/50 text-xs text-gray-500 dark:text-gray-400 text-right">
+                {t('settings.data.localOnly')}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={handleExport}
+                className="w-full flex items-center justify-between p-4 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">{t('settings.data.backup')}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.data.backupDesc')}</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportFile}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div className="w-full flex items-center justify-between p-4 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 hover:shadow-md transition-all group">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform">
+                      <Upload className="w-4 h-4" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{t('settings.data.restore')}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.data.restoreDesc')}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {importError && (
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl flex items-center gap-2 text-sm text-red-600 dark:text-red-400 animate-shake">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {importError}
+            </div>
+          )}
+
+          {showImportSuccess && (
+            <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-xl flex items-center gap-2 text-sm text-green-600 dark:text-green-400 animate-slide-in">
+              <Check className="w-4 h-4 flex-shrink-0" />
+              {t('settings.data.restoreSuccess')}
+            </div>
+          )}
 
           <button
             onClick={handleClearCompleted}
-            className="flex flex-col items-center justify-center gap-3 p-6 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-200 dark:hover:border-orange-800 transition-all group"
+            className="mt-6 w-full flex items-center justify-center gap-2 p-3 text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 rounded-xl transition-colors text-sm font-medium"
           >
-            <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform duration-300">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div className="text-center">
-              <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-orange-700 dark:group-hover:text-orange-300">{t('settings.data.clear')}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.data.clearDesc')}</div>
-            </div>
+            <Trash2 className="w-4 h-4" />
+            {t('settings.data.clearCompleted')}
           </button>
         </div>
 
-        {/* 알림 메시지 */}
-        {(importError || showImportSuccess) && (
-          <div className={`mt-6 p-4 rounded-2xl border flex items-center gap-4 animate-fade-in ${importError
-            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-            }`}>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${importError ? 'bg-red-100 dark:bg-red-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
-              {importError ? <AlertCircle className="w-5 h-5" /> : <Check className="w-5 h-5" />}
-            </div>
-            <span className="font-medium">{importError || t('settings.data.importSuccess')}</span>
+        {/* Footer Info */}
+        <div className="text-center pb-8 pt-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-full">
+            <Info className="w-3 h-3 text-gray-400" />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              TodoList App v1.0.0 • © 2024
+            </p>
           </div>
+        </div>
+
+        {/* Notification Settings Modal */}
+        {showNotificationSettings && (
+          <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
         )}
       </div>
-
-      {/* 알림 설정 */}
-      <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.7s' }}>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-yellow-50 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
-            <Bell className="w-5 h-5" strokeWidth={2} />
-          </div>
-          {t('settings.notifications.title')}
-        </h3>
-
-        <button
-          onClick={() => setShowNotificationSettings(true)}
-          className="w-full flex items-center justify-between p-5 bg-white/50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform">
-              <Bell className="w-6 h-6" />
-            </div>
-            <div className="text-left">
-              <div className="text-base font-bold text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors">
-                {t('settings.notifications.setup')}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                {t('settings.notifications.desc')}
-              </div>
-            </div>
-          </div>
-          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-        </button>
-      </div>
-
-      {/* 앱 정보 */}
-      <div className="text-center py-6 animate-fade-in" style={{ animationDelay: '0.8s' }}>
-        <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
-          ToDo List App v1.0.0
-        </p>
-        <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
-          {t('settings.appInfo')}
-        </p>
-      </div>
-
-      {/* 알림 설정 모달 */}
-      {showNotificationSettings && (
-        <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
-      )}
     </div>
   )
 }
+
 
 export default SettingsView

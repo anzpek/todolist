@@ -4,6 +4,7 @@ import { format, isSameDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOf
 import { ko, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
 import { useTodos } from '../contexts/TodoContext'
+import { useTheme } from '../contexts/ThemeContext' // Added
 import { formatDateTime } from '../utils/helpers'
 import type { Todo } from '../types/todo'
 
@@ -24,11 +25,21 @@ const CompletedHistoryView = ({
 }: CompletedHistoryViewProps) => {
   const { todos, toggleTodo, getRecurringTodos } = useTodos()
   const { t, i18n } = useTranslation()
+  const { currentTheme, isDark } = useTheme() // Added
+  const isVisualTheme = !!currentTheme.bg // Added
   const dateLocale = i18n.language === 'ko' ? ko : enUS
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['today']))
   const [viewMode, setViewMode] = useState<'period' | 'daily' | 'weekly' | 'monthly'>('period')
   const [fourthStatMode, setFourthStatMode] = useState<'yesterday' | 'lastWeek' | 'lastMonth'>('yesterday')
   const now = new Date()
+
+  const cardClass = isVisualTheme
+    ? 'glass-card p-3 transition-[background-color] duration-200'
+    : 'bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border'
+
+  const cardStyle = isVisualTheme
+    ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` }
+    : {}
 
   // 모든 할일 (일반 + 반복 할일) 가져오기
   const recurringTodos = getRecurringTodos()
@@ -306,7 +317,10 @@ const CompletedHistoryView = ({
     }
 
     return (
-      <div key={todo.id} className="border-l-2 border-green-500 bg-green-50 dark:bg-green-900/10 p-2 sm:p-3 rounded-r-lg">
+      <div key={todo.id}
+        className={`border-l-2 border-green-500 p-2 sm:p-3 rounded-r-lg ${isVisualTheme ? 'bg-green-50/20 backdrop-blur-none' : 'bg-green-50 dark:bg-green-900/10'}`}
+        style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.05))` } : {}}
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 mb-1">
@@ -396,7 +410,11 @@ const CompletedHistoryView = ({
       <div key={key} className="mb-4">
         <button
           onClick={() => toggleSection(key)}
-          className="w-full flex items-center justify-between p-2 sm:p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg transition-colors ${isVisualTheme
+            ? 'backdrop-blur-none hover:bg-white/10'
+            : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          style={isVisualTheme ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` } : {}}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="w-4 h-4 flex-shrink-0">{icon}</div>
@@ -528,7 +546,7 @@ const CompletedHistoryView = ({
 
       {/* 통계 - 한 줄로 표시 */}
       {viewMode === 'period' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border">
+        <div className={cardClass} style={cardStyle}>
           <div className="grid grid-cols-4 gap-1">
             <div className="text-center px-2 py-2">
               <div className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">
@@ -565,7 +583,7 @@ const CompletedHistoryView = ({
       )}
 
       {viewMode === 'daily' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border text-center">
+        <div className={`${cardClass} text-center`} style={cardStyle}>
           <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
             {dailyGroups.sortedKeys.length}
           </div>
@@ -574,7 +592,7 @@ const CompletedHistoryView = ({
       )}
 
       {viewMode === 'weekly' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border text-center">
+        <div className={`${cardClass} text-center`} style={cardStyle}>
           <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
             {weeklyGroups.sortedKeys.length}
           </div>
@@ -583,7 +601,7 @@ const CompletedHistoryView = ({
       )}
 
       {viewMode === 'monthly' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border text-center">
+        <div className={`${cardClass} text-center`} style={cardStyle}>
           <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
             {monthlyGroups.sortedKeys.length}
           </div>

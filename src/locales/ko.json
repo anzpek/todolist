@@ -29,6 +29,7 @@
         "today": "오늘 할일",
         "week": "주간 캘린더",
         "month": "월간 캘린더",
+        "board": "칸반 보드",
         "recurring": "반복 관리",
         "history": "완료 기록",
         "analytics": "통계/분석",
@@ -51,13 +52,61 @@
             "sync": "클라우드 동기화",
             "syncing": "동기화 중...",
             "logout": "로그아웃",
-            "confirmLogout": "로그아웃하시겠습니까?"
+            "confirmLogout": "로그아웃하시겠습니까?",
+            "loggedIn": "로그인됨"
         },
-        "theme": {
-            "title": "테마",
-            "light": "라이트",
-            "dark": "다크",
-            "system": "시스템"
+        "appearance": {
+            "title": "화면 설정",
+            "theme": "테마",
+            "calendarLayout": "월간 캘린더 레이아웃",
+            "calendarLayoutSplit": "분할 화면 (캘린더 + 리스트)",
+            "calendarLayoutFull": "전체 화면 (캘린더만)",
+            "transparency": "투명도 조절",
+            "transparencyDesc": "UI의 투명도를 조절합니다 (낮을수록 투명해집니다)",
+            "light": "라이트 모드",
+            "dark": "다크 모드",
+            "system": "시스템 설정"
+        },
+        "tabs": {
+            "colors": "색상",
+            "seasonal": "계절",
+            "city": "도시"
+        },
+        "seasonal": {
+            "spring": "봄",
+            "summer": "여름",
+            "autumn": "가을",
+            "winter": "겨울"
+        },
+        "city": {
+            "cairo": "카이로",
+            "london": "런던",
+            "la": "로스앤젤레스",
+            "moscow": "모스크바",
+            "seoul": "서울",
+            "busan": "부산",
+            "jeju": "제주",
+            "gyeongju": "경주",
+            "gwangju": "광주",
+            "tokyo": "도쿄",
+            "beijing": "베이징",
+            "hongkong": "홍콩",
+            "bangkok": "방콕",
+            "hanoi": "하노이"
+        },
+        "colorTheme": {
+            "title": "강조 색상",
+            "blue": "블루",
+            "sky": "스카이",
+            "teal": "틸",
+            "forest": "포레스트",
+            "lime": "라임",
+            "sunset": "선셋",
+            "red": "레드",
+            "berry": "베리",
+            "purple": "퍼플",
+            "indigo": "인디고",
+            "gray": "그레이"
         },
         "language": {
             "title": "언어",
@@ -65,7 +114,7 @@
             "korean": "한국어",
             "english": "English"
         },
-        "fontSize": {
+        "font": {
             "title": "글자 크기",
             "small": "작게",
             "large": "크게",
@@ -73,12 +122,16 @@
         },
         "holiday": {
             "title": "공휴일 설정",
+            "name": "공휴일 이름",
+            "date": "날짜",
+            "namePlaceholder": "공휴일 이름 입력",
             "datePlaceholder": "날짜 선택",
             "addPlaceholder": "공휴일 이름",
             "recurring": "매년 반복",
             "noHolidays": "등록된 공휴일이 없습니다.",
             "confirmDelete": "이 공휴일을 삭제하시겠습니까?",
-            "yearly": "매년"
+            "yearly": "매년",
+            "everyYear": "매년"
         },
         "data": {
             "title": "데이터 관리",
@@ -92,7 +145,15 @@
             "noCompleted": "완료된 할일이 없습니다.",
             "importSuccess": "데이터를 성공적으로 가져왔습니다.",
             "importError": "파일을 읽을 수 없습니다.",
-            "invalidFormat": "잘못된 파일 형식입니다."
+            "invalidFormat": "잘못된 파일 형식입니다.",
+            "storage": "저장공간",
+            "localOnly": "로컬 저장소 사용 중",
+            "backup": "데이터 백업",
+            "backupDesc": "현재 데이터를 파일로 저장",
+            "restore": "데이터 복원",
+            "restoreDesc": "백업 파일에서 복원",
+            "restoreSuccess": "복완 완료",
+            "clearCompleted": "완료된 항목 삭제"
         },
         "stats": {
             "title": "데이터 통계",
@@ -101,8 +162,9 @@
             "pending": "진행중",
             "storage": "저장공간"
         },
-        "notifications": {
+        "notification": {
             "title": "알림",
+            "configure": "알림 설정",
             "setup": "알림 설정",
             "desc": "마감 알림, 완료 축하 등 설정"
         },
