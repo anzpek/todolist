@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        registerPlugin(TodoListWidgetPlugin.class);
     }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

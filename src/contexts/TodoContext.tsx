@@ -652,10 +652,98 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
+    // localStorage에서 데이터 로드 (비로그인 상태용)
+    // ... (previous code)
+
     // 디바운스: 500ms 후에 실행 (너무 자주 실행되지 않도록)
     const timeoutId = setTimeout(syncInstancesToFirebase, 500)
     return () => clearTimeout(timeoutId)
   }, [state.recurringInstances, currentUser])
+
+  // Widget Update Logic
+  useEffect(() => {
+    // Only run on mobile (could check Platform) but for now just try-catch
+    const updateWidget = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.getPlatform() !== 'android') return;
+
+        const TodoListWidget = (await import('../plugins/TodoListWidget')).default;
+
+        // Get Today's incomplete tasks
+        const today = new Date();
+        const todosForWidget = state.todos.filter(todo => {
+          if (todo.completed) return false;
+
+          // Logic similar to getTodayTodos but simplified
+          const targetDate = new Date();
+          targetDate.setHours(0, 0, 0, 0);
+
+          if (todo.startDate) {
+            const start = new Date(todo.startDate);
+            start.setHours(0, 0, 0, 0);
+            if (targetDate < start) return false; // Future
+          }
+          // If due date is passed and not completed, keeping it (overdue) is typical for "Today" views
+          // But strict "Today" view might differ. Let's use getTodayTodos logic:
+          // Actually, let's just use the helper function logic re-implemented or simplified:
+
+          // Simplified: Start Date <= Today OR (No Start Date AND Due Date == Today)
+          // For widget, let's show anything relevant for "Now"
+
+          // Let's filter for "Actionable Today"
+          // 1. Start Date exists and <= Today
+          // 2. Or (No Start Date) and (Due Date exists and <= Today)
+          // 3. Or (No dates) - maybe skip? User usually wants dated tasks on widget.
+
+          let isVisible = false;
+          if (todo.startDate) {
+            const start = new Date(todo.startDate);
+            start.setHours(0, 0, 0, 0);
+            if (targetDate >= start) isVisible = true;
+          } else if (todo.dueDate) {
+            const due = new Date(todo.dueDate);
+            due.setHours(0, 0, 0, 0);
+            if (targetDate >= due) isVisible = true;
+          } else {
+            // No dates - show if high priority? or skip. 
+            // Let's skip undated tasks for widget to save space.
+          }
+
+          return isVisible;
+        });
+
+        // Sort by priority/time
+        const sorted = todosForWidget.sort((a, b) => {
+          // Priority
+          const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+          const pA = pMap[a.priority] || 2;
+          const pB = pMap[b.priority] || 2;
+          if (pA !== pB) return pA - pB;
+          return 0;
+        });
+
+        const widgetData = sorted.slice(0, 5).map(t => ({
+          title: t.title,
+          completed: t.completed,
+          priority: t.priority
+        }));
+
+        await TodoListWidget.updateWidget({
+          data: JSON.stringify(widgetData),
+          date: new Date().toLocaleDateString()
+        });
+        console.log('📱 Widget Updated:', widgetData.length, 'tasks');
+
+      } catch (e) {
+        // Ignore errors (e.g. not on Android or plugin not found)
+        console.debug('Widget update failed/skipped', e);
+      }
+    };
+
+    const timeout = setTimeout(updateWidget, 1000); // Debounce
+    return () => clearTimeout(timeout);
+  }, [state.todos]);
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
   const loadFromLocalStorage = () => {
