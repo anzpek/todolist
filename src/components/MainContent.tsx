@@ -220,8 +220,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               </button>
               <h1 className="text-2xl font-bold text-gray-900">
                 {currentView === 'today' && t('nav.today')}
-                {currentView === 'week' && t('nav.weekly')}
-                {currentView === 'month' && t('nav.monthly')}
+                {currentView === 'week' && t('nav.week')}
+                {currentView === 'month' && t('nav.month')}
                 {currentView === 'board' && (t('nav.board') || 'Kanban Board')}
                 {currentView === 'settings' && t('nav.settings')}
                 {currentView === 'analytics' && t('nav.analytics')}
