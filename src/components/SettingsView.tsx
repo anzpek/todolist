@@ -29,6 +29,28 @@ const SettingsView: React.FC = () => {
   const [newHolidayDate, setNewHolidayDate] = useState('')
   const [newHolidayName, setNewHolidayName] = useState('')
   const [newHolidayIsRecurring, setNewHolidayIsRecurring] = useState(false)
+  const [startScreen, setStartScreen] = useState<'last' | 'today' | 'week' | 'month'>('last')
+
+  React.useEffect(() => {
+    if (user) {
+      firestoreService.getUserSettings(user.uid).then(settings => {
+        if (settings?.startScreen) {
+          setStartScreen(settings.startScreen)
+        }
+      })
+    }
+  }, [user])
+
+  const handleStartScreenChange = async (value: 'last' | 'today' | 'week' | 'month') => {
+    setStartScreen(value)
+    if (user) {
+      try {
+        await firestoreService.updateUserStartScreen(user.uid, value)
+      } catch (error) {
+        console.error('Failed to update start screen:', error)
+      }
+    }
+  }
 
   const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -167,9 +189,17 @@ const SettingsView: React.FC = () => {
           </h3>
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-4 bg-white/50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 backdrop-blur-sm">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900 dark:to-primary-800 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-300 font-bold text-xl shadow-inner">
-                {user?.email?.[0].toUpperCase()}
-              </div>
+              {user?.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt={user.email || 'User'}
+                  className="w-12 h-12 rounded-full object-cover shadow-sm border border-gray-200 dark:border-gray-700"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900 dark:to-primary-800 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-300 font-bold text-xl shadow-inner">
+                  {user?.email?.[0].toUpperCase()}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 dark:text-white truncate">
                   {user?.email}
@@ -203,7 +233,36 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Theme Settings (Refactored for Appearance Themes) */}
+        {/* Start Screen Settings */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.15s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+              <Monitor className="w-5 h-5" strokeWidth={2} />
+            </div>
+            {t('settings.general.startScreen')}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { key: 'last', label: t('settings.general.lastView') },
+              { key: 'today', label: t('settings.general.today') },
+              { key: 'week', label: t('settings.general.week') },
+              { key: 'month', label: t('settings.general.month') }
+            ].map((option) => (
+              <button
+                key={option.key}
+                onClick={() => handleStartScreenChange(option.key as any)}
+                className={`p-4 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${startScreen === option.key
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                  : 'border-transparent bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Appearance Settings (Refactored) */}
         <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.2s' }}>
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
@@ -213,150 +272,175 @@ const SettingsView: React.FC = () => {
           </h3>
 
           <div className="space-y-6">
-            {/* Theme Mode (Light/Dark/System) */}
-            <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl">
-              {[
-                { key: 'light', icon: Sun, label: t('settings.appearance.light') },
-                { key: 'dark', icon: Moon, label: t('settings.appearance.dark') },
-                { key: 'system', icon: Monitor, label: t('settings.appearance.system') }
-              ].map((option) => (
+            {/* Main Tabs */}
+            <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+              {(['mode', 'background', 'display'] as const).map((tab) => (
                 <button
-                  key={option.key}
-                  onClick={() => setTheme(option.key as any)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${theme === option.key
+                  key={tab}
+                  onClick={() => setVisualTab(tab)}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${visualTab === tab || (tab === 'background' && (visualTab === 'city' || visualTab === 'seasonal')) || (tab === 'display' && visualTab === 'colors')
                     ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
                 >
-                  <option.icon className="w-4 h-4" />
-                  {option.label}
+                  {t(`settings.tabs.${tab}`) || tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
             </div>
 
-            {/* Visual Theme Tabs */}
-            <div className="space-y-4">
-              <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-2 overflow-x-auto">
-                <button
-                  onClick={() => setVisualTab('colors')}
-                  className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${visualTab === 'colors'
-                    ? 'text-primary-600 border-b-2 border-primary-600'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
-                >
-                  {t('settings.tabs.colors') || 'Colors'}
-                </button>
-                <button
-                  onClick={() => setVisualTab('seasonal')}
-                  className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${visualTab === 'seasonal'
-                    ? 'text-primary-600 border-b-2 border-primary-600'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
-                >
-                  {t('settings.tabs.seasonal') || 'Seasonal'}
-                </button>
-                <button
-                  onClick={() => setVisualTab('city')}
-                  className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${visualTab === 'city'
-                    ? 'text-primary-600 border-b-2 border-primary-600'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
-                >
-                  {t('settings.tabs.city') || 'City'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {visualTab === 'colors' && THEMES.colors.map(themeOption => (
-                  <button
-                    key={themeOption.id}
-                    onClick={() => setCurrentThemeId(themeOption.id)}
-                    className={`group relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all duration-200 ${currentThemeId === themeOption.id
-                      ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
-                      : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800'
-                      }`}
-                  >
-                    <div className={`w-12 h-12 rounded-full shadow-sm flex items-center justify-center ${themeOption.colorClass} text-white`}>
-                      {currentThemeId === themeOption.id && <Check className="w-6 h-6" />}
-                    </div>
-                    <span className={`text-xs font-medium ${currentThemeId === themeOption.id ? 'text-primary-700 dark:text-primary-300' : 'text-gray-600 dark:text-gray-400'}`}>
-                      {t(themeOption.nameKey)}
-                    </span>
-                  </button>
-                ))}
-
-                {visualTab === 'seasonal' && THEMES.seasonal.map(themeOption => (
-                  <button
-                    key={themeOption.id}
-                    onClick={() => setCurrentThemeId(themeOption.id)}
-                    className={`relative group overflow-hidden rounded-xl aspect-video border-2 transition-all duration-200 ${currentThemeId === themeOption.id ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'
-                      }`}
-                  >
-                    <img
-                      src={themeOption.bg}
-                      alt={t(themeOption.nameKey)}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className={`absolute inset-0 flex items-center justify-center ${currentThemeId === themeOption.id ? 'bg-black/40' : 'bg-black/20 group-hover:bg-black/30'}`}>
-                      <span className="text-white font-medium text-sm drop-shadow-md">{t(themeOption.nameKey)}</span>
-                      {currentThemeId === themeOption.id && (
-                        <div className="absolute top-2 right-2 bg-primary-500 rounded-full p-0.5">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
-
-                {visualTab === 'city' && THEMES.city.map(themeOption => (
-                  <button
-                    key={themeOption.id}
-                    onClick={() => setCurrentThemeId(themeOption.id)}
-                    className={`relative group overflow-hidden rounded-xl aspect-video border-2 transition-all duration-200 ${currentThemeId === themeOption.id ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'
-                      }`}
-                  >
-                    <img
-                      src={themeOption.bg}
-                      alt={t(themeOption.nameKey)}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className={`absolute inset-0 flex items-center justify-center ${currentThemeId === themeOption.id ? 'bg-black/40' : 'bg-black/20 group-hover:bg-black/30'}`}>
-                      <span className="text-white font-medium text-sm drop-shadow-md">{t(themeOption.nameKey)}</span>
-                      {currentThemeId === themeOption.id && (
-                        <div className="absolute top-2 right-2 bg-primary-500 rounded-full p-0.5">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
-
-
-              </div>
-            </div>
-
-            {/* Transparency Control (Only for Visual Themes) */}
-            {currentTheme.bg && (
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('settings.appearance.transparency')}
-                  </span>
-                  <span className="text-sm text-gray-500">{(transparency * 100).toFixed(0)}%</span>
+            {/* Tab Content */}
+            <div className="min-h-[300px]">
+              {/* MODE TAB */}
+              {(visualTab === 'mode') && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { key: 'light', icon: Sun, label: t('settings.appearance.light') },
+                      { key: 'dark', icon: Moon, label: t('settings.appearance.dark') },
+                      { key: 'system', icon: Monitor, label: t('settings.appearance.system') }
+                    ].map((option) => (
+                      <button
+                        key={option.key}
+                        onClick={() => setTheme(option.key as any)}
+                        className={`flex flex-col items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all duration-200 ${theme === option.key
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                          : 'border-transparent bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          }`}
+                      >
+                        <option.icon className={`w-6 h-6 ${theme === option.key ? 'text-primary-500' : 'text-gray-400'}`} />
+                        <span className="text-sm font-medium">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={transparency}
-                  onChange={(e) => setTransparency(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {t('settings.appearance.transparencyDesc')}
-                </p>
-              </div>
-            )}
+              )}
 
-            {/* Font Size & Language Settings (Continued...) */}
+              {/* BACKGROUND TAB */}
+              {(visualTab === 'background' || visualTab === 'seasonal' || visualTab === 'city') && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Secondary Tabs for Background */}
+                  <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                    <button
+                      onClick={() => setVisualTab('seasonal')}
+                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${visualTab === 'seasonal'
+                        ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                      {t('settings.tabs.seasonal') || 'Seasonal'}
+                    </button>
+                    <button
+                      onClick={() => setVisualTab('city')}
+                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${visualTab === 'city'
+                        ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                      {t('settings.tabs.city') || 'City'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {/* Render Seasonal Themes */}
+                    {(visualTab === 'seasonal' || visualTab === 'background') && THEMES.seasonal.map(themeOption => (
+                      <button
+                        key={themeOption.id}
+                        onClick={() => setCurrentThemeId(themeOption.id)}
+                        className={`relative group overflow-hidden rounded-xl aspect-video border-2 transition-all duration-200 ${currentThemeId === themeOption.id ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'
+                          }`}
+                      >
+                        <img
+                          src={themeOption.bg}
+                          alt={t(themeOption.nameKey)}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                        <div className={`absolute inset-0 flex items-center justify-center ${currentThemeId === themeOption.id ? 'bg-black/40' : 'bg-black/20 group-hover:bg-black/30'}`}>
+                          <span className="text-white font-medium text-sm drop-shadow-md">{t(themeOption.nameKey)}</span>
+                          {currentThemeId === themeOption.id && (
+                            <div className="absolute top-2 right-2 bg-primary-500 rounded-full p-0.5">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Render City Themes */}
+                    {(visualTab === 'city' || visualTab === 'background') && THEMES.city.map(themeOption => (
+                      <button
+                        key={themeOption.id}
+                        onClick={() => setCurrentThemeId(themeOption.id)}
+                        className={`relative group overflow-hidden rounded-xl aspect-video border-2 transition-all duration-200 ${currentThemeId === themeOption.id ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'
+                          }`}
+                      >
+                        <img
+                          src={themeOption.bg}
+                          alt={t(themeOption.nameKey)}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                        <div className={`absolute inset-0 flex items-center justify-center ${currentThemeId === themeOption.id ? 'bg-black/40' : 'bg-black/20 group-hover:bg-black/30'}`}>
+                          <span className="text-white font-medium text-sm drop-shadow-md">{t(themeOption.nameKey)}</span>
+                          {currentThemeId === themeOption.id && (
+                            <div className="absolute top-2 right-2 bg-primary-500 rounded-full p-0.5">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Transparency Control (Only in Background Tab) */}
+                  {currentTheme.bg && (
+                    <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.appearance.transparency')}
+                        </span>
+                        <span className="text-sm text-gray-500">{(transparency * 100).toFixed(0)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={transparency}
+                        onChange={(e) => setTransparency(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {t('settings.appearance.transparencyDesc')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* DISPLAY TAB (Colors Only) */}
+              {(visualTab === 'display' || visualTab === 'colors') && (
+                <div className="space-y-8 animate-fade-in">
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block">{t('settings.tabs.colors')}</label>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                      {THEMES.colors.map(themeOption => (
+                        <button
+                          key={themeOption.id}
+                          onClick={() => setCurrentThemeId(themeOption.id)}
+                          className={`group relative flex flex-col items-center gap-2 p-2 rounded-xl border transition-all duration-200 ${currentThemeId === themeOption.id
+                            ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
+                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
+                        >
+                          <div className={`w-10 h-10 rounded-full shadow-sm flex items-center justify-center ${themeOption.colorClass} text-white`}>
+                            {currentThemeId === themeOption.id && <Check className="w-5 h-5" />}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -574,6 +658,15 @@ const SettingsView: React.FC = () => {
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400 mb-1">{stats?.pending || 0}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">{t('settings.stats.pending')}</div>
             </div>
+
+            {/* Storage Usage (Moved from Data Management) */}
+            <div className="p-4 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 text-center flex flex-col justify-center items-center">
+              <div className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-1">{getStorageSize()}</div>
+              <div className="text-[10px] text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider flex items-center gap-1 justify-center">
+                <HardDrive className="w-3 h-3" />
+                {t('settings.data.storage')}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -586,20 +679,7 @@ const SettingsView: React.FC = () => {
             {t('settings.data.title')}
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Stats Card */}
-            <div className="p-4 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                  <BarChart2 className="w-4 h-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">{t('settings.data.storage')}</span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{getStorageSize()}</p>
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-600/50 text-xs text-gray-500 dark:text-gray-400 text-right">
-                {t('settings.data.localOnly')}
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-4">
 
             {/* Action Buttons */}
             <div className="space-y-3">

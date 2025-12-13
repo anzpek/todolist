@@ -108,6 +108,14 @@
             "indigo": "인디고",
             "gray": "그레이"
         },
+        "tabs": {
+            "mode": "화면 모드",
+            "background": "배경",
+            "display": "화면",
+            "seasonal": "계절",
+            "city": "도시",
+            "colors": "색상"
+        },
         "language": {
             "title": "언어",
             "desc": "애플리케이션 언어 선택",
@@ -134,26 +142,26 @@
             "everyYear": "매년"
         },
         "data": {
-            "title": "데이터 관리",
-            "export": "내보내기",
-            "exportDesc": "JSON 파일로 저장",
-            "import": "가져오기",
-            "importDesc": "JSON 파일 복원",
-            "clear": "정리하기",
-            "clearDesc": "완료된 할일 삭제",
-            "confirmClear": "완료된 할일 {{count}}개를 삭제하시겠습니까?",
-            "noCompleted": "완료된 할일이 없습니다.",
-            "importSuccess": "데이터를 성공적으로 가져왔습니다.",
-            "importError": "파일을 읽을 수 없습니다.",
-            "invalidFormat": "잘못된 파일 형식입니다.",
-            "storage": "저장공간",
-            "localOnly": "로컬 저장소 사용 중",
+            "title": "데이터 통계",
+            "storage": "로컬 저장소 사용 중",
+            "localOnly": "서버에 저장되지 않는 데이터입니다",
             "backup": "데이터 백업",
             "backupDesc": "현재 데이터를 파일로 저장",
             "restore": "데이터 복원",
             "restoreDesc": "백업 파일에서 복원",
-            "restoreSuccess": "복완 완료",
-            "clearCompleted": "완료된 항목 삭제"
+            "restoreSuccess": "데이터가 성공적으로 복원되었습니다!",
+            "invalidFormat": "올바르지 않은 파일 형식입니다.",
+            "importError": "데이터 복원에 실패했습니다.",
+            "confirmClear": "완료된 항목 {{count}}개를 삭제하시겠습니까?",
+            "clearCompleted": "완료된 항목 삭제",
+            "noCompleted": "삭제할 완료된 항목이 없습니다."
+        },
+        "general": {
+            "startScreen": "시작 화면 설정",
+            "lastView": "마지막 종료 화면",
+            "today": "오늘 할 일",
+            "week": "주간 달력",
+            "month": "월간 달력"
         },
         "stats": {
             "title": "데이터 통계",
@@ -313,6 +321,7 @@
     "calendar": {
         "week": "째주",
         "daySuffix": "일",
+        "thisMonth": "이번 달",
         "thisWeek": "이번 주",
         "prevWeek": "이전 주",
         "nextWeek": "다음 주",

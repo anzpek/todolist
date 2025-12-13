@@ -97,6 +97,8 @@
             "blue": "Blue",
             "sky": "Sky",
             "teal": "Teal",
+            "sky": "Sky",
+            "teal": "Teal",
             "forest": "Forest",
             "lime": "Lime",
             "sunset": "Sunset",
@@ -105,6 +107,14 @@
             "purple": "Purple",
             "indigo": "Indigo",
             "gray": "Gray"
+        },
+        "tabs": {
+            "mode": "Mode",
+            "background": "Background",
+            "display": "Display",
+            "seasonal": "Seasonal",
+            "city": "City",
+            "colors": "Colors"
         },
         "language": {
             "title": "Language",
@@ -133,25 +143,24 @@
         },
         "data": {
             "title": "Data Management",
-            "export": "Export",
-            "exportDesc": "Save as JSON",
-            "import": "Import",
-            "importDesc": "Restore JSON",
-            "clear": "Clear",
-            "clearDesc": "Delete completed",
-            "confirmClear": "Delete {{count}} completed items?",
-            "noCompleted": "No completed items.",
-            "importSuccess": "Data imported successfully.",
-            "importError": "Failed to read file.",
-            "invalidFormat": "Invalid file format.",
-            "storage": "Storage",
-            "localOnly": "Using local storage",
-            "backup": "Backup Data",
+            "storage": "Storage Usage",
+            "localOnly": "Local Storage Only",
+            "backup": "Export Data",
             "backupDesc": "Save current data to file",
             "restore": "Restore Data",
             "restoreDesc": "Restore from backup file",
-            "restoreSuccess": "Restore Complete",
-            "clearCompleted": "Clear Completed Items"
+            "restoreSuccess": "Data restored successfully!",
+            "invalidFormat": "Invalid file format.",
+            "importError": "Failed to restore data.",
+            "confirmClear": "Delete {{count}} completed todos?",
+            "clearCompleted": "Clear Completed"
+        },
+        "general": {
+            "startScreen": "Start Screen",
+            "lastView": "Last Used",
+            "today": "Today",
+            "week": "Weekly",
+            "month": "Monthly"
         },
         "stats": {
             "title": "Statistics",
@@ -320,6 +329,7 @@
     "calendar": {
         "week": "Week",
         "daySuffix": "",
+        "thisMonth": "This Month",
         "thisWeek": "This Week",
         "prevWeek": "Previous Week",
         "nextWeek": "Next Week",

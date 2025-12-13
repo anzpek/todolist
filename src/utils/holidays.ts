@@ -7,6 +7,7 @@ export interface HolidayInfo {
   date: string
   name: string
   isHoliday: boolean
+  type?: string
 }
 
 export interface CustomHoliday {

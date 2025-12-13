@@ -137,16 +137,36 @@ function AppContent() {
   const addTodoModalRef = useRef<{ open: () => void }>(null)
   const { i18n } = useTranslation()
 
-  // 언어 설정 로드
+  // Load Language & Start Screen Settings
   useEffect(() => {
     if (currentUser && !currentUser.isAnonymous) {
       firestoreService.getUserSettings(currentUser.uid).then(settings => {
+        // Language
         if (settings?.language) {
           i18n.changeLanguage(settings.language)
         }
-      }).catch(err => console.error('Failed to load language:', err))
+
+        // Start Screen
+        if (settings?.startScreen) {
+          if (settings.startScreen === 'last') {
+            const lastView = localStorage.getItem('lastView') as ViewType | null
+            if (lastView) {
+              setCurrentView(lastView)
+            }
+          } else {
+            setCurrentView(settings.startScreen)
+          }
+        }
+      }).catch(err => console.error('Failed to load user settings:', err))
     }
   }, [currentUser, i18n])
+
+  // Save Current View for 'Last Used' functionality
+  useEffect(() => {
+    if (currentView) {
+      localStorage.setItem('lastView', currentView)
+    }
+  }, [currentView])
 
   // 앱 시작 시 보안, 성능 모니터링 시작
   useEffect(() => {

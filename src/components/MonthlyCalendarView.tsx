@@ -321,15 +321,15 @@ const MonthlyCalendarView = ({
                     return (
                       <div
                         key={`vacation-${vacation.id}`}
-                        className={`px-1.5 py-0.5 text-[10px] rounded truncate ${vacation.type === '연차'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                        className={`px-1.5 py-1 text-[10px] rounded-md truncate border shadow-sm transition-all hover:scale-[1.02] ${vacation.type === '연차'
+                          ? 'bg-green-50/90 text-green-700 border-green-200/60 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800/40'
                           : vacation.type === '오전' || vacation.type === '오후'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                            ? 'bg-blue-50/90 text-blue-700 border-blue-200/60 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/40'
                             : vacation.type === '특별'
-                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+                              ? 'bg-purple-50/90 text-purple-700 border-purple-200/60 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/40'
                               : vacation.type === '병가'
-                                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
-                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                                ? 'bg-red-50/90 text-red-700 border-red-200/60 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/40'
+                                : 'bg-yellow-50/90 text-yellow-700 border-yellow-200/60 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800/40'
                           }`}
                         title={employee ? `${employee.name} - ${vacation.type}` : `직원 ${vacation.employeeId} - ${vacation.type}`}
                       >
@@ -342,13 +342,13 @@ const MonthlyCalendarView = ({
                   {dayTodos.slice(0, Math.max(0, 3 - dayVacations.length)).map(todo => (
                     <div
                       key={todo.id}
-                      className={`px-1.5 py-0.5 text-[10px] rounded truncate cursor-pointer ${todo.completed
-                        ? 'bg-gray-100 text-gray-500 line-through dark:bg-gray-700 dark:text-gray-400'
+                      className={`px-1.5 py-1 text-[10px] rounded-md truncate cursor-pointer border shadow-sm transition-all hover:scale-[1.02] ${todo.completed
+                        ? 'bg-gray-100/80 text-gray-400 border-gray-200/60 line-through dark:bg-gray-700/50 dark:text-gray-500 dark:border-gray-600/30'
                         : todo.priority === 'urgent'
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                          ? 'bg-red-50/90 text-red-700 border-red-200/60 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/40'
                           : todo.priority === 'high'
-                            ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200'
-                            : 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
+                            ? 'bg-orange-50/90 text-orange-700 border-orange-200/60 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/40'
+                            : 'bg-primary-50/90 text-primary-700 border-primary-200/60 dark:bg-primary-900/30 dark:text-primary-300 dark:border-primary-800/40'
                         }`}
                       onClick={(e) => {
                         e.stopPropagation()
