@@ -55,7 +55,7 @@ public class TodoListWidget extends AppWidgetProvider {
                     JSONObject task = tasks.getJSONObject(i);
                     String title = task.optString("title", "");
                     String priority = task.optString("priority", "medium");
-                    String startDate = task.optString("startDate", "");
+                    String description = task.optString("description", "");
                     String dueDate = task.optString("dueDate", "");
                     int progress = task.optInt("progress", -1);
                     boolean completed = task.optBoolean("completed", false);
@@ -70,15 +70,22 @@ public class TodoListWidget extends AppWidgetProvider {
                     
                     display.append(" ").append(title);
                     
-                    // Show progress if available
+                    if (description != null && !description.isEmpty()) {
+                         // Truncate description if too long to avoid cluttering too much, 
+                         // but user said "title and description both show", so maybe just append.
+                         // Let's truncate slightly less or not at all if lines allow, 
+                         // but single TextView maxLines="1" dictates it will cut off anyway.
+                         // User wants to fill width. 
+                        String shortDesc = description.length() > 20 ? description.substring(0, 20) + ".." : description;
+                        display.append(" - ").append(shortDesc);
+                    }
+                    
                     if (progress >= 0) {
                         display.append(" [").append(progress).append("%]");
                     }
                     
-                    // Show date (prefer start date, fallback to due date)
-                    if (!startDate.isEmpty()) {
-                        display.append(" 📅").append(formatDate(startDate));
-                    } else if (!dueDate.isEmpty()) {
+                    // Show due date only (requested to hide start date)
+                    if (!dueDate.isEmpty()) {
                         display.append(" ⏰").append(formatDate(dueDate));
                     }
                     

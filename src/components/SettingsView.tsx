@@ -886,10 +886,54 @@ const SettingsView: React.FC = () => {
 
                   console.log('📱 Widget Sync: filtered widgetTodos count =', widgetTodos.length);
 
-                  const sorted = widgetTodos.sort((a: any, b: any) => {
+                  const sorted = [...widgetTodos].sort((a: any, b: any) => {
+                    // 1. Completed items go to bottom
+                    const isCompletedA = a.completed === true;
+                    const isCompletedB = b.completed === true;
+
+                    if (isCompletedA !== isCompletedB) {
+                      return isCompletedA ? 1 : -1;
+                    }
+
+                    // 2. Priority sort
                     const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-                    return (pMap[a.priority] || 2) - (pMap[b.priority] || 2);
+
+                    const getPVal = (p: any) => {
+                      const s = String(p || 'medium').toLowerCase().trim();
+                      return typeof pMap[s] === 'number' ? pMap[s] : 2;
+                    };
+
+                    const valA = getPVal(a.priority);
+                    const valB = getPVal(b.priority);
+
+                    if (valA !== valB) {
+                      return valA - valB;
+                    }
+
+                    // 3. User Custom Order (Same Priority)
+                    const orderA = a.order;
+                    const orderB = b.order;
+
+                    if (orderA !== undefined && orderB !== undefined) {
+                      if (orderA !== orderB) return orderA - orderB;
+                    }
+                    if (orderA !== undefined && orderB === undefined) return -1;
+                    if (orderA === undefined && orderB !== undefined) return 1;
+
+                    // 4. Due Date
+                    if (a.dueDate && b.dueDate) {
+                      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                    }
+                    if (a.dueDate) return -1;
+                    if (b.dueDate) return 1;
+
+                    // 5. Created At (Newest first)
+                    const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return createdB - createdA;
                   });
+
+                  console.log('Top 3 sorted priorities:', sorted.slice(0, 3).map((t: any) => t.priority));
 
                   // Send ALL today's tasks with full info
                   const widgetData = sorted.map((t: any) => ({
