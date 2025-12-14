@@ -805,4 +805,17 @@ export const firestoreService = {
       }
     });
   },
+
+  updateUserStartScreen: async (uid: string, startScreen: 'last' | 'today' | 'week' | 'month'): Promise<void> => {
+    return withRetry(async () => {
+      try {
+        const userRef = doc(db, 'users', uid);
+        await setDoc(userRef, { startScreen, updatedAt: serverTimestamp() }, { merge: true });
+        debug.log(`User ${uid} startScreen updated to ${startScreen}`);
+      } catch (error) {
+        debug.error('Firestore updateUserStartScreen 실패:', error);
+        throw error;
+      }
+    });
+  },
 };

@@ -41,16 +41,18 @@ const MonthlyCalendarView = ({
   isMobile = false
 }: MonthlyCalendarViewProps) => {
   const { t, i18n } = useTranslation()
-  const { currentTheme, isDark } = useTheme() // Added
-  const isVisualTheme = !!currentTheme.bg // Added
+  const { currentTheme, isDark } = useTheme()
+  const isVisualTheme = !!currentTheme.bg
   const dateLocale = i18n.language === 'ko' ? ko : enUS
-  // const [currentMonth, setCurrentMonth] = useState(new Date()) // Removed internal state
+
   const [holidayInfos, setHolidayInfos] = useState<Record<string, HolidayInfo>>({})
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [selectedDateTodos, setSelectedDateTodos] = useState<Todo[]>([])
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedDateVacations, setSelectedDateVacations] = useState<Array<{ id: string; employeeId: number; date: string; type: string }>>([])
+
   const { getFilteredTodos, toggleTodo, deleteTodo } = useTodos()
   const { currentUser } = useAuth()
   const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
@@ -285,11 +287,10 @@ const MonthlyCalendarView = ({
                 className={`min-h-[100px] border-b border-r border-gray-200 dark:border-gray-700 relative ${!isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-900/20' : ''
                   } ${index % 7 === 6 ? 'border-r-0' : ''} hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer`}
                 onClick={() => {
-                  if (dayTodos.length > 0 || dayVacations.length > 0) {
-                    setSelectedDateTodos(dayTodos)
-                    setSelectedDateVacations(dayVacations)
-                    setIsDateModalOpen(true)
-                  }
+                  setSelectedDateTodos(dayTodos)
+                  setSelectedDateVacations(dayVacations)
+                  setSelectedDate(day)
+                  setIsDateModalOpen(true)
                 }}
               >
                 {/* 날짜 헤더 */}
@@ -386,7 +387,7 @@ const MonthlyCalendarView = ({
       )}
 
       {/* 날짜 클릭 모달 */}
-      {isDateModalOpen && (
+      {isDateModalOpen && selectedDate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsDateModalOpen(false)}>
           <div
             className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${isMobile ? 'w-[90vw] max-h-[80vh]' : 'w-[500px] max-h-[600px]'} overflow-hidden`}
@@ -395,11 +396,10 @@ const MonthlyCalendarView = ({
             {/* 모달 헤더 */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                {selectedDateTodos.length > 0 && selectedDateTodos[0].dueDate ?
-                  format(selectedDateTodos[0].dueDate, i18n.language === 'ko' ? 'M월 d일 (E)' : 'MMM d (E)', { locale: dateLocale }) :
-                  t('calendar.tasksAndVacations')
-                } ({selectedDateTodos.length + selectedDateVacations.length}개)
+                {format(selectedDate, i18n.language === 'ko' ? 'M월 d일 (E)' : 'MMM d (E)', { locale: dateLocale })}
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+                  ({selectedDateTodos.length + selectedDateVacations.length}개)
+                </span>
               </h3>
               <button
                 onClick={() => setIsDateModalOpen(false)}
@@ -488,7 +488,7 @@ const MonthlyCalendarView = ({
                           {((todo.showStartTime && todo.startTime) || (todo.showDueTime && todo.dueDate)) && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {(todo.showStartTime && todo.startTime) && (
-                                <span>시작: {todo.startTime}</span>
+                                <span>{t('calendar.start')}: {todo.startTime}</span>
                               )}
                               {(todo.showStartTime && todo.startTime) && (todo.showDueTime && todo.dueDate) && (() => {
                                 const dueDate = new Date(todo.dueDate);
@@ -502,7 +502,7 @@ const MonthlyCalendarView = ({
                                 const dueDate = new Date(todo.dueDate);
                                 // 마감시간이 23:59가 아닌 경우에만 시간 표시
                                 if (!(dueDate.getHours() === 23 && dueDate.getMinutes() === 59)) {
-                                  return <span>마감: {dueDate.toTimeString().slice(0, 5)}</span>
+                                  return <span>{t('calendar.due')}: {dueDate.toTimeString().slice(0, 5)}</span>
                                 }
                                 return null;
                               })()}
@@ -515,7 +515,7 @@ const MonthlyCalendarView = ({
                               ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
                               : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
                               }`}>
-                              {todo.project === 'longterm' ? '롱텀' : '숏텀'}
+                              {todo.project === 'longterm' ? (t('projectTemplate.longterm') || 'Long-term') : (t('projectTemplate.shortterm') || 'Short-term')}
                             </span>
                           )}
                           {todo.priority && todo.priority !== 'medium' && (
@@ -525,7 +525,7 @@ const MonthlyCalendarView = ({
                                 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
                                 : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                               }`}>
-                              {todo.priority === 'urgent' ? '긴급' : todo.priority === 'high' ? '높음' : '낮음'}
+                              {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : todo.priority === 'high' ? t('modal.addTodo.high') : t('modal.addTodo.low')}
                             </span>
                           )}
                           <button
@@ -534,7 +534,7 @@ const MonthlyCalendarView = ({
                               toggleTodo(todo.id)
                             }}
                             className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
-                            title={todo.completed ? '완료 취소' : '완료 처리'}
+                            title={todo.completed ? t('calendar.completedCancel') : t('calendar.complete')}
                           >
                             <div className={`w-3 h-3 rounded-full ${todo.completed ? 'bg-green-600' : 'border border-gray-400'
                               }`} />
@@ -542,17 +542,18 @@ const MonthlyCalendarView = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              if (confirm(`"${todo.title}" 할일을 삭제하시겠습니까?`)) {
+                              if (confirm(t('calendar.deleteConfirm'))) {
                                 deleteTodo(todo.id)
                                 // 모달에서 삭제된 할일 제거
                                 const updatedTodos = selectedDateTodos.filter(t => t.id !== todo.id)
-                                if (updatedTodos.length === 0 && selectedDateVacations.length === 0) {
-                                  setIsDateModalOpen(false)
-                                }
+                                // 삭제 후에도 모달이 유지되도록 조건 제거 (항상 열려있음)
+                                // if (updatedTodos.length === 0 && selectedDateVacations.length === 0) {
+                                // setIsDateModalOpen(false)
+                                // }
                               }
                             }}
                             className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-800 border border-gray-200 dark:border-gray-600"
-                            title="삭제"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="w-3 h-3 text-red-600" />
                           </button>
@@ -569,12 +570,27 @@ const MonthlyCalendarView = ({
             </div>
 
             {/* 모달 푸터 */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+              {/* 할일 추가 버튼 (푸터 좌측) */}
+              <button
+                onClick={() => {
+                  if (selectedDate) {
+                    onAddTodo(selectedDate)
+                    setIsDateModalOpen(false)
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                title={t('modal.addTodo.title')}
+              >
+                <Plus className="w-4 h-4" />
+                {t('common.addTodo')}
+              </button>
+
               <button
                 onClick={() => setIsDateModalOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
-                {t('common.close')}
+                {t('calendar.close')}
               </button>
             </div>
           </div>

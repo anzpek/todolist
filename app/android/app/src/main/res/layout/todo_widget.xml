@@ -1,55 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@drawable/widget_background"
+    android:padding="10dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingBottom="8dp">
+        android:paddingBottom="6dp">
 
         <TextView
             android:id="@+id/widget_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Today's Tasks"
+            android:text="오늘 할일"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/widget_count"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0 pending"
-            android:textColor="#BBBBBB"
-            android:textSize="12sp" />
+            android:text="0개"
+            android:textColor="#9CA3AF"
+            android:textSize="10sp"
+            android:layout_marginEnd="8dp"/>
+
+        <ImageView
+            android:id="@+id/widget_add_button"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_add"
+            android:contentDescription="Add" />
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/widget_tasks_container"
+    <TextView android:id="@+id/widget_task_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_4" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_5" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_6" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_7" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_8" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_9" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_10" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_11" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_12" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_13" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_14" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_15" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_16" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_17" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_18" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_19" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_20" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_21" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_22" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_23" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_24" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_25" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_26" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_27" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_28" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_29" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_task_30" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:paddingTop="2dp" android:paddingBottom="2dp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
+
+    <TextView
+        android:id="@+id/widget_empty_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="vertical">
-
-        <!-- Initial Placeholder -->
-        <TextView
-            android:id="@+id/widget_empty_view"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:paddingTop="20dp"
-            android:text="Open app to sync..."
-            android:textColor="#888888"
-            android:textSize="14sp" />
-
-    </LinearLayout>
+        android:gravity="center"
+        android:text="오늘 할일이 없습니다"
+        android:textColor="#9CA3AF"
+        android:textSize="13sp"
+        android:visibility="visible" />
 
 </LinearLayout>

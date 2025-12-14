@@ -10,14 +10,16 @@ import { firestoreService } from '../services/firestoreService'
 import {
   Type, Check, Plus, User, Palette, Calendar, BarChart2, HardDrive, Bell,
   LogOut, RefreshCw, Moon, Sun, Monitor, Download, Upload, AlertCircle,
-  ChevronRight, Info, Globe, Settings, Trash2
+  ChevronRight, Info, Globe, Settings, Trash2, Layout
 } from 'lucide-react'
 import { THEMES } from '../constants/themes'
+import { Capacitor } from '@capacitor/core'
+import TodoListWidget from '../plugins/TodoListWidget'
 
 const SettingsView: React.FC = () => {
   const { t, i18n } = useTranslation()
   const { currentUser: user, logout } = useAuth()
-  const { exportData, importData, clearCompleted, stats, syncing, syncWithCloud } = useTodos()
+  const { todos, exportData, importData, clearCompleted, stats, syncing, syncWithCloud } = useTodos()
   const { theme, setTheme, currentThemeId, setCurrentThemeId, currentTheme, isDark, transparency, setTransparency } = useTheme()
   const isVisualTheme = !!currentTheme.bg
   const { fontSizeLevel, setFontSizeLevel } = useFontSize()
@@ -30,6 +32,9 @@ const SettingsView: React.FC = () => {
   const [newHolidayName, setNewHolidayName] = useState('')
   const [newHolidayIsRecurring, setNewHolidayIsRecurring] = useState(false)
   const [startScreen, setStartScreen] = useState<'last' | 'today' | 'week' | 'month'>('last')
+  const [widgetTransparency, setWidgetTransparency] = useState(() => {
+    return parseInt(localStorage.getItem('widgetTransparency') || '80');
+  });
 
   React.useEffect(() => {
     if (user) {
@@ -259,6 +264,131 @@ const SettingsView: React.FC = () => {
                 {option.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Widget Settings (Android Only) */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.17s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <Layout className="w-5 h-5" strokeWidth={2} />
+            </div>
+            {t('settings.widget.title')}
+          </h3>
+          <div className="space-y-6">
+            {/* Transparency Slider */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('settings.widget.transparency')} ({widgetTransparency}%)
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={widgetTransparency}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setWidgetTransparency(val);
+                  localStorage.setItem('widgetTransparency', val.toString());
+                }}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t('settings.widget.transparencyDesc')}
+              </p>
+            </div>
+
+            {/* Sync Widget Button */}
+            <div className="space-y-3">
+              <button
+                onClick={async () => {
+                  alert('버튼 클릭됨!'); // 이 알림이 뜨는지 확인
+                  console.log('📱 Widget Sync: Button clicked!');
+                  try {
+                    console.log('📱 Widget Sync: Importing Capacitor...');
+                    const { Capacitor } = await import('@capacitor/core');
+                    const platform = Capacitor.getPlatform();
+                    console.log('📱 Widget Sync: Platform =', platform);
+
+                    if (platform !== 'android') {
+                      alert('위젯은 Android에서만 사용 가능합니다.');
+                      return;
+                    }
+
+                    console.log('📱 Widget Sync: Importing TodoListWidget...');
+                    const TodoListWidget = (await import('../plugins/TodoListWidget')).default;
+                    console.log('📱 Widget Sync: TodoListWidget imported');
+
+                    // Get todos from localStorage
+                    console.log('📱 Widget Sync: Reading localStorage...');
+                    const todosRaw = localStorage.getItem('todolist-app-todos');
+                    console.log('📱 Widget Sync: localStorage raw =', todosRaw ? todosRaw.substring(0, 100) + '...' : 'null');
+
+                    const todos = JSON.parse(todosRaw || '[]');
+                    console.log('📱 Widget Sync: Parsed todos count =', todos.length);
+
+                    const now = new Date();
+                    now.setHours(0, 0, 0, 0);
+
+                    const widgetTodos = todos.filter((todo: any) => {
+                      if (todo.completed) return false;
+                      if (todo.startDate) {
+                        const start = new Date(todo.startDate);
+                        start.setHours(0, 0, 0, 0);
+                        return now >= start;
+                      }
+                      if (todo.dueDate) {
+                        const due = new Date(todo.dueDate);
+                        due.setHours(0, 0, 0, 0);
+                        return now >= due;
+                      }
+                      return true; // Inbox
+                    });
+
+                    const sorted = widgetTodos.sort((a: any, b: any) => {
+                      const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+                      return (pMap[a.priority] || 2) - (pMap[b.priority] || 2);
+                    });
+
+                    const widgetData = sorted.slice(0, 5).map((t: any) => ({
+                      title: t.title,
+                      completed: t.completed,
+                      priority: t.priority
+                    }));
+
+                    if (widgetData.length === 0) {
+                      widgetData.push({ title: "위젯 연결됨 (할일 없음)", completed: false, priority: "low" });
+                    }
+
+                    const transVal = parseInt(localStorage.getItem('widgetTransparency') || '80');
+
+                    console.log('📱 Widget Sync: Sending data...');
+                    console.log('📱 Widget Sync: widgetData =', JSON.stringify(widgetData));
+                    console.log('📱 Widget Sync: transparency =', transVal);
+
+                    await TodoListWidget.updateWidget({
+                      data: JSON.stringify(widgetData),
+                      date: new Date().toLocaleDateString(),
+                      transparency: transVal
+                    });
+
+                    console.log('📱 Widget Sync: updateWidget completed!');
+
+                    alert('위젯이 업데이트되었습니다!');
+                  } catch (error) {
+                    console.error('📱 Widget Sync ERROR:', error);
+                    alert('위젯 업데이트에 실패했습니다: ' + (error as any)?.message);
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-all duration-200"
+              >
+                <RefreshCw className="w-5 h-5" />
+                {t('settings.widget.refresh')}
+              </button>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t('settings.widget.refreshDesc')}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -670,8 +800,153 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Data Management */}
+        {/* Widget Settings */}
         <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.5s' }}>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+              <Layout className="w-5 h-5" strokeWidth={2} />
+            </div>
+            {t('settings.widget.title', 'Widget Settings')}
+          </h3>
+
+          <div className="p-4 bg-white/50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('settings.widget.transparency', 'Background Transparency')}
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {widgetTransparency}%
+                </p>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                // Using a separate widget transparency value or reusing the theme transparency?
+                // The prompt implied a specific widget transparency, but for now let's reuse a local state or just save to localStorage directly if not in context.
+                // Actually, let's use a new local state in SettingsView initialized from localStorage for now to avoid Context bloat unless requested.
+                // Wait, useTheme has 'transparency', but that's for the APP background.
+                // I should add a specific widget transparency state.
+                value={widgetTransparency}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setWidgetTransparency(val);
+                  localStorage.setItem('widgetTransparency', val.toString());
+                }}
+                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-purple-600"
+              />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {t('settings.widget.transparencyDesc', 'Adjust the transparency of the widget background on your home screen.')}
+            </p>
+            {/* Transparency Logic is in TodoContext hidden by useEffect deps. 
+                We need to trigger an update.
+                For now, let's just use a window dispatch since we don't want to change Context type signature drastically if possible.
+                But wait, the user wants "Perfect".
+                Let's add a button that simply logs or re-saves locally to trigger? No.
+                
+                Let's dispatch a custom event that TodoContext listens to. */}
+            <button
+              onClick={async () => {
+                alert('위젯 동기화 시작!');
+                console.log('📱 Widget Sync: Button clicked!');
+                try {
+                  const platform = Capacitor.getPlatform();
+                  console.log('📱 Widget Sync: Platform =', platform);
+
+                  if (platform !== 'android') {
+                    alert('위젯은 Android에서만 사용 가능합니다.');
+                    return;
+                  }
+
+                  console.log('📱 Widget Sync: TodoListWidget =', TodoListWidget);
+
+                  // Use todos from React context (Firebase data)
+                  console.log('📱 Widget Sync: todos from context count =', todos.length);
+
+                  const now = new Date();
+                  now.setHours(0, 0, 0, 0);
+
+                  // Filter for today's incomplete tasks
+                  const widgetTodos = todos.filter((todo: any) => {
+                    if (todo.completed) return false;
+                    if (todo.startDate) {
+                      const start = new Date(todo.startDate);
+                      start.setHours(0, 0, 0, 0);
+                      return now >= start;
+                    }
+                    if (todo.dueDate) {
+                      const due = new Date(todo.dueDate);
+                      due.setHours(0, 0, 0, 0);
+                      return now >= due;
+                    }
+                    return true; // Inbox tasks
+                  });
+
+                  console.log('📱 Widget Sync: filtered widgetTodos count =', widgetTodos.length);
+
+                  const sorted = widgetTodos.sort((a: any, b: any) => {
+                    const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+                    return (pMap[a.priority] || 2) - (pMap[b.priority] || 2);
+                  });
+
+                  // Send ALL today's tasks with full info
+                  const widgetData = sorted.map((t: any) => ({
+                    id: t.id,
+                    title: t.title,
+                    completed: t.completed,
+                    priority: t.priority,
+                    description: t.description || '',
+                    dueDate: t.dueDate || '',
+                    startDate: t.startDate || '',
+                    progress: t.subtasks?.length > 0
+                      ? Math.round((t.subtasks.filter((s: any) => s.completed).length / t.subtasks.length) * 100)
+                      : -1
+                  }));
+
+                  if (widgetData.length === 0) {
+                    widgetData.push({
+                      id: "placeholder",
+                      title: "오늘 할일이 없습니다 🎉",
+                      completed: false,
+                      priority: "low",
+                      description: "",
+                      dueDate: "",
+                      startDate: "",
+                      progress: -1
+                    });
+                  }
+
+                  const transVal = parseInt(localStorage.getItem('widgetTransparency') || '80');
+
+                  console.log('📱 Widget Sync: Sending', widgetData.length, 'tasks, transparency:', transVal);
+
+                  await TodoListWidget.updateWidget({
+                    data: JSON.stringify(widgetData),
+                    date: new Date().toLocaleDateString(),
+                    transparency: transVal
+                  });
+
+                  console.log('📱 Widget Sync: SUCCESS!');
+                  alert('위젯이 업데이트되었습니다!');
+                } catch (error) {
+                  console.error('📱 Widget Sync ERROR:', error);
+                  alert('위젯 업데이트 실패: ' + (error as any)?.message);
+                }
+              }}
+              className="mt-4 w-full py-2 bg-purple-600 text-white rounded-xl active:scale-95 transition-transform"
+            >
+              {t('settings.widget.refresh', 'Sync Widget Now')}
+            </button>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              {t('settings.widget.refreshDesc', 'If tasks are not showing, try syncing manually.')}
+            </p>
+          </div>
+        </div>
+
+        {/* Data Management */}
+        <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.6s' }}>
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
               <HardDrive className="w-5 h-5" strokeWidth={2} />

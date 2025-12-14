@@ -43,6 +43,13 @@
         }
     },
     "settings": {
+        "widget": {
+            "title": "위젯 설정",
+            "transparency": "배경 투명도",
+            "transparencyDesc": "홈 화면 위젯의 배경 투명도를 조절합니다.",
+            "refresh": "위젯 동기화",
+            "refreshDesc": "위젯에 할일이 보이지 않는다면 수동으로 동기화해보세요."
+        },
         "title": "설정",
         "subtitle": "앱 설정 및 데이터 관리",
         "account": {
@@ -66,11 +73,6 @@
             "light": "라이트 모드",
             "dark": "다크 모드",
             "system": "시스템 설정"
-        },
-        "tabs": {
-            "colors": "색상",
-            "seasonal": "계절",
-            "city": "도시"
         },
         "seasonal": {
             "spring": "봄",

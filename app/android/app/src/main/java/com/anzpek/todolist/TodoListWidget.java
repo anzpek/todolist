@@ -3,13 +3,10 @@ package com.anzpek.todolist;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.util.TypedValue;
-import android.view.Gravity;
+import android.net.Uri;
 import android.widget.RemoteViews;
 
 import org.json.JSONArray;
@@ -20,97 +17,124 @@ public class TodoListWidget extends AppWidgetProvider {
     private static final String PREFS_NAME = "WidgetPrefs";
     private static final String PREF_PREFIX_KEY = "todo_list_";
 
-    static void updateAppWidget(Context context, AppWidgetManager appWidgetManager,
-                                int appWidgetId) {
+    private static final int[] TASK_VIEW_IDS = {
+        R.id.widget_task_1, R.id.widget_task_2, R.id.widget_task_3, R.id.widget_task_4, R.id.widget_task_5,
+        R.id.widget_task_6, R.id.widget_task_7, R.id.widget_task_8, R.id.widget_task_9, R.id.widget_task_10,
+        R.id.widget_task_11, R.id.widget_task_12, R.id.widget_task_13, R.id.widget_task_14, R.id.widget_task_15,
+        R.id.widget_task_16, R.id.widget_task_17, R.id.widget_task_18, R.id.widget_task_19, R.id.widget_task_20,
+        R.id.widget_task_21, R.id.widget_task_22, R.id.widget_task_23, R.id.widget_task_24, R.id.widget_task_25,
+        R.id.widget_task_26, R.id.widget_task_27, R.id.widget_task_28, R.id.widget_task_29, R.id.widget_task_30
+    };
 
-        // Construct the RemoteViews object
+    public static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
+        android.util.Log.d("TodoListWidget", "updateAppWidget ID: " + appWidgetId);
+        
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.todo_widget);
-
-        // Load data from SharedPreferences
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String todoJson = prefs.getString(PREF_PREFIX_KEY + "data", "[]");
-        String todayDate = prefs.getString(PREF_PREFIX_KEY + "date", "");
-
+        
         try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String todoJson = prefs.getString(PREF_PREFIX_KEY + "data", "[]");
+
             JSONArray tasks = new JSONArray(todoJson);
-            int pendingCount = tasks.length();
+            int taskCount = tasks.length();
             
-            // Update Header
-            views.setTextViewText(R.id.widget_title, "Today's Tasks");
-            views.setTextViewText(R.id.widget_count, pendingCount + " tasks");
+            views.setTextViewText(R.id.widget_title, "오늘 할일");
+            views.setTextViewText(R.id.widget_count, taskCount + "개");
 
-            // Clear container
-            views.removeAllViews(R.id.widget_tasks_container);
+            for (int id : TASK_VIEW_IDS) {
+                views.setViewVisibility(id, android.view.View.GONE);
+            }
 
-            if (pendingCount == 0) {
-                 RemoteViews emptyView = new RemoteViews(context.getPackageName(), android.R.layout.simple_list_item_1);
-                 // We can't easily inflate a custom empty view dynamically without a listview, 
-                 // but for this simple Layout container approach, we just add a textview
-                 // Actually, simpler to toggle visibility if using layout, but RemoteViews is limited.
-                 // Let's just create a TextView-like remoteview dynamically or use the pre-defined empty view in xml.
-                 // For simplicity in this 'LinearLayout' container approach:
-                 
-                 // Note: Dynamically adding child views in RemoteViews is limited to specific view types and requires 'addView'
-                 // However, 'addView' works best with specific layouts.
-                 // BETTER APPROACH for lists is ListView + RemoteViewsService, but for <5 items we can fake it.
-                 // Let's manually add a few rows using a simpler layout or just Text.
-                 
-                views.setTextViewText(R.id.widget_empty_view, "No tasks for today!");
+            if (taskCount == 0) {
                 views.setViewVisibility(R.id.widget_empty_view, android.view.View.VISIBLE);
             } else {
                 views.setViewVisibility(R.id.widget_empty_view, android.view.View.GONE);
                 
-                // Add up to 5 tasks
-                for (int i = 0; i < Math.min(5, tasks.length()); i++) {
+                int displayCount = Math.min(30, taskCount);
+                for (int i = 0; i < displayCount; i++) {
                     JSONObject task = tasks.getJSONObject(i);
-                    String title = task.optString("title", "No Title");
-                    boolean completed = task.optBoolean("completed", false);
+                    String title = task.optString("title", "");
                     String priority = task.optString("priority", "medium");
-
-                    RemoteViews taskRow = new RemoteViews(context.getPackageName(), R.layout.widget_task_row);
-                    taskRow.setTextViewText(R.id.task_title, title);
+                    String startDate = task.optString("startDate", "");
+                    String dueDate = task.optString("dueDate", "");
+                    int progress = task.optInt("progress", -1);
+                    boolean completed = task.optBoolean("completed", false);
                     
-                    // Simple priority coloring logic
-                    String color = "#3B82F6"; // Blue (default)
-                    if ("urgent".equals(priority)) color = "#EF4444"; // Red
-                    else if ("high".equals(priority)) color = "#F97316"; // Orange
+                    StringBuilder display = new StringBuilder();
+                    display.append(completed ? "☑ " : "☐ ");
                     
-                    taskRow.setInt(R.id.task_priority_indicator, "setBackgroundColor", Color.parseColor(color));
-
-                    views.addView(R.id.widget_tasks_container, taskRow);
+                    if ("urgent".equals(priority)) display.append("🔴");
+                    else if ("high".equals(priority)) display.append("🟠");
+                    else if ("medium".equals(priority)) display.append("🔵");
+                    else display.append("⚪");
+                    
+                    display.append(" ").append(title);
+                    
+                    // Show progress if available
+                    if (progress >= 0) {
+                        display.append(" [").append(progress).append("%]");
+                    }
+                    
+                    // Show date (prefer start date, fallback to due date)
+                    if (!startDate.isEmpty()) {
+                        display.append(" 📅").append(formatDate(startDate));
+                    } else if (!dueDate.isEmpty()) {
+                        display.append(" ⏰").append(formatDate(dueDate));
+                    }
+                    
+                    views.setTextViewText(TASK_VIEW_IDS[i], display.toString());
+                    views.setViewVisibility(TASK_VIEW_IDS[i], android.view.View.VISIBLE);
+                }
+                
+                if (taskCount > 30) {
+                    views.setTextViewText(R.id.widget_count, taskCount + "개 (+" + (taskCount - 30) + ")");
                 }
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
-            views.setTextViewText(R.id.widget_empty_view, "Error: " + e.getMessage());
+            android.util.Log.e("TodoListWidget", "ERROR: " + e.getMessage());
+            views.setViewVisibility(R.id.widget_empty_view, android.view.View.VISIBLE);
         }
 
-        // Open App on Click
-        Intent intent = new Intent(context, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        views.setOnClickPendingIntent(R.id.widget_title, pendingIntent);
-        views.setOnClickPendingIntent(R.id.widget_tasks_container, pendingIntent);
+        try {
+            Intent intent = new Intent(context, MainActivity.class);
+            PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent);
+            
+            Intent addIntent = new Intent(context, MainActivity.class);
+            addIntent.setAction(Intent.ACTION_VIEW);
+            addIntent.setData(Uri.parse("todolist://add"));
+            addIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent addPendingIntent = PendingIntent.getActivity(context, 1, addIntent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            views.setOnClickPendingIntent(R.id.widget_add_button, addPendingIntent);
+        } catch (Exception e) {
+            android.util.Log.e("TodoListWidget", "Intent ERROR: " + e.getMessage());
+        }
 
-        // Instruct the widget manager to update the widget
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-        // There may be multiple widgets active, so update all of them
         for (int appWidgetId : appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId);
         }
     }
-
-    @Override
-    public void onEnabled(Context context) {
-        // Enter relevant functionality for when the first widget is created
+    
+    private static String formatDate(String isoDate) {
+        try {
+            if (isoDate != null && isoDate.length() >= 10) {
+                return isoDate.substring(5, 10).replace("-", "/");
+            }
+        } catch (Exception e) {}
+        return "";
     }
 
     @Override
-    public void onDisabled(Context context) {
-        // Enter relevant functionality for when the last widget is disabled
-    }
+    public void onEnabled(Context context) {}
+
+    @Override
+    public void onDisabled(Context context) {}
 }

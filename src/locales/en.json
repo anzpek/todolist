@@ -43,6 +43,13 @@
         }
     },
     "settings": {
+        "widget": {
+            "title": "Widget Settings",
+            "transparency": "Background Transparency",
+            "transparencyDesc": "Adjust the transparency of the widget background on your home screen.",
+            "refresh": "Sync Widget",
+            "refreshDesc": "Try syncing manually if tasks do not appear."
+        },
         "title": "Settings",
         "subtitle": "App settings & data management",
         "account": {
@@ -64,11 +71,6 @@
             "calendarLayout": "Monthly Calendar Layout",
             "calendarLayoutSplit": "Split View (Calendar + List)",
             "calendarLayoutFull": "Full Calendar"
-        },
-        "tabs": {
-            "colors": "Colors",
-            "seasonal": "Seasonal",
-            "city": "City"
         },
         "seasonal": {
             "spring": "Spring",
@@ -95,8 +97,6 @@
         "colorTheme": {
             "title": "Accent Color",
             "blue": "Blue",
-            "sky": "Sky",
-            "teal": "Teal",
             "sky": "Sky",
             "teal": "Teal",
             "forest": "Forest",

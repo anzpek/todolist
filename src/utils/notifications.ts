@@ -1,18 +1,3 @@
-import type { Todo, NotificationSettings } from '../types/todo'
-import { startOfWeek, subWeeks, endOfWeek, format } from 'date-fns'
-import { ko } from 'date-fns/locale'
-
-export interface NotificationEvent {
-  id: string
-  todoId?: string
-  type: 'reminder' | 'overdue' | 'recurring_suggestion' | 'start_reminder' | 'weekly_report' | 'completion_celebration'
-  title: string
-  message: string
-  scheduledTime: Date
-  isRead: boolean
-  createdAt: Date
-  tag?: string
-}
 
 import type { Todo, NotificationSettings } from '../types/todo'
 import { startOfWeek, subWeeks, endOfWeek, format } from 'date-fns'

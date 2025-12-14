@@ -51,6 +51,7 @@ const WeeklyCalendarView = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [selectedDateTodos, setSelectedDateTodos] = useState<Todo[]>([])
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedDateVacations, setSelectedDateVacations] = useState<Array<{ id: string; employeeId: number; date: string; type: string }>>([])
   const { getFilteredTodos, toggleTodo, deleteTodo } = useTodos()
   const { currentUser } = useAuth()
@@ -276,11 +277,10 @@ const WeeklyCalendarView = ({
                     : 'bg-gray-50 dark:bg-gray-700/50'
                   }`}
                 onClick={() => {
-                  if (dayTodos.length > 0 || dayVacations.length > 0) {
-                    setSelectedDateTodos(dayTodos)
-                    setSelectedDateVacations(dayVacations)
-                    setIsDateModalOpen(true)
-                  }
+                  setSelectedDateTodos(dayTodos)
+                  setSelectedDateVacations(dayVacations)
+                  setSelectedDate(day)
+                  setIsDateModalOpen(true)
                 }}
               >
                 <div className={`text-xs font-medium mb-1 ${holidayInfo || isWeekendDay
@@ -308,7 +308,16 @@ const WeeklyCalendarView = ({
               </div>
 
               {/* 휴가 및 할일 목록 */}
-              <div className={`${isMobile ? 'px-0.5 py-1 min-h-[150px] space-y-0.5' : 'p-2 min-h-[200px] space-y-1'} flex-1`}>
+              <div
+                className={`${isMobile ? 'px-0.5 py-1 min-h-[150px] space-y-0.5' : 'p-2 min-h-[200px] space-y-1'} flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors`}
+                onClick={(e) => {
+                  // 배경 클릭 시에만 모달 열기 (자식 요소에서 stopPropagation 처리됨)
+                  setSelectedDateTodos(dayTodos)
+                  setSelectedDateVacations(dayVacations)
+                  setSelectedDate(day)
+                  setIsDateModalOpen(true)
+                }}
+              >
                 {/* 휴가 정보 먼저 표시 */}
                 {dayVacations.slice(0, Math.max(0, 8 - dayTodos.length)).map(vacation => {
                   const employee = employees.find(emp => emp.id === vacation.employeeId)
@@ -350,7 +359,8 @@ const WeeklyCalendarView = ({
                           ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30'
                           : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30'
                       }`}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation()
                       setSelectedTodo(todo)
                       setIsEditModalOpen(true)
                     }}
@@ -409,9 +419,11 @@ const WeeklyCalendarView = ({
                 {(dayTodos.length + dayVacations.length) > 8 && (
                   <div
                     className="text-xs text-gray-500 dark:text-gray-400 text-center py-1 cursor-pointer hover:text-blue-600"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation()
                       setSelectedDateTodos(dayTodos)
                       setSelectedDateVacations(dayVacations)
+                      setSelectedDate(day) // 날짜 설정 추가
                       setIsDateModalOpen(true)
                     }}
                   >
@@ -421,7 +433,10 @@ const WeeklyCalendarView = ({
 
                 {/* + 버튼을 할일 목록 바로 아래에 표시 */}
                 <button
-                  onClick={onAddTodo}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAddTodo(day)
+                  }}
                   className={`w-full ${isMobile ? 'h-6' : 'h-8'} border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-colors`}
                   title={t('modal.addTodo.title')}
                 >
@@ -430,25 +445,28 @@ const WeeklyCalendarView = ({
               </div>
 
               {/* 모바일에서 공휴일 표시를 셀의 절대적 하단에 배치 */}
-              {holidayInfo && isMobile && (
-                <div className="absolute bottom-0 left-0 right-0">
-                  <div className="text-[9px] text-red-600 dark:text-red-400 font-medium text-center bg-red-50 dark:bg-red-900/20 py-0.5 leading-tight">
-                    {holidayInfo.name}
+              {
+                holidayInfo && isMobile && (
+                  <div className="absolute bottom-0 left-0 right-0">
+                    <div className="text-[9px] text-red-600 dark:text-red-400 font-medium text-center bg-red-50 dark:bg-red-900/20 py-0.5 leading-tight">
+                      {holidayInfo.name}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              }
             </div>
           )
         })}
       </div>
 
       {/* 선택된 날짜의 상세 할일 및 휴가 목록 (옵션) */}
-      {weekDays.some(day => {
-        const dayTodos = getTodosForDate(day)
-        const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
-        const dayVacations = shouldShowVacations ? getVacationsForDate(day) : []
-        return dayTodos.length > 0 || dayVacations.length > 0
-      }) && (
+      {
+        weekDays.some(day => {
+          const dayTodos = getTodosForDate(day)
+          const shouldShowVacations = isAdmin(currentUser?.email) && showVacationsInTodos
+          const dayVacations = shouldShowVacations ? getVacationsForDate(day) : []
+          return dayTodos.length > 0 || dayVacations.length > 0
+        }) && (
           <div className="mt-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {t('calendar.detailedInfo')}
@@ -530,216 +548,237 @@ const WeeklyCalendarView = ({
               })}
             </div>
           </div>
-        )}
+        )
+      }
 
       {/* 편집 모달 */}
-      {selectedTodo && (
-        <EditTodoModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false)
-            setSelectedTodo(null)
-          }}
-          todo={selectedTodo}
-          isMobile={isMobile}
-        />
-      )}
+      {
+        selectedTodo && (
+          <EditTodoModal
+            isOpen={isEditModalOpen}
+            onClose={() => {
+              setIsEditModalOpen(false)
+              setSelectedTodo(null)
+            }}
+            todo={selectedTodo}
+            isMobile={isMobile}
+          />
+        )
+      }
 
       {/* 날짜 클릭 모달 */}
-      {isDateModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsDateModalOpen(false)}>
-          <div
-            className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${isMobile ? 'w-[90vw] max-h-[80vh]' : 'w-[500px] max-h-[600px]'} overflow-hidden`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 모달 헤더 */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                {selectedDateTodos.length > 0 && selectedDateTodos[0].dueDate ?
-                  format(selectedDateTodos[0].dueDate, i18n.language === 'ko' ? 'M월 d일 (E)' : 'MMM d (E)', { locale: dateLocale }) :
-                  t('calendar.tasksAndVacations')
-                } ({selectedDateTodos.length + selectedDateVacations.length}개)
-              </h3>
-              <button
-                onClick={() => setIsDateModalOpen(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {
+        isDateModalOpen && selectedDate && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsDateModalOpen(false)}>
+            <div
+              className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${isMobile ? 'w-[90vw] max-h-[80vh]' : 'w-[500px] max-h-[600px]'} overflow-hidden`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 모달 헤더 */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  {format(selectedDate, i18n.language === 'ko' ? 'M월 d일 (E)' : 'MMM d (E)', { locale: dateLocale })}
+                  <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+                    ({selectedDateTodos.length + selectedDateVacations.length}개)
+                  </span>
+                </h3>
+                <button
+                  onClick={() => setIsDateModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-            {/* 모달 내용 */}
-            <div className="p-4 overflow-y-auto max-h-[500px]">
-              {(selectedDateTodos.length > 0 || selectedDateVacations.length > 0) ? (
-                <div className="space-y-3">
-                  {/* 휴가 정보 먼저 표시 */}
-                  {selectedDateVacations.map(vacation => {
-                    const employee = employees.find(emp => emp.id === vacation.employeeId)
-                    return (
-                      <div
-                        key={`vacation-${vacation.id}`}
-                        className={`p-2 rounded border ${vacation.type === '연차'
-                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                          : vacation.type === '오전' || vacation.type === '오후'
-                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                            : vacation.type === '특별'
-                              ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'
-                              : vacation.type === '병가'
-                                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {employee && (
-                            <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                              style={{ backgroundColor: employee.color }}
-                            >
-                              {employee.name.charAt(0)}
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {employee ? employee.name : `직원 ${vacation.employeeId}`}
-                            </div>
-                          </div>
-                          <div className={`px-2 py-1 text-xs font-medium rounded ${vacation.type === '연차'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+              {/* 모달 내용 */}
+              <div className="p-4 overflow-y-auto max-h-[500px]">
+                {(selectedDateTodos.length > 0 || selectedDateVacations.length > 0) ? (
+                  <div className="space-y-3">
+                    {/* 휴가 정보 먼저 표시 */}
+                    {selectedDateVacations.map(vacation => {
+                      const employee = employees.find(emp => emp.id === vacation.employeeId)
+                      return (
+                        <div
+                          key={`vacation-${vacation.id}`}
+                          className={`p-2 rounded border ${vacation.type === '연차'
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                             : vacation.type === '오전' || vacation.type === '오후'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                               : vacation.type === '특별'
-                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+                                ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'
                                 : vacation.type === '병가'
-                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
-                            }`}>
-                            {vacation.type}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  {/* 할일 목록 */}
-                  {selectedDateTodos.map(todo => (
-                    <div
-                      key={todo.id}
-                      className={`p-2 rounded border cursor-pointer hover:shadow-md transition-all ${todo.completed
-                        ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 opacity-60'
-                        : todo.priority === 'urgent'
-                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                          : todo.priority === 'high'
-                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
-                            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                        }`}
-                      onClick={() => {
-                        setSelectedTodo(todo)
-                        setIsEditModalOpen(true)
-                        setIsDateModalOpen(false)
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-medium truncate ${todo.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                            {todo.title}
-                          </div>
-                          {/* 시간 정보 표시 */}
-                          {((todo.showStartTime && todo.startTime) || (todo.showDueTime && todo.dueDate)) && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {(todo.showStartTime && todo.startTime) && (
-                                <span>{t('calendar.start')}: {todo.startTime}</span>
-                              )}
-                              {(todo.showStartTime && todo.startTime) && (todo.showDueTime && todo.dueDate) && (() => {
-                                const dueDate = new Date(todo.dueDate);
-                                // 마감시간이 23:59가 아닌 경우에만 구분자 표시
-                                if (!(dueDate.getHours() === 23 && dueDate.getMinutes() === 59)) {
-                                  return <span> | </span>
-                                }
-                                return null;
-                              })()}
-                              {(todo.showDueTime && todo.dueDate) && (() => {
-                                const dueDate = new Date(todo.dueDate);
-                                // 마감시간이 23:59가 아닌 경우에만 시간 표시
-                                if (!(dueDate.getHours() === 23 && dueDate.getMinutes() === 59)) {
-                                  return <span>{t('calendar.due')}: {dueDate.toTimeString().slice(0, 5)}</span>
-                                }
-                                return null;
-                              })()}
+                                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                  : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                            }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {employee && (
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                                style={{ backgroundColor: employee.color }}
+                              >
+                                {employee.name.charAt(0)}
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900 dark:text-white">
+                                {employee ? employee.name : `직원 ${vacation.employeeId}`}
+                              </div>
                             </div>
-                          )}
+                            <div className={`px-2 py-1 text-xs font-medium rounded ${vacation.type === '연차'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                              : vacation.type === '오전' || vacation.type === '오후'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                                : vacation.type === '특별'
+                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+                                  : vacation.type === '병가'
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200'
+                              }`}>
+                              {vacation.type}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {todo.type === 'project' && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${todo.project === 'longterm'
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
-                              : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                              }`}>
-                              {todo.project === 'longterm' ? (t('projectTemplate.longterm') || 'Long-term') : (t('projectTemplate.shortterm') || 'Short-term')}
-                            </span>
-                          )}
-                          {todo.priority && todo.priority !== 'medium' && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${todo.priority === 'urgent'
-                              ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                              : todo.priority === 'high'
-                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                                : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
-                              }`}>
-                              {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : todo.priority === 'high' ? t('modal.addTodo.high') : t('modal.addTodo.low')}
-                            </span>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleTodo(todo.id)
-                            }}
-                            className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
-                            title={todo.completed ? t('calendar.completedCancel') : t('calendar.complete')}
-                          >
-                            <div className={`w-3 h-3 rounded-full ${todo.completed ? 'bg-green-600' : 'border border-gray-400'
-                              }`} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (confirm(t('calendar.deleteConfirm'))) {
-                                deleteTodo(todo.id)
-                                // 모달에서 삭제된 할일 제거
-                                const updatedTodos = selectedDateTodos.filter(t => t.id !== todo.id)
-                                if (updatedTodos.length === 0 && selectedDateVacations.length === 0) {
-                                  setIsDateModalOpen(false)
+                      )
+                    })}
+
+                    {/* 할일 목록 */}
+                    {selectedDateTodos.map(todo => (
+                      <div
+                        key={todo.id}
+                        className={`p-2 rounded border cursor-pointer hover:shadow-md transition-all ${todo.completed
+                          ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 opacity-60'
+                          : todo.priority === 'urgent'
+                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                            : todo.priority === 'high'
+                              ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                              : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                          }`}
+                        onClick={() => {
+                          setSelectedTodo(todo)
+                          setIsEditModalOpen(true)
+                          setIsDateModalOpen(false)
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className={`font-medium truncate ${todo.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
+                              {todo.title}
+                            </div>
+                            {/* 시간 정보 표시 */}
+                            {((todo.showStartTime && todo.startTime) || (todo.showDueTime && todo.dueDate)) && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {(todo.showStartTime && todo.startTime) && (
+                                  <span>{t('calendar.start')}: {todo.startTime}</span>
+                                )}
+                                {(todo.showStartTime && todo.startTime) && (todo.showDueTime && todo.dueDate) && (() => {
+                                  const dueDate = new Date(todo.dueDate);
+                                  // 마감시간이 23:59가 아닌 경우에만 구분자 표시
+                                  if (!(dueDate.getHours() === 23 && dueDate.getMinutes() === 59)) {
+                                    return <span> | </span>
+                                  }
+                                  return null;
+                                })()}
+                                {(todo.showDueTime && todo.dueDate) && (() => {
+                                  const dueDate = new Date(todo.dueDate);
+                                  // 마감시간이 23:59가 아닌 경우에만 시간 표시
+                                  if (!(dueDate.getHours() === 23 && dueDate.getMinutes() === 59)) {
+                                    return <span>{t('calendar.due')}: {dueDate.toTimeString().slice(0, 5)}</span>
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {todo.type === 'project' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${todo.project === 'longterm'
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                }`}>
+                                {todo.project === 'longterm' ? (t('projectTemplate.longterm') || 'Long-term') : (t('projectTemplate.shortterm') || 'Short-term')}
+                              </span>
+                            )}
+                            {todo.priority && todo.priority !== 'medium' && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${todo.priority === 'urgent'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                : todo.priority === 'high'
+                                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                                  : 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+                                }`}>
+                                {todo.priority === 'urgent' ? t('modal.addTodo.urgent') : todo.priority === 'high' ? t('modal.addTodo.high') : t('modal.addTodo.low')}
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleTodo(todo.id)
+                              }}
+                              className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+                              title={todo.completed ? t('calendar.completedCancel') : t('calendar.complete')}
+                            >
+                              <div className={`w-3 h-3 rounded-full ${todo.completed ? 'bg-green-600' : 'border border-gray-400'
+                                }`} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm(t('calendar.deleteConfirm'))) {
+                                  deleteTodo(todo.id)
+                                  // 모달에서 삭제된 할일 제거
+                                  const updatedTodos = selectedDateTodos.filter(t => t.id !== todo.id)
+                                  // 삭제 후에도 모달이 유지되도록 조건 제거 (항상 열려있음)
+                                  // if (updatedTodos.length === 0 && selectedDateVacations.length === 0) {
+                                  // setIsDateModalOpen(false)
+                                  // }
                                 }
-                              }
-                            }}
-                            className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-800 border border-gray-200 dark:border-gray-600"
-                            title={t('common.delete')}
-                          >
-                            <Trash2 className="w-3 h-3 text-red-600" />
-                          </button>
+                              }}
+                              className="p-1 bg-white dark:bg-gray-700 rounded shadow-sm hover:bg-red-100 dark:hover:bg-red-800 border border-gray-200 dark:border-gray-600"
+                              title={t('common.delete')}
+                            >
+                              <Trash2 className="w-3 h-3 text-red-600" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  {t('calendar.noTasks')}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                    {t('calendar.noTasks')}
+                  </div>
+                )}
+              </div>
 
-            {/* 모달 푸터 */}
-            < div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end" >
-              <button
-                onClick={() => setIsDateModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                {t('calendar.close')}
-              </button>
+              {/* 모달 푸터 */}
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                {/* 할일 추가 버튼 (푸터 좌측) */}
+                <button
+                  onClick={() => {
+                    if (selectedDate) {
+                      onAddTodo(selectedDate)
+                      setIsDateModalOpen(false)
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  title={t('modal.addTodo.title')}
+                >
+                  <Plus className="w-4 h-4" />
+                  {t('common.addTodo')}
+                </button>
+
+                <button
+                  onClick={() => setIsDateModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                >
+                  {t('calendar.close')}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   )
 }
 

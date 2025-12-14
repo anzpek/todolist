@@ -16,16 +16,24 @@ const LoginScreen: React.FC = () => {
       setError(null)
       await signInWithGoogle()
     } catch (error: any) {
-      setError(t('common.error')) // 간단한 에러 메시지로 대체하거나 키 추가 필요
       console.error('Google sign-in error:', error)
+      setError(error.message || JSON.stringify(error))
     } finally {
       setLoading(null)
     }
   }
 
   const handleGuestSignIn = async () => {
-    // 앱 내 체험하기 대신 웹 버전으로 리다이렉트 (요청 사항)
-    window.open('https://anzpek.github.io/todolist/', '_system')
+    try {
+      setLoading('guest')
+      setError(null)
+      await signInAsGuest()
+    } catch (error: any) {
+      console.error('Guest sign-in error:', error)
+      setError(error.message || t('common.error'))
+    } finally {
+      setLoading(null)
+    }
   }
 
   return (

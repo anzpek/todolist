@@ -24,6 +24,7 @@ public class TodoListWidgetPlugin extends Plugin {
     public void updateWidget(PluginCall call) {
         String data = call.getString("data"); // JSON String of tasks
         String date = call.getString("date"); // Date string
+        Integer transparency = call.getInt("transparency"); // Transparency 0-100
 
         if (data == null) {
             call.reject("Must provide data");
@@ -38,14 +39,24 @@ public class TodoListWidgetPlugin extends Plugin {
         if (date != null) {
             editor.putString(PREF_PREFIX_KEY + "date", date);
         }
+        if (transparency != null) {
+            editor.putInt(PREF_PREFIX_KEY + "transparency", transparency);
+        }
         editor.apply();
+        
+        android.util.Log.d("WidgetPlugin", "📱 Data saved to prefs: " + data);
+        android.util.Log.d("WidgetPlugin", "📱 Transparency: " + transparency);
 
-        // Trigger Widget Update
-        Intent intent = new Intent(context, TodoListWidget.class);
-        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
-        int[] ids = AppWidgetManager.getInstance(context).getAppWidgetIds(new ComponentName(context, TodoListWidget.class));
-        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
-        context.sendBroadcast(intent);
+        // Trigger Widget Update (Directly)
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+        int[] ids = appWidgetManager.getAppWidgetIds(new ComponentName(context, TodoListWidget.class));
+        
+        android.util.Log.d("WidgetPlugin", "📱 Found " + ids.length + " widget instances");
+        
+        for (int id : ids) {
+            TodoListWidget.updateAppWidget(context, appWidgetManager, id);
+            android.util.Log.d("WidgetPlugin", "📱 Updated widget ID: " + id);
+        }
 
         call.resolve();
     }

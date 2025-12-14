@@ -97,6 +97,8 @@ export interface Todo {
   actualDuration?: number
   startDate?: Date // 실제 시작일
   startTime?: string // 시작 시간 (HH:mm 형식)
+  showStartTime?: boolean // 시작 시간 표시 여부
+  showDueTime?: boolean // 마감 시간 표시 여부
   completedAt?: Date // 완료일
   notification?: NotificationSettings
   order?: number // 정렬 순서 (드래그 앤 드롭용)
