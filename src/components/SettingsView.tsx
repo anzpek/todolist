@@ -26,7 +26,7 @@ const SettingsView: React.FC = () => {
   const { customHolidays, addCustomHoliday, deleteCustomHoliday } = useCustomHolidays()
   const [importError, setImportError] = useState<string | null>(null)
   const [showImportSuccess, setShowImportSuccess] = useState(false)
-  const [visualTab, setVisualTab] = useState<'colors' | 'seasonal' | 'city'>('colors')
+  const [visualTab, setVisualTab] = useState<'colors' | 'seasonal' | 'city' | 'mode' | 'background' | 'display'>('colors')
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   const [newHolidayDate, setNewHolidayDate] = useState('')
   const [newHolidayName, setNewHolidayName] = useState('')
