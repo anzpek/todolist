@@ -652,173 +652,11 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    // Widget Update Logic
-    useEffect(() => {
-      // Only run on mobile (could check Platform) but for now just try-catch
-      const updateWidget = async () => {
-        try {
-          const { Capacitor } = await import('@capacitor/core');
-          if (Capacitor.getPlatform() !== 'android') return;
+    syncInstancesToFirebase()
+  }, [currentUser, state.recurringInstances.length, state.recurringInstances]) // dependencies mostly handled by internal logic, but best to include needed ones
 
-          const TodoListWidget = (await import('../plugins/TodoListWidget')).default;
-
-          // Get Today's incomplete tasks
-          const todosForWidget = state.todos.filter(todo => {
-            if (todo.completed) return false;
-
-            const targetDate = new Date();
-            targetDate.setHours(0, 0, 0, 0);
-
-            let isVisible = false;
-            if (todo.startDate) {
-              const start = new Date(todo.startDate);
-              start.setHours(0, 0, 0, 0);
-              if (targetDate >= start) isVisible = true;
-            } else if (todo.dueDate) {
-              const due = new Date(todo.dueDate);
-              due.setHours(0, 0, 0, 0);
-              if (targetDate >= due) isVisible = true;
-            } else {
-              // No dates - skip
-            }
-
-            return isVisible;
-          });
-
-          // Sort by priority/time
-          const sorted = todosForWidget.sort((a, b) => {
-            // Priority
-            const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-            const pA = pMap[a.priority] || 2;
-            const pB = pMap[b.priority] || 2;
-            if (pA !== pB) return pA - pB;
-            return 0;
-          });
-
-          const widgetData = sorted.slice(0, 5).map(t => ({
-            title: t.title,
-            completed: t.completed,
-            priority: t.priority
-          }));
-
-          await TodoListWidget.updateWidget({
-            data: JSON.stringify(widgetData),
-            date: new Date().toLocaleDateString()
-          });
-          console.log('📱 Widget Updated:', widgetData.length, 'tasks');
-
-        } catch (e) {
-          // Ignore errors
-        }
-      };
-
-      const timeout = setTimeout(updateWidget, 1000); // Debounce
-      return () => clearTimeout(timeout);
-    }, [state.todos]);
-
-    // localStorage에서 데이터 로드 (비로그인 상태용)
-
-    // Notification Action Listener
-    useEffect(() => {
-      const setupListener = async () => {
-        try {
-          const { Capacitor } = await import('@capacitor/core');
-          if (Capacitor.getPlatform() !== 'android') return;
-
-          const { LocalNotifications } = await import('@capacitor/local-notifications');
-
-          // Remove existing listeners to prevent duplicates (if any mechanism existed)
-          // Capacitor plugins usually handle addListener cumulatively, so we should clean up.
-
-          const listener = await LocalNotifications.addListener('localNotificationActionPerformed', async (notification) => {
-            console.log('🔔 Notification Action Performed:', notification.actionId);
-
-            const actionId = notification.actionId;
-            const todoId = notification.notification.extra?.todoId;
-
-            if (actionId === 'COMPLETE' && todoId) {
-              // Find todo and toggle if not completed
-              // Since we are inside the context provider, we can't easily access 'toggleTodo' function from *outside* usually,
-              // but here we are inside the component. However, 'state' is available.
-
-              // We need to dispatch directly or call the function.
-              // We have 'dispatch' available!
-              console.log('✅ Completing task via notification:', todoId);
-
-              // Optimistic update locally
-              dispatch({ type: 'TOGGLE_TODO', payload: todoId });
-
-              // Sync to Firestore (manually since dispatch doesn't do side effects except notification trigger)
-              if (currentUser) {
-                // We'd ideally call 'toggleTodo' logic but that's defined in the context *value* which we are creating.
-                // We can use a ref to access the latest function if needed, or just duplicate the logic.
-                // Let's duplicate the simple toggle logic for reliability or better yet, define toggleTodo outside? No.
-
-                // Let's use the dispatch + firestore call.
-                const todo = state.todos.find(t => t.id === todoId);
-                if (todo) {
-                  await firestoreService.updateTodo(currentUser.uid, todoId, {
-                    completed: !todo.completed, // Logic in reducer might have flipped it already?
-                    // Wait, async state update issue. 
-                    // It's safer to just fetch fresh or assume 'COMPLETE' means set to true.
-                    completed: true,
-                    completedAt: new Date(),
-                    updatedAt: new Date()
-                  });
-                }
-              }
-
-              // Remove notification
-              await LocalNotifications.removeAllDeliveredNotifications(); // Or specific one
-            }
-            else if (actionId === 'SNOOZE' && todoId) {
-              console.log('zzz Snoozing task:', todoId);
-              // Reschedule for 15 min later
-              const snoozeTime = new Date(Date.now() + 15 * 60 * 1000);
-
-              // We need to schedule it again.
-              // We can Reuse NotificationManager logic but it's a class instance.
-              // We can import the instance.
-              const { notificationManager } = await import('../utils/notifications');
-              const todo = state.todos.find(t => t.id === todoId);
-              if (todo) {
-                // Hacky way to force reschedule without settings override?
-                // Let's just use LocalNotifications directly for Snooze
-                await LocalNotifications.schedule({
-                  notifications: [{
-                    title: notification.notification.title || 'Snoozed Task',
-                    body: notification.notification.body || 'Reminder',
-                    id: notification.notification.id + 1, // New ID
-                    schedule: { at: snoozeTime },
-                    actionTypeId: 'REMINDER_ACTIONS',
-                    extra: { todoId }
-                  }]
-                });
-              }
-            }
-          });
-
-          return () => {
-            listener.remove();
-          };
-
-        } catch (e) {
-          console.warn('Failed to setup notification listeners', e);
-        }
-      };
-
-      // We need to handle cleanup async, but useEffect cleanup must be sync.
-      // The listener promise returns an object with remove().
-      let cleanup: (() => void) | undefined;
-
-      setupListener().then(c => cleanup = c);
-
-      return () => {
-        if (cleanup) cleanup();
-      };
-    }, [state.todos, currentUser]); // deps? We rely on state.todos for finding task.
-
-    // localStorage에서 데이터 로드 (비로그인 상태용)
+  // Widget Update Logic
+  useEffect(() => {
     // Only run on mobile (could check Platform) but for now just try-catch
     const updateWidget = async () => {
       try {
@@ -828,30 +666,11 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         const TodoListWidget = (await import('../plugins/TodoListWidget')).default;
 
         // Get Today's incomplete tasks
-        const today = new Date();
         const todosForWidget = state.todos.filter(todo => {
           if (todo.completed) return false;
 
-          // Logic similar to getTodayTodos but simplified
           const targetDate = new Date();
           targetDate.setHours(0, 0, 0, 0);
-
-          if (todo.startDate) {
-            const start = new Date(todo.startDate);
-            start.setHours(0, 0, 0, 0);
-            if (targetDate < start) return false; // Future
-          }
-          // If due date is passed and not completed, keeping it (overdue) is typical for "Today" views
-          // But strict "Today" view might differ. Let's use getTodayTodos logic:
-          // Actually, let's just use the helper function logic re-implemented or simplified:
-
-          // Simplified: Start Date <= Today OR (No Start Date AND Due Date == Today)
-          // For widget, let's show anything relevant for "Now"
-
-          // Let's filter for "Actionable Today"
-          // 1. Start Date exists and <= Today
-          // 2. Or (No Start Date) and (Due Date exists and <= Today)
-          // 3. Or (No dates) - maybe skip? User usually wants dated tasks on widget.
 
           let isVisible = false;
           if (todo.startDate) {
@@ -863,8 +682,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
             due.setHours(0, 0, 0, 0);
             if (targetDate >= due) isVisible = true;
           } else {
-            // No dates - show if high priority? or skip. 
-            // Let's skip undated tasks for widget to save space.
+            // No dates - skip
           }
 
           return isVisible;
@@ -893,14 +711,118 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         console.log('📱 Widget Updated:', widgetData.length, 'tasks');
 
       } catch (e) {
-        // Ignore errors (e.g. not on Android or plugin not found)
-        console.debug('Widget update failed/skipped', e);
+        // Ignore errors
       }
     };
 
     const timeout = setTimeout(updateWidget, 1000); // Debounce
     return () => clearTimeout(timeout);
   }, [state.todos]);
+
+  // localStorage에서 데이터 로드 (비로그인 상태용)
+
+  // Notification Action Listener
+  useEffect(() => {
+    const setupListener = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.getPlatform() !== 'android') return;
+
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+
+        // Remove existing listeners to prevent duplicates (if any mechanism existed)
+        // Capacitor plugins usually handle addListener cumulatively, so we should clean up.
+
+        const listener = await LocalNotifications.addListener('localNotificationActionPerformed', async (notification) => {
+          console.log('🔔 Notification Action Performed:', notification.actionId);
+
+          const actionId = notification.actionId;
+          const todoId = notification.notification.extra?.todoId;
+
+          if (actionId === 'COMPLETE' && todoId) {
+            // Find todo and toggle if not completed
+            // Since we are inside the context provider, we can't easily access 'toggleTodo' function from *outside* usually,
+            // but here we are inside the component. However, 'state' is available.
+
+            // We need to dispatch directly or call the function.
+            // We have 'dispatch' available!
+            console.log('✅ Completing task via notification:', todoId);
+
+            // Optimistic update locally
+            dispatch({ type: 'TOGGLE_TODO', payload: todoId });
+
+            // Sync to Firestore (manually since dispatch doesn't do side effects except notification trigger)
+            if (currentUser) {
+              // We'd ideally call 'toggleTodo' logic but that's defined in the context *value* which we are creating.
+              // We can use a ref to access the latest function if needed, or just duplicate the logic.
+              // Let's duplicate the simple toggle logic for reliability or better yet, define toggleTodo outside? No.
+
+              // Let's use the dispatch + firestore call.
+              const todo = state.todos.find(t => t.id === todoId);
+              if (todo) {
+                await firestoreService.updateTodo(currentUser.uid, todoId, {
+                  completed: !todo.completed, // Logic in reducer might have flipped it already?
+                  // Wait, async state update issue. 
+                  // It's safer to just fetch fresh or assume 'COMPLETE' means set to true.
+                  completed: true,
+                  completedAt: new Date(),
+                  updatedAt: new Date()
+                });
+              }
+            }
+
+            // Remove notification
+            await LocalNotifications.removeAllDeliveredNotifications(); // Or specific one
+          }
+          else if (actionId === 'SNOOZE' && todoId) {
+            console.log('zzz Snoozing task:', todoId);
+            // Reschedule for 15 min later
+            const snoozeTime = new Date(Date.now() + 15 * 60 * 1000);
+
+            // We need to schedule it again.
+            // We can Reuse NotificationManager logic but it's a class instance.
+            // We can import the instance.
+            const { notificationManager } = await import('../utils/notifications');
+            const todo = state.todos.find(t => t.id === todoId);
+            if (todo) {
+              // Hacky way to force reschedule without settings override?
+              // Let's just use LocalNotifications directly for Snooze
+              await LocalNotifications.schedule({
+                notifications: [{
+                  title: notification.notification.title || 'Snoozed Task',
+                  body: notification.notification.body || 'Reminder',
+                  id: notification.notification.id + 1, // New ID
+                  schedule: { at: snoozeTime },
+                  actionTypeId: 'REMINDER_ACTIONS',
+                  extra: { todoId }
+                }]
+              });
+            }
+          }
+        });
+
+        return () => {
+          listener.remove();
+        };
+
+      } catch (e) {
+        console.warn('Failed to setup notification listeners', e);
+      }
+    };
+
+    // We need to handle cleanup async, but useEffect cleanup must be sync.
+    // The listener promise returns an object with remove().
+    let cleanup: (() => void) | undefined;
+
+    setupListener().then(c => cleanup = c);
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [state.todos, currentUser]); // deps? We rely on state.todos for finding task.
+
+  // localStorage에서 데이터 로드 (비로그인 상태용)
+
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
   const loadFromLocalStorage = () => {
