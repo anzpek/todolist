@@ -67,6 +67,8 @@ export interface NotificationSettings {
   startReminder?: boolean // 시작일 알림 여부
   weeklyReport?: boolean // 주간 리포트 알림 여부
   time: string // 일간 브리핑 시간 (HH:mm 형식)
+  dailyReminder?: boolean // 일간 브리핑 알림 활성화 여부
+  dailyReminderTime?: string // 일간 브리핑 시간 (HH:mm 형식)
 }
 
 export interface Todo {

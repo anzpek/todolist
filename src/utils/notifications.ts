@@ -8,7 +8,7 @@ import { Capacitor } from '@capacitor/core'
 export interface NotificationEvent {
   id: string
   todoId?: string
-  type: 'reminder' | 'overdue' | 'recurring_suggestion' | 'start_reminder' | 'weekly_report' | 'completion_celebration'
+  type: 'reminder' | 'overdue' | 'recurring_suggestion' | 'start_reminder' | 'weekly_report' | 'completion_celebration' | 'daily_briefing'
   title: string
   message: string
   scheduledTime: Date
@@ -55,6 +55,22 @@ export class NotificationManager {
                   title: '15분 뒤 알림',
                   destructive: false,
                   foreground: false
+                }
+              ]
+            },
+            {
+              id: 'DAILY_BRIEFING_ACTIONS',
+              actions: [
+                {
+                  id: 'OPEN_APP',
+                  title: '어플로 확인',
+                  foreground: true // 앱 열기
+                },
+                {
+                  id: 'DISMISS',
+                  title: '닫기',
+                  destructive: false,
+                  foreground: false // 앱 열지 않고 닫기
                 }
               ]
             }
@@ -266,6 +282,132 @@ export class NotificationManager {
       const id1 = this.hashCode(todoId)
       const id2 = this.hashCode(todoId + "_start")
       await LocalNotifications.cancel({ notifications: [{ id: id1 }, { id: id2 }] })
+    }
+  }
+
+  // 일간 브리핑 알림 고정 ID
+  private static DAILY_BRIEFING_ID = 999999
+
+  // 일간 브리핑 알림 스케줄링
+  public async scheduleDailyBriefing(time: string, getTodayTodos: () => Todo[]) {
+    if (!Capacitor.isNativePlatform()) {
+      console.log('Daily briefing only supported on native platforms')
+      return
+    }
+
+    try {
+      // 기존 알림 취소
+      await this.cancelDailyBriefing()
+
+      const [hours, minutes] = time.split(':').map(Number)
+      const now = new Date()
+      const scheduleTime = new Date()
+      scheduleTime.setHours(hours, minutes, 0, 0)
+
+      // 이미 지난 시간이면 내일로
+      if (scheduleTime <= now) {
+        scheduleTime.setDate(scheduleTime.getDate() + 1)
+      }
+
+      const todos = getTodayTodos()
+      const message = this.buildDailyBriefingMessage(todos)
+
+      await LocalNotifications.schedule({
+        notifications: [{
+          title: '오늘의 할일 📋',
+          body: message,
+          id: NotificationManager.DAILY_BRIEFING_ID,
+          schedule: {
+            at: scheduleTime,
+            every: 'day',
+            allowWhileIdle: true
+          },
+          actionTypeId: 'DAILY_BRIEFING_ACTIONS',
+          extra: { type: 'daily_briefing' }
+        }]
+      })
+
+      console.log('Daily briefing scheduled for', scheduleTime.toLocaleString())
+    } catch (e) {
+      console.error('Failed to schedule daily briefing', e)
+    }
+  }
+
+  // 일간 브리핑 알림 취소
+  public async cancelDailyBriefing() {
+    if (!Capacitor.isNativePlatform()) return
+
+    try {
+      await LocalNotifications.cancel({
+        notifications: [{ id: NotificationManager.DAILY_BRIEFING_ID }]
+      })
+      console.log('Daily briefing cancelled')
+    } catch (e) {
+      console.error('Failed to cancel daily briefing', e)
+    }
+  }
+
+  // 오늘의 할일 메시지 생성
+  private buildDailyBriefingMessage(todos: Todo[]): string {
+    if (todos.length === 0) {
+      return '오늘 예정된 할일이 없습니다. 여유로운 하루 보내세요! 🎉'
+    }
+
+    const pendingTodos = todos.filter(t => !t.completed)
+    if (pendingTodos.length === 0) {
+      return '오늘의 할일을 모두 완료했습니다! 🎊'
+    }
+
+    const maxDisplay = 5
+    const displayTodos = pendingTodos.slice(0, maxDisplay)
+    const titles = displayTodos.map(t => `• ${t.title}`).join('\n')
+
+    if (pendingTodos.length > maxDisplay) {
+      return `${titles}\n...외 ${pendingTodos.length - maxDisplay}개`
+    }
+
+    return titles
+  }
+
+  // 알림 지원 여부 확인
+  public isSupported(): boolean {
+    if (Capacitor.isNativePlatform()) {
+      return true
+    }
+    return 'Notification' in window
+  }
+
+  // 알림 권한 요청
+  public async requestPermission(): Promise<boolean> {
+    if (Capacitor.isNativePlatform()) {
+      const result = await LocalNotifications.requestPermissions()
+      return result.display === 'granted'
+    }
+
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission()
+      return permission === 'granted'
+    }
+
+    return false
+  }
+
+  // 테스트용 알림 표시
+  public async showNotification(options: { title: string; body: string; tag?: string }) {
+    if (Capacitor.isNativePlatform()) {
+      await LocalNotifications.schedule({
+        notifications: [{
+          title: options.title,
+          body: options.body,
+          id: Date.now(),
+          schedule: { at: new Date(Date.now() + 1000) }
+        }]
+      })
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(options.title, {
+        body: options.body,
+        tag: options.tag
+      })
     }
   }
 }

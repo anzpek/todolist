@@ -761,9 +761,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
               const todo = state.todos.find(t => t.id === todoId);
               if (todo) {
                 await firestoreService.updateTodo(currentUser.uid, todoId, {
-                  completed: !todo.completed, // Logic in reducer might have flipped it already?
-                  // Wait, async state update issue. 
-                  // It's safer to just fetch fresh or assume 'COMPLETE' means set to true.
+                  // COMPLETE action means set to true
                   completed: true,
                   completedAt: new Date(),
                   updatedAt: new Date()
@@ -799,6 +797,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
               });
             }
           }
+          // Daily briefing actions
+          else if (actionId === 'OPEN_APP') {
+            // foreground: true 이므로 자동으로 앱이 열림
+            console.log('📱 Daily briefing: 어플로 확인 클릭 - 앱 열기');
+          }
+          else if (actionId === 'DISMISS') {
+            // 알림 닫기 - 별도 동작 없음
+            console.log('❌ Daily briefing: 닫기 클릭');
+          }
         });
 
         return () => {
@@ -820,6 +827,60 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (cleanup) cleanup();
     };
   }, [state.todos, currentUser]); // deps? We rely on state.todos for finding task.
+
+  // Daily Briefing 초기화 (앱 시작 시)
+  useEffect(() => {
+    const initDailyBriefing = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.getPlatform() !== 'android') return;
+
+        // 저장된 설정 확인
+        const savedSettings = localStorage.getItem('notification-settings');
+        if (!savedSettings) return;
+
+        const settings = JSON.parse(savedSettings);
+        if (!settings.dailyReminder) return;
+
+        const time = settings.reminderTime || '09:00';
+
+        // getTodayTodos 함수 생성 (현재 state 기반)
+        const getTodayTodosForNotification = () => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          return state.todos.filter(todo => {
+            if (todo.completed) return false;
+
+            if (todo.startDate) {
+              const start = new Date(todo.startDate);
+              start.setHours(0, 0, 0, 0);
+              return start <= today;
+            }
+
+            if (todo.dueDate) {
+              const due = new Date(todo.dueDate);
+              due.setHours(0, 0, 0, 0);
+              return due.toDateString() === today.toDateString();
+            }
+
+            return false;
+          });
+        };
+
+        const { notificationManager } = await import('../utils/notifications');
+        await notificationManager.scheduleDailyBriefing(time, getTodayTodosForNotification);
+        console.log('📅 Daily briefing scheduled on app startup');
+      } catch (e) {
+        console.warn('Failed to initialize daily briefing', e);
+      }
+    };
+
+    // todos가 로드된 후에 실행
+    if (state.todos.length > 0 || !state.loading) {
+      initDailyBriefing();
+    }
+  }, [state.todos, state.loading]);
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
 

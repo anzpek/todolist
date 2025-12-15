@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { notificationManager } from '../utils/notifications'
+import { useTodos } from '../contexts/TodoContext'
 
 interface NotificationSettingsProps {
   onClose: () => void
 }
 
 const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) => {
+  const { getTodayTodos } = useTodos()
   const [permission, setPermission] = useState<NotificationPermission>('default')
   const [supported, setSupported] = useState(false)
   const [settings, setSettings] = useState({
@@ -19,7 +21,31 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
   })
 
   useEffect(() => {
-    setPermission(Notification.permission)
+    // 네이티브 플랫폼에서는 Notification API가 없음 - 안전하게 체크
+    const initializePermission = async () => {
+      try {
+        // Capacitor 네이티브 플랫폼 체크
+        const { Capacitor } = await import('@capacitor/core')
+        if (Capacitor.isNativePlatform()) {
+          // 네이티브에서는 OS가 권한 관리 - granted로 가정
+          setPermission('granted')
+        } else if (typeof Notification !== 'undefined') {
+          // 웹 브라우저에서는 Notification API 사용
+          setPermission(Notification.permission)
+        } else {
+          setPermission('default')
+        }
+      } catch {
+        // 에러 발생 시 기본값 사용
+        if (typeof Notification !== 'undefined') {
+          setPermission(Notification.permission)
+        } else {
+          setPermission('default')
+        }
+      }
+    }
+
+    initializePermission()
     setSupported(notificationManager.isSupported())
 
     // 로컬 스토리지에서 설정 로드
@@ -40,10 +66,22 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
     setPermission(granted ? 'granted' : 'denied')
   }
 
-  const handleSettingChange = (key: keyof typeof settings, value: boolean | string | number) => {
+  const handleSettingChange = async (key: keyof typeof settings, value: boolean | string | number) => {
     const newSettings = { ...settings, [key]: value }
     setSettings(newSettings)
     localStorage.setItem('notification-settings', JSON.stringify(newSettings))
+
+    // Daily briefing 알림 스케줄링/취소
+    if (key === 'dailyReminder' || key === 'reminderTime') {
+      if (newSettings.dailyReminder) {
+        await notificationManager.scheduleDailyBriefing(
+          newSettings.reminderTime,
+          getTodayTodos
+        )
+      } else {
+        await notificationManager.cancelDailyBriefing()
+      }
+    }
   }
 
   const testNotification = async () => {
