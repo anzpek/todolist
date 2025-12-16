@@ -785,6 +785,10 @@ class SimpleRecurringSystem {
       console.log(`🔥 월간업무보고 우선순위 강제 수정: ${template.priority} → urgent`)
     }
 
+    // 🔥 시간대 오류 방지: instance.date를 정오(12:00)로 설정하여 UTC 변환 시 날짜가 바뀌지 않도록 함
+    const adjustedDate = new Date(instance.date)
+    adjustedDate.setHours(12, 0, 0, 0) // 정오로 설정
+
     const todo = {
       id: todoId,
       title: template.title,
@@ -793,7 +797,7 @@ class SimpleRecurringSystem {
       priority: finalPriority,
       type: template.type,
       dueDate: undefined,
-      startDate: instance.date,
+      startDate: adjustedDate,
       createdAt: instance.createdAt,
       updatedAt: instance.updatedAt,
       completedAt: instance.completedAt,

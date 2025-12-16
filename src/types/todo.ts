@@ -61,14 +61,21 @@ export interface ProjectTemplate {
 }
 
 export interface NotificationSettings {
-  enabled: boolean
-  advanceDays: number // @deprecated dueReminderTiming 사용 권장
-  dueReminderTiming?: number // 마감 몇 분 전 알림 (예: 60 = 1시간 전)
-  startReminder?: boolean // 시작일 알림 여부
-  weeklyReport?: boolean // 주간 리포트 알림 여부
-  time: string // 일간 브리핑 시간 (HH:mm 형식)
-  dailyReminder?: boolean // 일간 브리핑 알림 활성화 여부
-  dailyReminderTime?: string // 일간 브리핑 시간 (HH:mm 형식)
+  dueReminders: boolean
+  dueReminderTiming?: number // 분 단위 (예: 60 = 1시간 전)
+  time: string // 마감일 알림 기준 시간 (HH:mm)
+  advanceDays: number // dueReminderTiming이 없을 때 며칠 전인지
+
+  startReminder: boolean // 시작일 알림
+  startReminderTime?: string // 시작일 알림 시간 (HH:mm)
+
+  weeklyReport: boolean // 주간 리포트
+  weeklyReportTime?: string // 주간 리포트 시간 (HH:mm)
+
+  dailyReminder: boolean // 일간 브리핑
+  dailyReminderTime: string // 일간 브리핑 시간
+  dailyRecurrence?: number[] // 일간 브리핑 요일 (0: 일, 1: 월, ... 6: 토)
+  dailyExcludeHolidays?: boolean // 공휴일 제외 여부
 }
 
 export interface Todo {

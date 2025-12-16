@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_item_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="0dp">
+
+    <!-- Checkbox/Priority Indicator -->
+    <!-- We can use a simple view or existing drawable for now. 
+         Ideally, we should have drawables for checkboxes. 
+         For now, using a TextView as a placeholder for the icon if no drawable exists, 
+         but looking at previous code, user wants 'Square Checkbox'. 
+         Let's assume we can change the text or icon dynamically. -->
+    <TextView
+        android:id="@+id/widget_item_priority"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="☐"
+        android:textSize="22sp"
+        android:textColor="#9CA3AF"
+        android:layout_marginEnd="12dp" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_item_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+             android:id="@+id/widget_item_due_date"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:textSize="14sp"
+             android:textColor="#6B7280"
+             android:visibility="gone"
+             tools:visibility="visible"
+             xmlns:tools="http://schemas.android.com/tools"
+             android:text="10:00 AM"/>
+    </LinearLayout>
+
+</LinearLayout>

@@ -655,69 +655,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     syncInstancesToFirebase()
   }, [currentUser, state.recurringInstances.length, state.recurringInstances]) // dependencies mostly handled by internal logic, but best to include needed ones
 
-  // Widget Update Logic
-  useEffect(() => {
-    // Only run on mobile (could check Platform) but for now just try-catch
-    const updateWidget = async () => {
-      try {
-        const { Capacitor } = await import('@capacitor/core');
-        if (Capacitor.getPlatform() !== 'android') return;
 
-        const TodoListWidget = (await import('../plugins/TodoListWidget')).default;
-
-        // Get Today's incomplete tasks
-        const todosForWidget = state.todos.filter(todo => {
-          if (todo.completed) return false;
-
-          const targetDate = new Date();
-          targetDate.setHours(0, 0, 0, 0);
-
-          let isVisible = false;
-          if (todo.startDate) {
-            const start = new Date(todo.startDate);
-            start.setHours(0, 0, 0, 0);
-            if (targetDate >= start) isVisible = true;
-          } else if (todo.dueDate) {
-            const due = new Date(todo.dueDate);
-            due.setHours(0, 0, 0, 0);
-            if (targetDate >= due) isVisible = true;
-          } else {
-            // No dates - skip
-          }
-
-          return isVisible;
-        });
-
-        // Sort by priority/time
-        const sorted = todosForWidget.sort((a, b) => {
-          // Priority
-          const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-          const pA = pMap[a.priority] || 2;
-          const pB = pMap[b.priority] || 2;
-          if (pA !== pB) return pA - pB;
-          return 0;
-        });
-
-        const widgetData = sorted.slice(0, 5).map(t => ({
-          title: t.title,
-          completed: t.completed,
-          priority: t.priority
-        }));
-
-        await TodoListWidget.updateWidget({
-          data: JSON.stringify(widgetData),
-          date: new Date().toLocaleDateString()
-        });
-        console.log('📱 Widget Updated:', widgetData.length, 'tasks');
-
-      } catch (e) {
-        // Ignore errors
-      }
-    };
-
-    const timeout = setTimeout(updateWidget, 1000); // Debounce
-    return () => clearTimeout(timeout);
-  }, [state.todos]);
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
 

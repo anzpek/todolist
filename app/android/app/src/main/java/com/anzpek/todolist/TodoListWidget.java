@@ -3,6 +3,7 @@ package com.anzpek.todolist;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -10,105 +11,51 @@ import android.net.Uri;
 import android.widget.RemoteViews;
 
 import org.json.JSONArray;
-import org.json.JSONObject;
 
 public class TodoListWidget extends AppWidgetProvider {
 
     private static final String PREFS_NAME = "WidgetPrefs";
     private static final String PREF_PREFIX_KEY = "todo_list_";
 
-    private static final int[] TASK_VIEW_IDS = {
-        R.id.widget_task_1, R.id.widget_task_2, R.id.widget_task_3, R.id.widget_task_4, R.id.widget_task_5,
-        R.id.widget_task_6, R.id.widget_task_7, R.id.widget_task_8, R.id.widget_task_9, R.id.widget_task_10,
-        R.id.widget_task_11, R.id.widget_task_12, R.id.widget_task_13, R.id.widget_task_14, R.id.widget_task_15,
-        R.id.widget_task_16, R.id.widget_task_17, R.id.widget_task_18, R.id.widget_task_19, R.id.widget_task_20,
-        R.id.widget_task_21, R.id.widget_task_22, R.id.widget_task_23, R.id.widget_task_24, R.id.widget_task_25,
-        R.id.widget_task_26, R.id.widget_task_27, R.id.widget_task_28, R.id.widget_task_29, R.id.widget_task_30
-    };
-
     public static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         android.util.Log.d("TodoListWidget", "updateAppWidget ID: " + appWidgetId);
         
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.todo_widget);
+        // Use the new List Layout
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_list_layout);
         
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String todoJson = prefs.getString(PREF_PREFIX_KEY + "data", "[]");
-
             JSONArray tasks = new JSONArray(todoJson);
             int taskCount = tasks.length();
             
-            views.setTextViewText(R.id.widget_title, "오늘 할일");
-            views.setTextViewText(R.id.widget_count, taskCount + "개");
-
-            for (int id : TASK_VIEW_IDS) {
-                views.setViewVisibility(id, android.view.View.GONE);
-            }
+            views.setTextViewText(R.id.widget_title, "Today");
+            views.setTextViewText(R.id.widget_count, String.valueOf(taskCount));
 
             if (taskCount == 0) {
                 views.setViewVisibility(R.id.widget_empty_view, android.view.View.VISIBLE);
+                views.setViewVisibility(R.id.widget_list_view, android.view.View.GONE);
             } else {
                 views.setViewVisibility(R.id.widget_empty_view, android.view.View.GONE);
+                views.setViewVisibility(R.id.widget_list_view, android.view.View.VISIBLE);
+
+                // Set up the intent that starts the TodoListWidgetService, which will
+                // provide the views for this collection.
+                Intent intent = new Intent(context, TodoListWidgetService.class);
+                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+                intent.setData(Uri.parse(intent.toUri(Intent.URI_INTENT_SCHEME)));
                 
-                int displayCount = Math.min(30, taskCount);
-                for (int i = 0; i < displayCount; i++) {
-                    JSONObject task = tasks.getJSONObject(i);
-                    String title = task.optString("title", "");
-                    String priority = task.optString("priority", "medium");
-                    String description = task.optString("description", "");
-                    String dueDate = task.optString("dueDate", "");
-                    int progress = task.optInt("progress", -1);
-                    boolean completed = task.optBoolean("completed", false);
-                    
-                    StringBuilder display = new StringBuilder();
-                    display.append(completed ? "☑ " : "☐ ");
-                    
-                    if ("urgent".equals(priority)) display.append("🔴");
-                    else if ("high".equals(priority)) display.append("🟠");
-                    else if ("medium".equals(priority)) display.append("🔵");
-                    else display.append("⚪");
-                    
-                    display.append(" ").append(title);
-                    
-                    if (description != null && !description.isEmpty()) {
-                         // Truncate description if too long to avoid cluttering too much, 
-                         // but user said "title and description both show", so maybe just append.
-                         // Let's truncate slightly less or not at all if lines allow, 
-                         // but single TextView maxLines="1" dictates it will cut off anyway.
-                         // User wants to fill width. 
-                        String shortDesc = description.length() > 20 ? description.substring(0, 20) + ".." : description;
-                        display.append(" - ").append(shortDesc);
-                    }
-                    
-                    if (progress >= 0) {
-                        display.append(" [").append(progress).append("%]");
-                    }
-                    
-                    // Show due date only (requested to hide start date)
-                    if (!dueDate.isEmpty()) {
-                        display.append(" ⏰").append(formatDate(dueDate));
-                    }
-                    
-                    views.setTextViewText(TASK_VIEW_IDS[i], display.toString());
-                    views.setViewVisibility(TASK_VIEW_IDS[i], android.view.View.VISIBLE);
-                }
-                
-                if (taskCount > 30) {
-                    views.setTextViewText(R.id.widget_count, taskCount + "개 (+" + (taskCount - 30) + ")");
-                }
+                views.setRemoteAdapter(R.id.widget_list_view, intent);
+                views.setEmptyView(R.id.widget_list_view, R.id.widget_empty_view);
             }
 
         } catch (Exception e) {
             android.util.Log.e("TodoListWidget", "ERROR: " + e.getMessage());
-            views.setViewVisibility(R.id.widget_empty_view, android.view.View.VISIBLE);
         }
 
+        // Click handlers
         try {
-            Intent intent = new Intent(context, MainActivity.class);
-            PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent);
-            
+            // Click Logic: "Add Button" -> Open Add Task URL
             Intent addIntent = new Intent(context, MainActivity.class);
             addIntent.setAction(Intent.ACTION_VIEW);
             addIntent.setData(Uri.parse("todolist://add"));
@@ -116,6 +63,15 @@ public class TodoListWidget extends AppWidgetProvider {
             PendingIntent addPendingIntent = PendingIntent.getActivity(context, 1, addIntent, 
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             views.setOnClickPendingIntent(R.id.widget_add_button, addPendingIntent);
+            
+            // List Item Click Template: PendingIntent template for items in the list
+            Intent itemClickIntent = new Intent(context, MainActivity.class);
+            itemClickIntent.setAction(Intent.ACTION_VIEW);
+            // itemClickIntent.setData(Uri.parse("todolist://open")); // General open
+            PendingIntent itemClickPendingIntent = PendingIntent.getActivity(context, 0, itemClickIntent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE); // Mutable to allow extras
+            views.setPendingIntentTemplate(R.id.widget_list_view, itemClickPendingIntent);
+            
         } catch (Exception e) {
             android.util.Log.e("TodoListWidget", "Intent ERROR: " + e.getMessage());
         }
@@ -128,17 +84,27 @@ public class TodoListWidget extends AppWidgetProvider {
         for (int appWidgetId : appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId);
         }
-    }
-    
-    private static String formatDate(String isoDate) {
-        try {
-            if (isoDate != null && isoDate.length() >= 10) {
-                return isoDate.substring(5, 10).replace("-", "/");
-            }
-        } catch (Exception e) {}
-        return "";
+        super.onUpdate(context, appWidgetManager, appWidgetIds);
     }
 
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        super.onReceive(context, intent);
+        
+        // Listen for data updates to refresh list
+        if (AppWidgetManager.ACTION_APPWIDGET_UPDATE.equals(intent.getAction())) {
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+            ComponentName thisWidget = new ComponentName(context, TodoListWidget.class);
+            int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
+            
+            // Notify list view to refresh data
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view);
+            
+            // Also update standard views (header counts etc)
+            onUpdate(context, appWidgetManager, appWidgetIds);
+        }
+    }
+    
     @Override
     public void onEnabled(Context context) {}
 

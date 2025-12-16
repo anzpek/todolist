@@ -16,6 +16,7 @@ import './i18n' // I18n initialization
 import { useTranslation } from 'react-i18next'
 import { firestoreService } from './services/firestoreService'
 import type { ViewType } from './types/views'
+import { NotificationController } from './components/NotificationController'
 
 // 레이지 로딩 컴포넌트들
 const LoginScreen = lazy(() => import('./components/LoginScreen'))
@@ -126,16 +127,30 @@ function AppInner({
   )
 }
 
+import { useTodos } from './contexts/TodoContext'
+import { syncWidget } from './utils/widgetSync'
+
 function AppContent() {
   const { currentUser, loading } = useAuth()
   const [currentView, setCurrentView] = useState<ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide'>('today')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
-  const [forceMobile, setForceMobile] = useState<boolean | null>(null) // null = 자동감지, true = 강제모바일, false = 강제데스크톱
+  const [forceMobile, setForceMobile] = useState<boolean | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const addTodoModalRef = useRef<{ open: () => void }>(null)
   const { i18n } = useTranslation()
+  const { todos, getRecurringTodos } = useTodos()
+
+  // Auto-sync Widget when todos change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // 일반 할일 + 반복 할일 인스턴스를 합쳐서 전달
+      const allTodos = [...todos, ...getRecurringTodos()]
+      syncWidget(allTodos)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [todos, getRecurringTodos])
 
   // Load Language & Start Screen Settings
   useEffect(() => {
@@ -358,8 +373,9 @@ function AppContent() {
           forceMobile={forceMobile}
           setForceMobile={setForceMobile}
         />
+        <NotificationController />
       </KeyboardProvider>
-    </div>
+    </div >
   )
 }
 
