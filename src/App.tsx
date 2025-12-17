@@ -128,6 +128,7 @@ function AppInner({
 }
 
 import { useTodos } from './contexts/TodoContext'
+import { useVacation } from './contexts/VacationContext'
 import { syncWidget } from './utils/widgetSync'
 
 function AppContent() {
@@ -140,17 +141,28 @@ function AppContent() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const addTodoModalRef = useRef<{ open: () => void }>(null)
   const { i18n } = useTranslation()
-  const { todos, getRecurringTodos } = useTodos()
+  const { todos, getRecurringTodos, toggleTodo } = useTodos()
+  const { vacations, employees } = useVacation()
 
-  // Auto-sync Widget when todos change
+  // Auto-sync Widget when todos or vacations change
   useEffect(() => {
     const timer = setTimeout(() => {
       // 일반 할일 + 반복 할일 인스턴스를 합쳐서 전달
       const allTodos = [...todos, ...getRecurringTodos()]
-      syncWidget(allTodos)
+
+      // 휴가 데이터에 직원 이름 추가
+      const vacationsWithNames = vacations.map(v => {
+        const employee = employees.find(e => e.id === v.employeeId)
+        return {
+          ...v,
+          employeeName: employee?.name || ''
+        }
+      })
+
+      syncWidget({ todos: allTodos, vacations: vacationsWithNames })
     }, 1000)
     return () => clearTimeout(timer)
-  }, [todos, getRecurringTodos])
+  }, [todos, getRecurringTodos, vacations, employees])
 
   // Load Language & Start Screen Settings
   useEffect(() => {
@@ -224,6 +236,72 @@ function AppContent() {
       clearInterval(securityInterval)
     }
   }, [])
+
+  // 딥링크 처리: todolist://add -> 할일 추가 모달 열기
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core')
+        if (!Capacitor.isNativePlatform()) return
+
+        const { App } = await import('@capacitor/app')
+
+        // 앱 시작 시 URL 확인
+        const urlOpen = await App.getLaunchUrl()
+        if (urlOpen?.url?.includes('todolist://add')) {
+          setTimeout(() => {
+            addTodoModalRef.current?.open()
+          }, 500)
+        }
+
+        // URL 변경 리스너
+        const listener = await App.addListener('appUrlOpen', (event) => {
+          console.log('Deep link opened:', event.url)
+          if (event.url?.includes('todolist://add')) {
+            addTodoModalRef.current?.open()
+          }
+        })
+
+        return () => {
+          listener.remove()
+        }
+      } catch (e) {
+        console.warn('Deep link handling not available:', e)
+      }
+    }
+
+    handleDeepLink()
+  }, [])
+
+  // 위젯에서 toggleTodo 이벤트 수신
+  useEffect(() => {
+    const setupWidgetListener = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core')
+        if (!Capacitor.isNativePlatform()) return
+
+        const { registerPlugin } = await import('@capacitor/core')
+        const TodoListWidget = registerPlugin<{
+          addListener: (eventName: string, callback: (data: { taskId: string }) => void) => Promise<{ remove: () => void }>
+        }>('TodoListWidget')
+
+        const listener = await TodoListWidget.addListener('toggleTodo', (data) => {
+          console.log('Widget toggleTodo event received:', data.taskId)
+          if (data.taskId) {
+            toggleTodo(data.taskId)
+          }
+        })
+
+        return () => {
+          listener.remove()
+        }
+      } catch (e) {
+        console.warn('Widget listener not available:', e)
+      }
+    }
+
+    setupWidgetListener()
+  }, [toggleTodo])
 
   // 완전히 재작성된 모바일 감지 로직
   useEffect(() => {

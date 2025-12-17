@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useFontSize } from '../contexts/FontSizeContext'
 import { useCustomHolidays } from '../contexts/CustomHolidayContext'
+import { useVacation } from '../contexts/VacationContext'
 import NotificationSettings from './NotificationSettings'
 import { useTranslation } from 'react-i18next'
 import { firestoreService } from '../services/firestoreService'
@@ -15,15 +16,17 @@ import {
 import { THEMES } from '../constants/themes'
 import { Capacitor } from '@capacitor/core'
 import TodoListWidget from '../plugins/TodoListWidget'
+import { syncWidget } from '../utils/widgetSync'
 
 const SettingsView: React.FC = () => {
   const { t, i18n } = useTranslation()
   const { currentUser: user, logout } = useAuth()
-  const { todos, exportData, importData, clearCompleted, stats, syncing, syncWithCloud } = useTodos()
+  const { todos, exportData, importData, clearCompleted, stats, syncing, syncWithCloud, getRecurringTodos } = useTodos()
   const { theme, setTheme, currentThemeId, setCurrentThemeId, currentTheme, isDark, transparency, setTransparency } = useTheme()
   const isVisualTheme = !!currentTheme.bg
   const { fontSizeLevel, setFontSizeLevel } = useFontSize()
   const { customHolidays, addCustomHoliday, deleteCustomHoliday } = useCustomHolidays()
+  const { vacations, employees } = useVacation()
   const [importError, setImportError] = useState<string | null>(null)
   const [showImportSuccess, setShowImportSuccess] = useState(false)
   const [visualTab, setVisualTab] = useState<'colors' | 'seasonal' | 'city' | 'mode' | 'background' | 'display'>('colors')
@@ -725,130 +728,26 @@ const SettingsView: React.FC = () => {
                 Let's dispatch a custom event that TodoContext listens to. */}
             <button
               onClick={async () => {
-                alert('위젯 동기화 시작!');
-                console.log('📱 Widget Sync: Button clicked!');
                 try {
                   const platform = Capacitor.getPlatform();
-                  console.log('📱 Widget Sync: Platform =', platform);
-
                   if (platform !== 'android') {
                     alert('위젯은 Android에서만 사용 가능합니다.');
                     return;
                   }
 
-                  console.log('📱 Widget Sync: TodoListWidget =', TodoListWidget);
+                  // 일반 할일 + 반복 할일을 합쳐서 syncWidget 호출
+                  const allTodos = [...todos, ...getRecurringTodos()];
 
-                  // Use todos from React context (Firebase data)
-                  console.log('📱 Widget Sync: todos from context count =', todos.length);
-
-                  const now = new Date();
-                  now.setHours(0, 0, 0, 0);
-
-                  // Filter for today's incomplete tasks
-                  const widgetTodos = todos.filter((todo: any) => {
-                    if (todo.completed) return false;
-                    if (todo.startDate) {
-                      const start = new Date(todo.startDate);
-                      start.setHours(0, 0, 0, 0);
-                      return now >= start;
+                  // 휴가 데이터에 직원 이름 추가
+                  const vacationsWithNames = vacations.map(v => {
+                    const employee = employees.find(e => e.id === v.employeeId)
+                    return {
+                      ...v,
+                      employeeName: employee?.name || ''
                     }
-                    if (todo.dueDate) {
-                      const due = new Date(todo.dueDate);
-                      due.setHours(0, 0, 0, 0);
-                      return now >= due;
-                    }
-                    return true; // Inbox tasks
-                  });
+                  })
 
-                  console.log('📱 Widget Sync: filtered widgetTodos count =', widgetTodos.length);
-
-                  const sorted = [...widgetTodos].sort((a: any, b: any) => {
-                    // 1. Completed items go to bottom
-                    const isCompletedA = a.completed === true;
-                    const isCompletedB = b.completed === true;
-
-                    if (isCompletedA !== isCompletedB) {
-                      return isCompletedA ? 1 : -1;
-                    }
-
-                    // 2. Priority sort
-                    const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-
-                    const getPVal = (p: any) => {
-                      const s = String(p || 'medium').toLowerCase().trim();
-                      return typeof pMap[s] === 'number' ? pMap[s] : 2;
-                    };
-
-                    const valA = getPVal(a.priority);
-                    const valB = getPVal(b.priority);
-
-                    if (valA !== valB) {
-                      return valA - valB;
-                    }
-
-                    // 3. User Custom Order (Same Priority)
-                    const orderA = a.order;
-                    const orderB = b.order;
-
-                    if (orderA !== undefined && orderB !== undefined) {
-                      if (orderA !== orderB) return orderA - orderB;
-                    }
-                    if (orderA !== undefined && orderB === undefined) return -1;
-                    if (orderA === undefined && orderB !== undefined) return 1;
-
-                    // 4. Due Date
-                    if (a.dueDate && b.dueDate) {
-                      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-                    }
-                    if (a.dueDate) return -1;
-                    if (b.dueDate) return 1;
-
-                    // 5. Created At (Newest first)
-                    const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                    const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                    return createdB - createdA;
-                  });
-
-                  console.log('Top 3 sorted priorities:', sorted.slice(0, 3).map((t: any) => t.priority));
-
-                  // Send ALL today's tasks with full info
-                  const widgetData = sorted.map((t: any) => ({
-                    id: t.id,
-                    title: t.title,
-                    completed: t.completed,
-                    priority: t.priority,
-                    description: t.description || '',
-                    dueDate: t.dueDate || '',
-                    startDate: t.startDate || '',
-                    progress: t.subtasks?.length > 0
-                      ? Math.round((t.subtasks.filter((s: any) => s.completed).length / t.subtasks.length) * 100)
-                      : -1
-                  }));
-
-                  if (widgetData.length === 0) {
-                    widgetData.push({
-                      id: "placeholder",
-                      title: "오늘 할일이 없습니다 🎉",
-                      completed: false,
-                      priority: "low",
-                      description: "",
-                      dueDate: "",
-                      startDate: "",
-                      progress: -1
-                    });
-                  }
-
-                  const transVal = parseInt(localStorage.getItem('widgetTransparency') || '80');
-
-                  console.log('📱 Widget Sync: Sending', widgetData.length, 'tasks, transparency:', transVal);
-
-                  await TodoListWidget.updateWidget({
-                    data: JSON.stringify(widgetData),
-                    date: new Date().toLocaleDateString(),
-                    transparency: transVal
-                  });
-
-                  console.log('📱 Widget Sync: SUCCESS!');
+                  await syncWidget({ todos: allTodos, vacations: vacationsWithNames });
                   alert('위젯이 업데이트되었습니다!');
                 } catch (error) {
                   console.error('📱 Widget Sync ERROR:', error);

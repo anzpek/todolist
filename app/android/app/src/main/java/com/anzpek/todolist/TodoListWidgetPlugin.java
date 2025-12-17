@@ -1,10 +1,13 @@
 package com.anzpek.todolist;
 
 import android.appwidget.AppWidgetManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Build;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -19,6 +22,51 @@ public class TodoListWidgetPlugin extends Plugin {
 
     private static final String PREFS_NAME = "WidgetPrefs";
     private static final String PREF_PREFIX_KEY = "todo_list_";
+    private static final String ACTION_TOGGLE_TODO = "com.anzpek.todolist.TOGGLE_TODO";
+    
+    private BroadcastReceiver toggleReceiver;
+
+    @Override
+    public void load() {
+        super.load();
+        
+        // TOGGLE_TODO 브로드캐스트 수신기 등록
+        toggleReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String taskId = intent.getStringExtra("task_id");
+                if (taskId != null && !taskId.isEmpty()) {
+                    android.util.Log.d("WidgetPlugin", "📱 Received TOGGLE_TODO for task: " + taskId);
+                    
+                    // JavaScript 이벤트 발생
+                    JSObject data = new JSObject();
+                    data.put("taskId", taskId);
+                    notifyListeners("toggleTodo", data);
+                }
+            }
+        };
+        
+        IntentFilter filter = new IntentFilter(ACTION_TOGGLE_TODO);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getContext().registerReceiver(toggleReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            getContext().registerReceiver(toggleReceiver, filter);
+        }
+        
+        android.util.Log.d("WidgetPlugin", "📱 TOGGLE_TODO BroadcastReceiver registered");
+    }
+    
+    @Override
+    protected void handleOnDestroy() {
+        super.handleOnDestroy();
+        if (toggleReceiver != null) {
+            try {
+                getContext().unregisterReceiver(toggleReceiver);
+            } catch (Exception e) {
+                // Ignore if already unregistered
+            }
+        }
+    }
 
     @PluginMethod
     public void updateWidget(PluginCall call) {
