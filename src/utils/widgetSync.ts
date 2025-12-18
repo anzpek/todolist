@@ -96,59 +96,8 @@ export const syncWidget = async (todosOrOptions: Todo[] | SyncWidgetOptions) => 
         const todayWidgetData = sorted.slice(0, 30).map((t) => {
             // 날짜를 ISO 문자열로 안전하게 변환
             let dueDateStr = ''
-            if (t.dueDate) {
-                try {
-                    dueDateStr = t.dueDate instanceof Date
-                        ? t.dueDate.toISOString()
-                        : new Date(t.dueDate).toISOString()
-                } catch (e) {
-                    dueDateStr = String(t.dueDate)
-                }
-            }
-
-            // subTasks null 체크
-            const subTasks = t.subTasks || []
-            const completedSubTasks = subTasks.filter(s => s.completed).length
-            const progress = subTasks.length > 0
-                ? Math.round((completedSubTasks / subTasks.length) * 100)
-                : -1
-
-            return {
-                id: t.id || '',
-                title: t.title || '',
-                completed: t.completed || false,
-                priority: t.priority || 'medium',
-                description: t.description || '',
-                dueDate: dueDateStr,
-                progress
-            }
-        })
-
-        console.log('📱 syncWidget: Today widget data:', todayWidgetData.length, 'items')
-
-        // ========================================
-        // 캘린더 위젯용 - 미완료 + 날짜가 있는 모든 할일 + 반복 할일
-        // ========================================
-        const calendarFiltered = todos.filter((todo) => {
-            if (todo.completed) return false
-            // 날짜가 있는 할일
-            if (todo.startDate || todo.dueDate) return true
-            // 반복 할일 (날짜가 없어도 recurrence가 있으면 표시)
-            if (todo.recurrence && todo.recurrence !== 'none') return true
-            return false
-        })
-
-        // 우선순위 정렬 추가
-        const calendarSorted = [...calendarFiltered].sort((a, b) => {
-            const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
-            const pA = pMap[a.priority] ?? 2
-            const pB = pMap[b.priority] ?? 2
-            return pA - pB
-        })
-
-        const calendarTodos = calendarSorted.map((t) => {
-            let dueDateStr = ''
             let startDateStr = ''
+            let completedAtStr = ''
 
             if (t.dueDate) {
                 try {
@@ -170,12 +119,113 @@ export const syncWidget = async (todosOrOptions: Todo[] | SyncWidgetOptions) => 
                 }
             }
 
+            if (t.completedAt) {
+                try {
+                    completedAtStr = t.completedAt instanceof Date
+                        ? t.completedAt.toISOString()
+                        : new Date(t.completedAt).toISOString()
+                } catch (e) {
+                    completedAtStr = String(t.completedAt)
+                }
+            }
+
+            // subTasks null 체크
+            const subTasks = t.subTasks || []
+            const completedSubTasks = subTasks.filter(s => s.completed).length
+            const progress = subTasks.length > 0
+                ? Math.round((completedSubTasks / subTasks.length) * 100)
+                : -1
+
             return {
+                id: t.id || '',
                 title: t.title || '',
-                completed: false,
+                completed: t.completed || false,
+                priority: t.priority || 'medium',
+                description: t.description || '',
+                dueDate: dueDateStr,
+                startDate: startDateStr,
+                completedAt: completedAtStr,
+                progress
+            }
+        })
+
+        console.log('📱 syncWidget: Today widget data:', todayWidgetData.length, 'items')
+
+        // ========================================
+        // 캘린더 위젯용 - 날짜가 있는 모든 할일 + 반복 할일 (완료된 것 포함)
+        // ========================================
+        const calendarFiltered = todos.filter((todo) => {
+            // 오늘 완료된 할일도 포함
+            if (todo.completed && todo.completedAt) {
+                const now = new Date()
+                now.setHours(0, 0, 0, 0)
+                const completedDate = new Date(todo.completedAt)
+                completedDate.setHours(0, 0, 0, 0)
+                if (completedDate.getTime() === now.getTime()) return true
+            }
+            // 미완료 할일
+            if (!todo.completed) {
+                // 날짜가 있는 할일
+                if (todo.startDate || todo.dueDate) return true
+                // 반복 할일 (날짜가 없어도 recurrence가 있으면 표시)
+                if (todo.recurrence && todo.recurrence !== 'none') return true
+                // Inbox 할일 (날짜 없음)
+                return true
+            }
+            return false
+        })
+
+        // 우선순위 정렬 추가
+        const calendarSorted = [...calendarFiltered].sort((a, b) => {
+            const pMap: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
+            const pA = pMap[a.priority] ?? 2
+            const pB = pMap[b.priority] ?? 2
+            return pA - pB
+        })
+
+        const calendarTodos = calendarSorted.map((t) => {
+            let dueDateStr = ''
+            let startDateStr = ''
+            let completedAtStr = ''
+
+            if (t.dueDate) {
+                try {
+                    dueDateStr = t.dueDate instanceof Date
+                        ? t.dueDate.toISOString()
+                        : new Date(t.dueDate).toISOString()
+                } catch (e) {
+                    dueDateStr = String(t.dueDate)
+                }
+            }
+
+            if (t.startDate) {
+                try {
+                    startDateStr = t.startDate instanceof Date
+                        ? t.startDate.toISOString()
+                        : new Date(t.startDate).toISOString()
+                } catch (e) {
+                    startDateStr = String(t.startDate)
+                }
+            }
+
+            if (t.completedAt) {
+                try {
+                    completedAtStr = t.completedAt instanceof Date
+                        ? t.completedAt.toISOString()
+                        : new Date(t.completedAt).toISOString()
+                } catch (e) {
+                    completedAtStr = String(t.completedAt)
+                }
+            }
+
+            return {
+                id: t.id || '',
+                title: t.title || '',
+                completed: t.completed || false,
                 priority: t.priority || 'medium',
                 dueDate: dueDateStr,
-                startDate: startDateStr
+                startDate: startDateStr,
+                completedAt: completedAtStr
             }
         })
 

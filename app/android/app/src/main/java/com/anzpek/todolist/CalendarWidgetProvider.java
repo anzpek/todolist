@@ -25,6 +25,11 @@ import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
+
 public class CalendarWidgetProvider extends AppWidgetProvider {
 
     private static final String PREFS_NAME = "WidgetPrefs";
@@ -35,7 +40,6 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
     private static final String ACTION_GO_TODAY = "com.anzpek.todolist.CALENDAR_GO_TODAY";
     private static final String ACTION_REFRESH = "com.anzpek.todolist.CALENDAR_REFRESH";
     private static final String EXTRA_DATE_KEY = "selected_date_key";
-    private static final int MAX_TASKS = 25;
 
     private static final int[] DAY_VIEW_IDS = {
         R.id.day_0, R.id.day_1, R.id.day_2, R.id.day_3, R.id.day_4, R.id.day_5, R.id.day_6,
@@ -44,14 +48,6 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
         R.id.day_21, R.id.day_22, R.id.day_23, R.id.day_24, R.id.day_25, R.id.day_26, R.id.day_27,
         R.id.day_28, R.id.day_29, R.id.day_30, R.id.day_31, R.id.day_32, R.id.day_33, R.id.day_34,
         R.id.day_35, R.id.day_36, R.id.day_37, R.id.day_38, R.id.day_39, R.id.day_40, R.id.day_41
-    };
-
-    private static final int[] TASK_IDS = {
-        R.id.task_0, R.id.task_1, R.id.task_2, R.id.task_3, R.id.task_4,
-        R.id.task_5, R.id.task_6, R.id.task_7, R.id.task_8, R.id.task_9,
-        R.id.task_10, R.id.task_11, R.id.task_12, R.id.task_13, R.id.task_14,
-        R.id.task_15, R.id.task_16, R.id.task_17, R.id.task_18, R.id.task_19,
-        R.id.task_20, R.id.task_21, R.id.task_22, R.id.task_23, R.id.task_24
     };
 
     // 할일/휴가 정보를 담는 클래스
@@ -345,56 +341,24 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
                 cal.add(Calendar.DAY_OF_MONTH, 1);
             }
 
-            // 선택된 날짜의 할일 표시 (체크박스 이모지로 우선순위 표시, 텍스트는 흰색)
-            List<TaskInfo> tasksForSelectedDate = tasksByDate.get(selectedDateKey);
+            // ListView 설정 (RemoteViewsService 연결)
+            Intent serviceIntent = new Intent(context, CalendarRemoteViewsService.class);
+            views.setRemoteAdapter(R.id.calendar_task_list, serviceIntent);
+            views.setEmptyView(R.id.calendar_task_list, R.id.task_empty);
             
-            if (tasksForSelectedDate == null || tasksForSelectedDate.isEmpty()) {
-                views.setViewVisibility(R.id.task_empty, android.view.View.VISIBLE);
-                views.setViewVisibility(R.id.task_more, android.view.View.GONE);
-                for (int id : TASK_IDS) {
-                    views.setViewVisibility(id, android.view.View.GONE);
-                }
-            } else {
-                views.setViewVisibility(R.id.task_empty, android.view.View.GONE);
-                
-                int displayCount = Math.min(tasksForSelectedDate.size(), MAX_TASKS);
-                for (int i = 0; i < MAX_TASKS; i++) {
-                    if (i < displayCount) {
-                        TaskInfo task = tasksForSelectedDate.get(i);
-                        if (task.isVacation) {
-                            // 휴가: 타이틀 그대로 + 종류별 색상
-                            views.setTextViewText(TASK_IDS[i], task.title);
-                            views.setTextColor(TASK_IDS[i], task.getVacationColor());
-                        } else {
-                            // 할일: 네모 체크박스(우선순위 색상) + 흰색 텍스트
-                            String checkboxText = "☐ ";
-                            String fullText = checkboxText + task.title;
-                            SpannableString spannable = new SpannableString(fullText);
-                            // 체크박스 부분만 우선순위 색상
-                            spannable.setSpan(new ForegroundColorSpan(task.getPriorityColor()), 0, checkboxText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            // 텍스트 부분은 흰색
-                            spannable.setSpan(new ForegroundColorSpan(Color.WHITE), checkboxText.length(), fullText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            views.setTextViewText(TASK_IDS[i], spannable);
-                        }
-                        views.setViewVisibility(TASK_IDS[i], android.view.View.VISIBLE);
-                    } else {
-                        views.setViewVisibility(TASK_IDS[i], android.view.View.GONE);
-                    }
-                }
-                
-                if (tasksForSelectedDate.size() > MAX_TASKS) {
-                    views.setTextViewText(R.id.task_more, "+ " + (tasksForSelectedDate.size() - MAX_TASKS) + " More");
-                    views.setViewVisibility(R.id.task_more, android.view.View.VISIBLE);
-                } else {
-                    views.setViewVisibility(R.id.task_more, android.view.View.GONE);
-                }
-            }
+            // ListView 아이템 클릭 템플릿 (체크박스 토글 / 앱 열기)
+            Intent itemClickIntent = new Intent(context, CalendarWidgetProvider.class);
+            itemClickIntent.setAction("com.anzpek.todolist.CALENDAR_TOGGLE_TASK");
+            PendingIntent itemClickPendingIntent = PendingIntent.getBroadcast(context, 2100, itemClickIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            views.setPendingIntentTemplate(R.id.calendar_task_list, itemClickPendingIntent);
 
         } catch (Exception e) {
             android.util.Log.e("CalendarWidget", "ERROR: " + e.getMessage(), e);
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views);
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.calendar_task_list);
     }
 
     @Override
@@ -461,6 +425,114 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
         } else if (ACTION_REFRESH.equals(action)) {
             android.util.Log.d("CalendarWidget", "Manual refresh triggered");
             refreshWidget(context);
+        } else if ("com.anzpek.todolist.CALENDAR_TOGGLE_TASK".equals(action)) {
+            String clickAction = intent.getStringExtra("action");
+            String taskId = intent.getStringExtra("task_id");
+            
+            if ("toggle".equals(clickAction)) {
+                if (taskId != null && !taskId.isEmpty() && !taskId.startsWith("vac_")) {
+                    android.util.Log.d("CalendarWidget", "Toggle task: " + taskId);
+                    toggleTaskInPrefs(context, taskId);
+                    refreshWidget(context);
+                }
+            } else if ("open_app".equals(clickAction)) {
+                android.util.Log.d("CalendarWidget", "Open app for task: " + taskId);
+                Intent appIntent = new Intent(context, MainActivity.class);
+                appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                context.startActivity(appIntent);
+            }
+        }
+    }
+    
+    // SharedPreferences에서 할일 완료 상태 토글
+    private void toggleTaskInPrefs(Context context, String taskId) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String dataStr = prefs.getString(PREF_PREFIX_KEY + "data", "");
+            
+            if (dataStr.isEmpty()) return;
+            
+            JSONObject combinedData = new JSONObject(dataStr);
+            JSONArray calendarArray = combinedData.optJSONArray("calendar");
+            
+            if (calendarArray == null) return;
+            
+            boolean found = false;
+            boolean newCompletedState = false;
+            
+            for (int i = 0; i < calendarArray.length(); i++) {
+                JSONObject todo = calendarArray.getJSONObject(i);
+                String id = todo.optString("id", "");
+                
+                if (id.equals(taskId)) {
+                    boolean currentCompleted = todo.optBoolean("completed", false);
+                    newCompletedState = !currentCompleted;
+                    todo.put("completed", newCompletedState);
+                    
+                    if (newCompletedState) {
+                        todo.put("completedAt", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(new java.util.Date()));
+                    } else {
+                        todo.remove("completedAt");
+                    }
+                    
+                    calendarArray.put(i, todo);
+                    found = true;
+                    android.util.Log.d("CalendarWidget", "Toggled task " + taskId + " to completed=" + newCompletedState);
+                    break;
+                }
+            }
+            
+            if (found) {
+                combinedData.put("calendar", calendarArray);
+                prefs.edit().putString(PREF_PREFIX_KEY + "data", combinedData.toString()).apply();
+                
+                // Firebase Firestore 동기화
+                syncToggleToFirestore(taskId, newCompletedState);
+            }
+            
+        } catch (Exception e) {
+            android.util.Log.e("CalendarWidget", "Error toggling task: " + e.getMessage());
+        }
+    }
+    
+    // Firebase Firestore에 토글 상태 동기화
+    private void syncToggleToFirestore(String taskId, boolean completed) {
+        try {
+            if (taskId.startsWith("recurring_") || taskId.startsWith("vac_")) {
+                return;
+            }
+            
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) {
+                android.util.Log.w("CalendarWidget", "No Firebase user logged in");
+                return;
+            }
+            
+            String userId = user.getUid();
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("completed", completed);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            
+            if (completed) {
+                updates.put("completedAt", FieldValue.serverTimestamp());
+            } else {
+                updates.put("completedAt", null);
+            }
+            
+            db.collection("users").document(userId)
+              .collection("todos").document(taskId)
+              .update(updates)
+              .addOnSuccessListener(aVoid -> {
+                  android.util.Log.d("CalendarWidget", "✅ Firestore sync successful: " + taskId);
+              })
+              .addOnFailureListener(e -> {
+                  android.util.Log.e("CalendarWidget", "❌ Firestore sync failed: " + e.getMessage());
+              });
+              
+        } catch (Exception e) {
+            android.util.Log.e("CalendarWidget", "Firestore sync error: " + e.getMessage());
         }
     }
 

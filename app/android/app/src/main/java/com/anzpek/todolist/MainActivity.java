@@ -19,6 +19,7 @@ public class MainActivity extends BridgeActivity {
             Log.e("MainActivity", "📱 Failed to register plugin: " + e.getMessage(), e);
         }
         super.onCreate(savedInstanceState);
+        checkExactAlarmPermission();
         Log.d("MainActivity", "📱 super.onCreate completed");
     }
     @Override
@@ -62,6 +63,17 @@ public class MainActivity extends BridgeActivity {
                 if (getBridge() != null) {
                     getBridge().onNewIntent(intent);
                 }
+            }
+        }
+    }
+
+    private void checkExactAlarmPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            android.app.AlarmManager alarmManager = (android.app.AlarmManager) getSystemService(android.content.Context.ALARM_SERVICE);
+            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+                android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
             }
         }
     }

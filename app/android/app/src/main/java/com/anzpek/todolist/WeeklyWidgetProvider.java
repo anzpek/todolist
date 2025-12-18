@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
+
 public class WeeklyWidgetProvider extends AppWidgetProvider {
 
     private static final String PREFS_NAME = "WidgetPrefs";
@@ -298,12 +303,10 @@ public class WeeklyWidgetProvider extends AppWidgetProvider {
             serviceIntent.setData(Uri.parse(serviceIntent.toUri(Intent.URI_INTENT_SCHEME)));
             views.setRemoteAdapter(R.id.weekly_task_list, serviceIntent);
             
-            // ListView 아이템 클릭 처리
-            Intent itemClickIntent = new Intent(context, MainActivity.class);
-            itemClickIntent.setAction(Intent.ACTION_VIEW);
-            itemClickIntent.setData(Uri.parse("todolist://view"));
-            itemClickIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            PendingIntent itemClickPendingIntent = PendingIntent.getActivity(context, 3050, itemClickIntent,
+            // ListView 아이템 클릭 처리 (체크박스 토글 / 앱 열기)
+            Intent itemClickIntent = new Intent(context, WeeklyWidgetProvider.class);
+            itemClickIntent.setAction("com.anzpek.todolist.WEEKLY_TOGGLE_TASK");
+            PendingIntent itemClickPendingIntent = PendingIntent.getBroadcast(context, 3050, itemClickIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
             views.setPendingIntentTemplate(R.id.weekly_task_list, itemClickPendingIntent);
             
@@ -381,6 +384,114 @@ public class WeeklyWidgetProvider extends AppWidgetProvider {
         } else if (ACTION_REFRESH.equals(action)) {
             android.util.Log.d("WeeklyWidget", "Manual refresh triggered");
             refreshWidget(context);
+        } else if ("com.anzpek.todolist.WEEKLY_TOGGLE_TASK".equals(action)) {
+            String clickAction = intent.getStringExtra("action");
+            String taskId = intent.getStringExtra("task_id");
+            
+            if ("toggle".equals(clickAction)) {
+                if (taskId != null && !taskId.isEmpty() && !taskId.startsWith("vac_")) {
+                    android.util.Log.d("WeeklyWidget", "Toggle task: " + taskId);
+                    toggleTaskInPrefs(context, taskId);
+                    refreshWidget(context);
+                }
+            } else if ("open_app".equals(clickAction)) {
+                android.util.Log.d("WeeklyWidget", "Open app for task: " + taskId);
+                Intent appIntent = new Intent(context, MainActivity.class);
+                appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                context.startActivity(appIntent);
+            }
+        }
+    }
+    
+    // SharedPreferences에서 할일 완료 상태 토글
+    private void toggleTaskInPrefs(Context context, String taskId) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String dataStr = prefs.getString(PREF_PREFIX_KEY + "data", "");
+            
+            if (dataStr.isEmpty()) return;
+            
+            JSONObject combinedData = new JSONObject(dataStr);
+            JSONArray calendarArray = combinedData.optJSONArray("calendar");
+            
+            if (calendarArray == null) return;
+            
+            boolean found = false;
+            boolean newCompletedState = false;
+            
+            for (int i = 0; i < calendarArray.length(); i++) {
+                JSONObject todo = calendarArray.getJSONObject(i);
+                String id = todo.optString("id", "");
+                
+                if (id.equals(taskId)) {
+                    boolean currentCompleted = todo.optBoolean("completed", false);
+                    newCompletedState = !currentCompleted;
+                    todo.put("completed", newCompletedState);
+                    
+                    if (newCompletedState) {
+                        todo.put("completedAt", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(new java.util.Date()));
+                    } else {
+                        todo.remove("completedAt");
+                    }
+                    
+                    calendarArray.put(i, todo);
+                    found = true;
+                    android.util.Log.d("WeeklyWidget", "Toggled task " + taskId + " to completed=" + newCompletedState);
+                    break;
+                }
+            }
+            
+            if (found) {
+                combinedData.put("calendar", calendarArray);
+                prefs.edit().putString(PREF_PREFIX_KEY + "data", combinedData.toString()).apply();
+                
+                // Firebase Firestore 동기화
+                syncToggleToFirestore(taskId, newCompletedState);
+            }
+            
+        } catch (Exception e) {
+            android.util.Log.e("WeeklyWidget", "Error toggling task: " + e.getMessage());
+        }
+    }
+    
+    // Firebase Firestore에 토글 상태 동기화
+    private void syncToggleToFirestore(String taskId, boolean completed) {
+        try {
+            if (taskId.startsWith("recurring_") || taskId.startsWith("vac_")) {
+                return;
+            }
+            
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) {
+                android.util.Log.w("WeeklyWidget", "No Firebase user logged in");
+                return;
+            }
+            
+            String userId = user.getUid();
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("completed", completed);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            
+            if (completed) {
+                updates.put("completedAt", FieldValue.serverTimestamp());
+            } else {
+                updates.put("completedAt", null);
+            }
+            
+            db.collection("users").document(userId)
+              .collection("todos").document(taskId)
+              .update(updates)
+              .addOnSuccessListener(aVoid -> {
+                  android.util.Log.d("WeeklyWidget", "✅ Firestore sync successful: " + taskId);
+              })
+              .addOnFailureListener(e -> {
+                  android.util.Log.e("WeeklyWidget", "❌ Firestore sync failed: " + e.getMessage());
+              });
+              
+        } catch (Exception e) {
+            android.util.Log.e("WeeklyWidget", "Firestore sync error: " + e.getMessage());
         }
     }
     

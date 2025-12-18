@@ -15,7 +15,15 @@ import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
 
 public class TodoListWidget extends AppWidgetProvider {
 
@@ -302,7 +310,7 @@ public class TodoListWidget extends AppWidgetProvider {
         return "";
     }
     
-    // SharedPreferences에서 할일 완료 상태 토글
+    // SharedPreferences에서 할일 완료 상태 토글 + Firebase 동기화
     private void toggleTaskInPrefs(Context context, String taskId) {
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -322,38 +330,88 @@ public class TodoListWidget extends AppWidgetProvider {
             }
             
             boolean found = false;
+            boolean newCompletedState = false;
+            
             for (int i = 0; i < calendarArray.length(); i++) {
                 JSONObject todo = calendarArray.getJSONObject(i);
                 String id = todo.optString("id", "");
                 
                 if (id.equals(taskId)) {
                     boolean currentCompleted = todo.optBoolean("completed", false);
-                    todo.put("completed", !currentCompleted);
+                    newCompletedState = !currentCompleted;
+                    todo.put("completed", newCompletedState);
                     
                     // completedAt 설정/제거
-                    if (!currentCompleted) {
-                        todo.put("completedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(new java.util.Date()));
+                    if (newCompletedState) {
+                        todo.put("completedAt", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(new Date()));
                     } else {
                         todo.remove("completedAt");
                     }
                     
                     calendarArray.put(i, todo);
                     found = true;
-                    android.util.Log.d("TodoListWidget", "Toggled task " + taskId + " to completed=" + !currentCompleted);
+                    android.util.Log.d("TodoListWidget", "Toggled task " + taskId + " to completed=" + newCompletedState);
                     break;
                 }
             }
             
             if (found) {
+                // 1. SharedPreferences 업데이트 (즉시 UI 반영)
                 combinedData.put("calendar", calendarArray);
                 prefs.edit().putString(PREF_PREFIX_KEY + "data", combinedData.toString()).apply();
                 android.util.Log.d("TodoListWidget", "Saved updated data to prefs");
+                
+                // 2. Firebase Firestore 업데이트 (백그라운드 동기화)
+                syncToggleToFirestore(taskId, newCompletedState);
             } else {
                 android.util.Log.w("TodoListWidget", "Task not found: " + taskId);
             }
             
         } catch (Exception e) {
             android.util.Log.e("TodoListWidget", "Error toggling task: " + e.getMessage());
+        }
+    }
+    
+    // Firebase Firestore에 토글 상태 동기화
+    private void syncToggleToFirestore(String taskId, boolean completed) {
+        try {
+            // 반복 할일(recurring_으로 시작)은 Firestore 동기화 건너뛰기
+            if (taskId.startsWith("recurring_")) {
+                android.util.Log.d("TodoListWidget", "Skipping Firestore sync for recurring task: " + taskId);
+                return;
+            }
+            
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) {
+                android.util.Log.w("TodoListWidget", "No Firebase user logged in, skipping Firestore sync");
+                return;
+            }
+            
+            String userId = user.getUid();
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("completed", completed);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            
+            if (completed) {
+                updates.put("completedAt", FieldValue.serverTimestamp());
+            } else {
+                updates.put("completedAt", null);
+            }
+            
+            db.collection("users").document(userId)
+              .collection("todos").document(taskId)
+              .update(updates)
+              .addOnSuccessListener(aVoid -> {
+                  android.util.Log.d("TodoListWidget", "✅ Firestore sync successful for task: " + taskId);
+              })
+              .addOnFailureListener(e -> {
+                  android.util.Log.e("TodoListWidget", "❌ Firestore sync failed: " + e.getMessage());
+              });
+              
+        } catch (Exception e) {
+            android.util.Log.e("TodoListWidget", "Firestore sync error: " + e.getMessage());
         }
     }
 }

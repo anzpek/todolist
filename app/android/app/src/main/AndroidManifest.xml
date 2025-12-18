@@ -55,6 +55,10 @@
         <service
             android:name=".WeeklyRemoteViewsService"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
+        
+        <service
+            android:name=".CalendarRemoteViewsService"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
         <!-- Calendar Widget -->
         <receiver

@@ -16,20 +16,24 @@ import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory {
+/**
+ * Calendar 위젯의 할일 리스트 어댑터 (Today 위젯과 동일한 기능)
+ * - 휴가 표시 (3개씩 한 줄)
+ * - 완료된 할일 표시
+ * - 체크박스 토글 지원
+ */
+public class CalendarRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory {
 
     private final Context context;
     private List<ItemInfo> itemList = new ArrayList<>();
     private static final String PREFS_NAME = "WidgetPrefs";
     private static final String PREF_PREFIX_KEY = "todo_list_";
 
-    // 아이템 정보 클래스 (휴가 또는 할일)
     private static class ItemInfo {
         String id;
         String title;
@@ -50,7 +54,6 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
         }
         
         int getSortOrder() {
-            // 휴가: 0, 미완료 할일: 1 (우선순위별), 완료된 할일: 2
             if (isVacation) return 0;
             if (completed) return 100;
             switch (priority) {
@@ -67,24 +70,21 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
                 // 모든 휴가 유형을 초록색으로 통일
                 return Color.parseColor("#10B981");
             }
-            // 할일 우선순위 색상
             switch (priority) {
                 case "urgent": return Color.parseColor("#EF4444");
                 case "high": return Color.parseColor("#F59E0B");
                 case "medium": return Color.parseColor("#3B82F6");
-                case "low": return Color.parseColor("#9CA3AF");
-                default: return Color.parseColor("#9CA3AF");
+                case "low": return Color.parseColor("#10B981");
+                default: return Color.parseColor("#A78BFA");
             }
         }
         
         String getCheckbox() {
-            if (isVacation) return ""; // 휴가는 체크박스 없음
-            if (completed) return "☑";
-            return "☐"; // 네모 체크박스
+            return completed ? "☑" : "☐";
         }
     }
 
-    public TodoListRemoteViewsFactory(Context context) {
+    public CalendarRemoteViewsFactory(Context context, Intent intent) {
         this.context = context;
     }
 
@@ -116,40 +116,29 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
         ItemInfo item = itemList.get(position);
 
         if (item.isVacation) {
-            // 휴가: 체크박스 숨기고 타이틀만 표시
             views.setTextViewText(R.id.widget_item_checkbox, "");
             views.setTextViewText(R.id.widget_item_title, item.title);
             views.setTextColor(R.id.widget_item_title, item.getColor());
             views.setViewVisibility(R.id.widget_item_due_date, View.GONE);
             
-            // 휴가는 클릭 시 앱 열기만
             Intent openAppIntent = new Intent();
             openAppIntent.putExtra("action", "open_app");
             views.setOnClickFillInIntent(R.id.widget_item_text_area, openAppIntent);
         } else {
-            // 할일: 체크박스 + 제목
             String checkbox = item.getCheckbox();
             views.setTextViewText(R.id.widget_item_checkbox, checkbox);
-            views.setTextColor(R.id.widget_item_checkbox, item.getColor()); // 체크박스만 우선순위 색상
+            views.setTextColor(R.id.widget_item_checkbox, item.getColor());
             
             views.setTextViewText(R.id.widget_item_title, item.title);
             
             if (item.completed) {
-                // 완료된 할일: 체크박스/텍스트 모두 회색
                 views.setTextColor(R.id.widget_item_checkbox, Color.parseColor("#6B7280"));
                 views.setTextColor(R.id.widget_item_title, Color.parseColor("#6B7280"));
             } else {
-                // 미완료 할일: 체크박스 우선순위 색상, 텍스트 흰색
                 views.setTextColor(R.id.widget_item_title, Color.WHITE);
             }
             
-            // 진행률 표시
-            if (item.progress >= 0) {
-                views.setTextViewText(R.id.widget_item_due_date, "[" + item.progress + "%]");
-                views.setViewVisibility(R.id.widget_item_due_date, View.VISIBLE);
-            } else {
-                views.setViewVisibility(R.id.widget_item_due_date, View.GONE);
-            }
+            views.setViewVisibility(R.id.widget_item_due_date, View.GONE);
             
             // 체크박스 클릭 → 완료 토글
             Intent toggleIntent = new Intent();
@@ -187,9 +176,6 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
         return true;
     }
 
-    /**
-     * 선택된 날짜에 할일을 표시해야 하는지 판단
-     */
     private boolean shouldShowOnDate(JSONObject task, String targetDateKey, String todayDateKey) {
         try {
             boolean completed = task.optBoolean("completed", false);
@@ -201,21 +187,16 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
             boolean hasStart = !startDateKey.isEmpty();
             boolean hasDue = !dueDateKey.isEmpty();
 
-            // 완료된 할일: 오늘 완료된 것만 오늘 날짜에 표시
             if (completed && !completedAtKey.isEmpty()) {
                 return targetDateKey.equals(todayDateKey) && completedAtKey.equals(todayDateKey);
             }
             
-            // 미완료 할일
             if (hasStart && hasDue) {
-                // 시작일~종료일 범위
                 return targetDateKey.compareTo(startDateKey) >= 0 && targetDateKey.compareTo(dueDateKey) <= 0;
             }
 
             if (hasStart && !hasDue) {
-                // 시작일만 있는 경우
                 if (targetDateKey.equals(startDateKey)) return true;
-                // 미완료이고 시작일 이후~오늘까지: 이월 표시
                 if (!completed && targetDateKey.compareTo(startDateKey) > 0 && targetDateKey.compareTo(todayDateKey) <= 0) {
                     return true;
                 }
@@ -223,11 +204,9 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
             }
             
             if (!hasStart && hasDue) {
-                // 종료일만 있는 경우: 그 날짜에만 표시
                 return targetDateKey.equals(dueDateKey);
             }
             
-            // 날짜 없음 (Inbox): 오늘에 표시 (미완료만)
             if (!hasStart && !hasDue && !completed) {
                 return targetDateKey.equals(todayDateKey);
             }
@@ -257,7 +236,6 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
             
             if (todoJson.startsWith("{")) {
                 JSONObject combined = new JSONObject(todoJson);
-                // calendar 데이터 사용 (today가 아닌)
                 calendarTasks = combined.optJSONArray("calendar");
                 if (calendarTasks == null) calendarTasks = new JSONArray();
                 vacations = combined.optJSONArray("vacations");
@@ -266,14 +244,14 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
                 calendarTasks = new JSONArray(todoJson);
             }
             
-            // 선택된 날짜 가져오기
+            // Calendar 위젯용 선택된 날짜 (calendar_selected_date_key)
             SimpleDateFormat dateKeyFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
             String todayKey = dateKeyFormat.format(new java.util.Date());
-            String selectedDate = prefs.getString("today_widget_selected_date", todayKey);
+            String selectedDate = prefs.getString("calendar_selected_date_key", todayKey);
             
-            android.util.Log.d("TodoListFactory", "Loading tasks for date: " + selectedDate + ", todayKey: " + todayKey);
+            android.util.Log.d("CalendarFactory", "Loading tasks for: " + selectedDate);
             
-            // 휴가 수집 (선택된 날짜만)
+            // 휴가 수집
             List<String> vacationTitles = new ArrayList<>();
             for (int i = 0; i < vacations.length(); i++) {
                 JSONObject v = vacations.getJSONObject(i);
@@ -286,11 +264,11 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
                 }
             }
             
-            // 휴가: 한 줄에 최대한 많이, 글이 잘리지 않게 (Paint 측정, Max 320dp)
+            // 휴가: 한 줄에 최대한 많이, 글이 잘리지 않게 (Paint 측정, Max 200dp)
             if (!vacationTitles.isEmpty()) {
                 Paint paint = new Paint();
                 paint.setTextSize(spToPx(15)); // 15sp
-                float maxLineWidth = dpToPx(320); // Today 위젯 너비
+                float maxLineWidth = dpToPx(140); // Calendar 위젯 너비 (더 좁게 잡음)
                 float separatorWidth = paint.measureText(" ⸰ ");
                 
                 StringBuilder line = new StringBuilder();
@@ -321,7 +299,7 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
                 }
             }
             
-            // 할일 추가 (선택된 날짜에 표시해야 하는 것만 - 캘린더와 동일한 로직)
+            // 할일 추가
             for (int i = 0; i < calendarTasks.length(); i++) {
                 JSONObject task = calendarTasks.getJSONObject(i);
                 
@@ -330,9 +308,8 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
                     String title = task.optString("title", "");
                     String priority = task.optString("priority", "medium");
                     boolean completed = task.optBoolean("completed", false);
-                    int progress = -1; // calendar에는 progress 없음
                     
-                    itemList.add(new ItemInfo(id, title, priority, completed, false, null, progress));
+                    itemList.add(new ItemInfo(id, title, priority, completed, false, null, -1));
                 }
             }
             
@@ -344,10 +321,10 @@ public class TodoListRemoteViewsFactory implements RemoteViewsService.RemoteView
                 }
             });
             
-            android.util.Log.d("TodoListFactory", "Loaded " + itemList.size() + " items for " + selectedDate);
+            android.util.Log.d("CalendarFactory", "Loaded " + itemList.size() + " items");
             
         } catch (Exception e) {
-            android.util.Log.e("TodoListFactory", "Error: " + e.getMessage());
+            android.util.Log.e("CalendarFactory", "Error: " + e.getMessage());
             e.printStackTrace();
         }
     }

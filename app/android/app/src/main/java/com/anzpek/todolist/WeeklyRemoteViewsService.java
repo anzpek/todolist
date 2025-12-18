@@ -8,6 +8,9 @@ import android.view.View;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 
+import android.graphics.Paint;
+import android.util.TypedValue;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -65,17 +68,8 @@ class WeeklyRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory 
         
         int getColor() {
             if (isVacation) {
-                if (vacationType == null) return Color.parseColor("#10B981");
-                switch (vacationType) {
-                    case "업무": return Color.parseColor("#FCD34D");
-                    case "연차":
-                    case "휴가": return Color.parseColor("#10B981");
-                    case "오전": return Color.parseColor("#60A5FA");
-                    case "오후": return Color.parseColor("#A78BFA");
-                    case "특별": return Color.parseColor("#FB7185");
-                    case "병가": return Color.parseColor("#F87171");
-                    default: return Color.parseColor("#10B981");
-                }
+                // 모든 휴가 유형을 초록색으로 통일
+                return Color.parseColor("#10B981");
             }
             switch (priority != null ? priority : "medium") {
                 case "urgent": return Color.parseColor("#EF4444");
@@ -126,7 +120,8 @@ class WeeklyRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory 
             if (dataStr != null && !dataStr.isEmpty() && dataStr.startsWith("{")) {
                 JSONObject combinedData = new JSONObject(dataStr);
                 
-                // 휴가 처리 (오늘 위젯과 동일)
+                // 휴가 처리 (오늘 위젯과 동일하게 그룹화)
+                List<String> vacationTitles = new ArrayList<>();
                 JSONArray vacationsArray = combinedData.optJSONArray("vacations");
                 if (vacationsArray != null) {
                     for (int i = 0; i < vacationsArray.length(); i++) {
@@ -136,8 +131,43 @@ class WeeklyRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory 
                             String employeeName = vacation.optString("employeeName", "");
                             String type = vacation.optString("type", "휴가");
                             String title = employeeName.isEmpty() ? type : employeeName + " " + type;
-                            itemList.add(new ItemInfo("vac_" + i, title, "", false, true, type));
+                            vacationTitles.add(title);
                         }
+                    }
+                }
+                
+                // 휴가: 한 줄에 최대한 많이, 글이 잘리지 않게 (Paint 측정, Max 200dp)
+                if (!vacationTitles.isEmpty()) {
+                    Paint paint = new Paint();
+                    paint.setTextSize(spToPx(15)); // 15sp
+                    float maxLineWidth = dpToPx(320); // Weekly 위젯 너비 (넓게 설정)
+                    float separatorWidth = paint.measureText(" ⸰ ");
+                    
+                    StringBuilder line = new StringBuilder();
+                    float currentLineWidth = 0;
+                    int lineIndex = 0;
+                    
+                    for (int i = 0; i < vacationTitles.size(); i++) {
+                        String title = vacationTitles.get(i);
+                        float titleWidth = paint.measureText(title);
+                        
+                        if (line.length() == 0) {
+                            line.append(title);
+                            currentLineWidth = titleWidth;
+                        } else {
+                            if (currentLineWidth + separatorWidth + titleWidth <= maxLineWidth) {
+                                line.append(" ⸰ ").append(title);
+                                currentLineWidth += (separatorWidth + titleWidth);
+                            } else {
+                                itemList.add(new ItemInfo("vac_line_" + lineIndex, line.toString(), "", false, true, "휴가"));
+                                lineIndex++;
+                                line = new StringBuilder(title);
+                                currentLineWidth = titleWidth;
+                            }
+                        }
+                    }
+                    if (line.length() > 0) {
+                        itemList.add(new ItemInfo("vac_line_" + lineIndex, line.toString(), "", false, true, "휴가"));
                     }
                 }
                 
@@ -176,12 +206,19 @@ class WeeklyRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory 
             String startDate = todo.optString("startDate", "");
             String dueDate = todo.optString("dueDate", "");
             boolean completed = todo.optBoolean("completed", false);
+            String completedAt = todo.optString("completedAt", "");
             
             String startDateKey = (startDate != null && startDate.length() >= 10) ? startDate.substring(0, 10) : "";
             String dueDateKey = (dueDate != null && dueDate.length() >= 10) ? dueDate.substring(0, 10) : "";
+            String completedAtKey = (completedAt != null && completedAt.length() >= 10) ? completedAt.substring(0, 10) : "";
             
             boolean hasStart = !startDateKey.isEmpty();
             boolean hasDue = !dueDateKey.isEmpty();
+            
+            // 완료된 할일: 오늘 완료된 것만 오늘 날짜에 표시
+            if (completed && !completedAtKey.isEmpty()) {
+                return targetDateKey.equals(todayKey) && completedAtKey.equals(todayKey);
+            }
             
             if (hasStart && hasDue) {
                 return targetDateKey.compareTo(startDateKey) >= 0 && targetDateKey.compareTo(dueDateKey) <= 0;
@@ -196,10 +233,24 @@ class WeeklyRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory 
             if (!hasStart && hasDue) {
                 return targetDateKey.equals(dueDateKey);
             }
+            
+            // Inbox 할일 (날짜 없는 것): 미완료만 오늘에 표시
+            if (!hasStart && !hasDue && !completed) {
+                return targetDateKey.equals(todayKey);
+            }
+            
             return false;
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private float dpToPx(float dp) {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics());
+    }
+
+    private float spToPx(float sp) {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, context.getResources().getDisplayMetrics());
     }
 
     @Override

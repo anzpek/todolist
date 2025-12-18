@@ -174,42 +174,15 @@
                 android:paddingHorizontal="8dp"/>
         </LinearLayout>
 
-        <!-- 25개 할일 -->
-        <TextView android:id="@+id/task_0" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_4" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_5" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_6" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_7" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_8" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_9" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_10" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_11" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_12" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_13" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_14" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_15" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_16" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_17" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_18" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_19" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_20" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_21" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_22" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_23" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-        <TextView android:id="@+id/task_24" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone"/>
-
-        <!-- + N More -->
-        <TextView
-            android:id="@+id/task_more"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="+ 5 More"
-            android:textColor="#3B82F6"
-            android:textSize="12sp"
-            android:visibility="gone"/>
+        <!-- 할일 리스트 (ListView - Today 위젯과 동일) -->
+        <ListView
+            android:id="@+id/calendar_task_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:scrollbars="none"
+            android:fadingEdge="none" />
 
         <!-- 할일 없음 -->
         <TextView
@@ -220,7 +193,7 @@
             android:text="No tasks"
             android:textColor="#6B7280"
             android:textSize="12sp"
-            android:visibility="visible"/>
+            android:visibility="gone"/>
     </LinearLayout>
 
 </LinearLayout>
