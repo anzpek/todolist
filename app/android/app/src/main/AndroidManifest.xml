@@ -22,6 +22,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Deep Link for todolist:// scheme -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="todolist" />
+            </intent-filter>
+
         </activity>
 
         <!-- Widget Receiver -->
@@ -39,6 +47,14 @@
         <service
             android:name=".TodoListWidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
+        
+        <service
+            android:name=".KanbanRemoteViewsService"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+        
+        <service
+            android:name=".WeeklyRemoteViewsService"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
         <!-- Calendar Widget -->
         <receiver
@@ -52,6 +68,45 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/todo_calendar_widget_info" />
+        </receiver>
+
+        <!-- Weekly Widget -->
+        <receiver
+            android:name=".WeeklyWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_weekly_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weekly_widget_info" />
+        </receiver>
+
+        <!-- Full Calendar Widget -->
+        <receiver
+            android:name=".FullCalendarWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_full_calendar_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/full_calendar_widget_info" />
+        </receiver>
+
+        <!-- Kanban Widget -->
+        <receiver
+            android:name=".KanbanWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_kanban_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kanban_widget_info" />
         </receiver>
 
         <provider

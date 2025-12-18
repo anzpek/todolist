@@ -33,6 +33,7 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
     private static final String ACTION_PREV_MONTH = "com.anzpek.todolist.PREV_MONTH";
     private static final String ACTION_NEXT_MONTH = "com.anzpek.todolist.NEXT_MONTH";
     private static final String ACTION_GO_TODAY = "com.anzpek.todolist.CALENDAR_GO_TODAY";
+    private static final String ACTION_REFRESH = "com.anzpek.todolist.CALENDAR_REFRESH";
     private static final String EXTRA_DATE_KEY = "selected_date_key";
     private static final int MAX_TASKS = 25;
 
@@ -211,6 +212,22 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
             PendingIntent goTodayPendingIntent = PendingIntent.getBroadcast(context, 2003, goTodayIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
             views.setOnClickPendingIntent(R.id.widget_calendar_month_title, goTodayPendingIntent);
+            
+            // 우측 할일영역 + 버튼 → 앱 열기 + 할일 추가 모달
+            Intent addIntent = new Intent(context, MainActivity.class);
+            addIntent.setAction(Intent.ACTION_VIEW);
+            addIntent.setData(android.net.Uri.parse("todolist://add?t=" + System.currentTimeMillis()));
+            addIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent addPendingIntent = PendingIntent.getActivity(context, 2004, addIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            views.setOnClickPendingIntent(R.id.btn_add_task, addPendingIntent);
+            
+            // 새로고침 버튼
+            Intent refreshIntent = new Intent(context, CalendarWidgetProvider.class);
+            refreshIntent.setAction(ACTION_REFRESH);
+            PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, 2005, refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            views.setOnClickPendingIntent(R.id.btn_refresh, refreshPendingIntent);
 
             // 오른쪽 영역 클릭시 앱 열기
             Intent appIntent = new Intent(context, MainActivity.class);
@@ -440,6 +457,9 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
                 .putInt("calendar_display_month", today.get(Calendar.MONTH))
                 .putString("calendar_selected_date_key", todayKey)
                 .apply();
+            refreshWidget(context);
+        } else if (ACTION_REFRESH.equals(action)) {
+            android.util.Log.d("CalendarWidget", "Manual refresh triggered");
             refreshWidget(context);
         }
     }

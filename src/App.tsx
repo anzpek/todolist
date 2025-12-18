@@ -237,8 +237,10 @@ function AppContent() {
     }
   }, [])
 
-  // 딥링크 처리: todolist://add -> 할일 추가 모달 열기
+  // 딥링크 처리: todolist://add, todolist://toggle
   useEffect(() => {
+    let lastProcessedTime = 0  // 마지막 처리 시간 (디바운스용)
+
     const handleDeepLink = async () => {
       try {
         const { Capacitor } = await import('@capacitor/core')
@@ -246,20 +248,47 @@ function AppContent() {
 
         const { App } = await import('@capacitor/app')
 
+        const processUrl = (url: string) => {
+          const now = Date.now()
+
+          console.log('Processing deep link:', url)
+
+          if (url.includes('todolist://add')) {
+            // 500ms 이내 중복 클릭 방지 (디바운스)
+            if (now - lastProcessedTime < 500) {
+              console.log('Add modal debounce - skipping')
+              return
+            }
+            lastProcessedTime = now
+
+            // 할일 추가 모달 열기 - 커스텀 이벤트 발생
+            console.log('Dispatching openAddTodoModal event')
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('openAddTodoModal'))
+            }, 300)
+          } else if (url.includes('todolist://toggle')) {
+            // 할일 완료 토글
+            const urlObj = new URL(url)
+            const taskId = urlObj.searchParams.get('taskId')
+            if (taskId) {
+              console.log('Toggling task from widget:', taskId)
+              setTimeout(() => {
+                toggleTodo(taskId)
+              }, 300)
+            }
+          }
+        }
+
         // 앱 시작 시 URL 확인
         const urlOpen = await App.getLaunchUrl()
-        if (urlOpen?.url?.includes('todolist://add')) {
-          setTimeout(() => {
-            addTodoModalRef.current?.open()
-          }, 500)
+        if (urlOpen?.url) {
+          processUrl(urlOpen.url)
         }
 
         // URL 변경 리스너
         const listener = await App.addListener('appUrlOpen', (event) => {
           console.log('Deep link opened:', event.url)
-          if (event.url?.includes('todolist://add')) {
-            addTodoModalRef.current?.open()
-          }
+          processUrl(event.url)
         })
 
         return () => {
@@ -271,7 +300,7 @@ function AppContent() {
     }
 
     handleDeepLink()
-  }, [])
+  }, [toggleTodo])
 
   // 위젯에서 toggleTodo 이벤트 수신
   useEffect(() => {

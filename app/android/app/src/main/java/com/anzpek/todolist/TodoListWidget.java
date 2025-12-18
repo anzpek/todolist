@@ -25,6 +25,7 @@ public class TodoListWidget extends AppWidgetProvider {
     private static final String ACTION_NEXT_DAY = "com.anzpek.todolist.NEXT_DAY";
     private static final String ACTION_TODAY = "com.anzpek.todolist.GO_TODAY";
     private static final String ACTION_TOGGLE_TASK = "com.anzpek.todolist.TOGGLE_TASK";
+    private static final String ACTION_REFRESH = "com.anzpek.todolist.REFRESH_WIDGET";
     private static final String EXTRA_TASK_ID = "task_id";
 
     public static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
@@ -125,14 +126,21 @@ public class TodoListWidget extends AppWidgetProvider {
             // Title Click -> Go to Today
             views.setOnClickPendingIntent(R.id.widget_title, todayPendingIntent);
             
-            // Add Button -> Open App with Add Modal
+            // Add Button -> Open App with Add Modal (타임스탬프로 고유화)
             Intent addIntent = new Intent(context, MainActivity.class);
             addIntent.setAction(Intent.ACTION_VIEW);
-            addIntent.setData(Uri.parse("todolist://add"));
-            addIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            addIntent.setData(Uri.parse("todolist://add?t=" + System.currentTimeMillis()));
+            addIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             PendingIntent addPendingIntent = PendingIntent.getActivity(context, 1, addIntent, 
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
             views.setOnClickPendingIntent(R.id.widget_add_button, addPendingIntent);
+            
+            // Refresh Button
+            Intent refreshIntent = new Intent(context, TodoListWidget.class);
+            refreshIntent.setAction(ACTION_REFRESH);
+            PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, 103, refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            views.setOnClickPendingIntent(R.id.btn_refresh, refreshPendingIntent);
             
             // List Item Click Template -> Toggle Task
             Intent itemClickIntent = new Intent(context, TodoListWidget.class);
@@ -175,18 +183,26 @@ public class TodoListWidget extends AppWidgetProvider {
             prefs.edit().putString("today_widget_selected_date", todayKey).apply();
             refreshWidget(context);
             
+        } else if (ACTION_REFRESH.equals(action)) {
+            android.util.Log.d("TodoListWidget", "Manual refresh triggered");
+            refreshWidget(context);
+            
         } else if (ACTION_TOGGLE_TASK.equals(action)) {
             String clickAction = intent.getStringExtra("action");
             String taskId = intent.getStringExtra("task_id");
             
             if ("toggle".equals(clickAction)) {
-                // 체크박스 클릭 → 완료 토글
+                // 체크박스 클릭 → SharedPreferences에서 직접 토글
                 if (taskId != null && !taskId.isEmpty() && !taskId.startsWith("vac_")) {
-                    android.util.Log.d("TodoListWidget", "Toggle task: " + taskId);
-                    Intent toggleIntent = new Intent("com.anzpek.todolist.TOGGLE_TODO");
-                    toggleIntent.putExtra("task_id", taskId);
-                    toggleIntent.setPackage(context.getPackageName());
-                    context.sendBroadcast(toggleIntent);
+                    android.util.Log.d("TodoListWidget", "Toggle task directly: " + taskId);
+                    toggleTaskInPrefs(context, taskId);
+                    refreshWidget(context);
+                    
+                    // 앱에도 알림 (Firebase 동기화용)
+                    Intent toggleBroadcast = new Intent("com.anzpek.todolist.TOGGLE_TODO");
+                    toggleBroadcast.putExtra("task_id", taskId);
+                    toggleBroadcast.setPackage(context.getPackageName());
+                    context.sendBroadcast(toggleBroadcast);
                 }
             } else if ("open_app".equals(clickAction)) {
                 // 텍스트 클릭 → 앱 열기
@@ -284,5 +300,60 @@ public class TodoListWidget extends AppWidgetProvider {
             return isoDate.substring(0, 10);
         }
         return "";
+    }
+    
+    // SharedPreferences에서 할일 완료 상태 토글
+    private void toggleTaskInPrefs(Context context, String taskId) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String dataStr = prefs.getString(PREF_PREFIX_KEY + "data", "");
+            
+            if (dataStr.isEmpty()) {
+                android.util.Log.w("TodoListWidget", "No data in prefs");
+                return;
+            }
+            
+            JSONObject combinedData = new JSONObject(dataStr);
+            JSONArray calendarArray = combinedData.optJSONArray("calendar");
+            
+            if (calendarArray == null) {
+                android.util.Log.w("TodoListWidget", "No calendar data");
+                return;
+            }
+            
+            boolean found = false;
+            for (int i = 0; i < calendarArray.length(); i++) {
+                JSONObject todo = calendarArray.getJSONObject(i);
+                String id = todo.optString("id", "");
+                
+                if (id.equals(taskId)) {
+                    boolean currentCompleted = todo.optBoolean("completed", false);
+                    todo.put("completed", !currentCompleted);
+                    
+                    // completedAt 설정/제거
+                    if (!currentCompleted) {
+                        todo.put("completedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(new java.util.Date()));
+                    } else {
+                        todo.remove("completedAt");
+                    }
+                    
+                    calendarArray.put(i, todo);
+                    found = true;
+                    android.util.Log.d("TodoListWidget", "Toggled task " + taskId + " to completed=" + !currentCompleted);
+                    break;
+                }
+            }
+            
+            if (found) {
+                combinedData.put("calendar", calendarArray);
+                prefs.edit().putString(PREF_PREFIX_KEY + "data", combinedData.toString()).apply();
+                android.util.Log.d("TodoListWidget", "Saved updated data to prefs");
+            } else {
+                android.util.Log.w("TodoListWidget", "Task not found: " + taskId);
+            }
+            
+        } catch (Exception e) {
+            android.util.Log.e("TodoListWidget", "Error toggling task: " + e.getMessage());
+        }
     }
 }

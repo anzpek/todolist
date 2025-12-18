@@ -6,4 +6,10 @@
     <string name="widget_name">Todo List (Simple)</string>
     <string name="widget_calendar_name">Todo Calendar</string>
     <string name="widget_calendar_desc">Calendar with daily tasks</string>
+    <string name="widget_weekly_name">Weekly Calendar</string>
+    <string name="widget_weekly_description">Weekly view with tasks</string>
+    <string name="widget_full_calendar_name">Full Calendar</string>
+    <string name="widget_full_calendar_description">Monthly calendar with tasks in cells</string>
+    <string name="widget_kanban_name">Kanban Board</string>
+    <string name="widget_kanban_description">Tasks by priority</string>
 </resources>

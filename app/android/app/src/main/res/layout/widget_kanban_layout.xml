@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 칸반 위젯 - 2x2 그리드 레이아웃, ListView 사용 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_kanban_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="6dp">
+
+    <!-- 상단: 제목 + + 버튼 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="4dp">
+        
+        <TextView
+            android:id="@+id/widget_kanban_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Today's Tasks"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"/>
+        
+        <TextView
+            android:id="@+id/btn_refresh"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="↻"
+            android:textColor="#9CA3AF"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:paddingHorizontal="6dp"
+            android:layout_marginEnd="16dp"/>
+            
+        <TextView
+            android:id="@+id/btn_add_todo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:paddingHorizontal="8dp"/>
+    </LinearLayout>
+    
+    <!-- 2x2 그리드 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+        
+        <!-- 상단 행: 긴급 | 높음 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+            
+            <!-- 긴급 (좌상) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="#20EF4444"
+                android:padding="3dp"
+                android:layout_marginEnd="2dp"
+                android:layout_marginBottom="2dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Urgent" android:textColor="#EF4444" android:textSize="10sp" android:textStyle="bold"/>
+                <ListView
+                    android:id="@+id/urgent_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:divider="@null"
+                    android:dividerHeight="0dp"
+                    android:scrollbars="none"/>
+            </LinearLayout>
+            
+            <!-- 높음 (우상) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="#20F59E0B"
+                android:padding="3dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginBottom="2dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="High" android:textColor="#F59E0B" android:textSize="10sp" android:textStyle="bold"/>
+                <ListView
+                    android:id="@+id/high_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:divider="@null"
+                    android:dividerHeight="0dp"
+                    android:scrollbars="none"/>
+            </LinearLayout>
+        </LinearLayout>
+        
+        <!-- 하단 행: 중간 | 낮음 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+            
+            <!-- 중간 (좌하) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="#203B82F6"
+                android:padding="3dp"
+                android:layout_marginEnd="2dp"
+                android:layout_marginTop="2dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Medium" android:textColor="#3B82F6" android:textSize="10sp" android:textStyle="bold"/>
+                <ListView
+                    android:id="@+id/medium_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:divider="@null"
+                    android:dividerHeight="0dp"
+                    android:scrollbars="none"/>
+            </LinearLayout>
+            
+            <!-- 낮음 (우하) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="#209CA3AF"
+                android:padding="3dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginTop="2dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Low" android:textColor="#9CA3AF" android:textSize="10sp" android:textStyle="bold"/>
+                <ListView
+                    android:id="@+id/low_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:divider="@null"
+                    android:dividerHeight="0dp"
+                    android:scrollbars="none"/>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

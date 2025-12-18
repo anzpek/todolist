@@ -35,4 +35,34 @@ public class MainActivity extends BridgeActivity {
         }
         return super.onOptionsItemSelected(item);
     }
+    
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        
+        if (intent != null && intent.getData() != null) {
+            String url = intent.getData().toString();
+            Log.d("MainActivity", "onNewIntent deep link: " + url);
+            
+            // todolist://add 딥링크 직접 처리
+            if (url.contains("todolist://add")) {
+                Log.d("MainActivity", "Opening add modal via JavaScript");
+                // WebView에 직접 JavaScript 실행
+                runOnUiThread(() -> {
+                    if (getBridge() != null && getBridge().getWebView() != null) {
+                        getBridge().getWebView().evaluateJavascript(
+                            "window.dispatchEvent(new CustomEvent('openAddTodoModal'));",
+                            null
+                        );
+                    }
+                });
+            } else if (url.contains("todolist://toggle")) {
+                // Bridge에 전달 (toggle은 기존 방식 유지)
+                if (getBridge() != null) {
+                    getBridge().onNewIntent(intent);
+                }
+            }
+        }
+    }
 }

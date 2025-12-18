@@ -9,80 +9,111 @@
     android:background="@drawable/widget_background"
     android:padding="16dp">
 
-    <!-- Header with Date Navigation -->
+    <!-- Header: 2등분 - 왼쪽(네비게이션) + 오른쪽(오늘/갯수/+) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingBottom="12dp">
-
-        <!-- Previous Day Button -->
-        <ImageView
-            android:id="@+id/btn_prev_day"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_chevron_left"
-            app:tint="#FFFFFF"
-            android:contentDescription="Previous Day"
-            android:padding="2dp" />
-
-        <!-- Date Text (Center) - Clickable to go to today -->
-        <TextView
-            android:id="@+id/widget_title"
+        
+        <!-- 왼쪽 반: ◀ Today ▶ -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Today"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:gravity="center" />
+            android:orientation="horizontal"
+            android:gravity="center">
+            
+            <ImageView
+                android:id="@+id/btn_prev_day"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_chevron_left"
+                app:tint="#FFFFFF"
+                android:contentDescription="Previous Day"
+                android:layout_marginEnd="16dp"
+                android:padding="2dp" />
 
-        <!-- Next Day Button -->
-        <ImageView
-            android:id="@+id/btn_next_day"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_chevron_right"
-            app:tint="#FFFFFF"
-            android:contentDescription="Next Day"
-            android:padding="2dp" />
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Today"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:gravity="center" />
 
-        <!-- Today Button -->
-        <TextView
-            android:id="@+id/btn_today"
-            android:layout_width="wrap_content"
+            <ImageView
+                android:id="@+id/btn_next_day"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_chevron_right"
+                app:tint="#FFFFFF"
+                android:contentDescription="Next Day"
+                android:layout_marginStart="16dp"
+                android:padding="2dp" />
+        </LinearLayout>
+        
+        <!-- 오른쪽 반: 오늘(왼쪽 끝) + 할일갯수(가운데) + 버튼(우측 끝) -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="오늘"
-            android:textColor="#10B981"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
-            android:background="@drawable/widget_today_button_bg"
-            android:layout_marginStart="8dp" />
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            
+            <!-- 오늘 버튼: 왼쪽 끝 -->
+            <TextView
+                android:id="@+id/btn_today"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="오늘"
+                android:textColor="#10B981"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:background="@drawable/widget_today_button_bg" />
 
-        <!-- Task Count -->
-        <TextView
-            android:id="@+id/widget_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0"
-            android:textColor="#4F46E5"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginStart="8dp"/>
+            <!-- 할일갯수: 가운데 -->
+            <TextView
+                android:id="@+id/widget_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="0"
+                android:textColor="#4F46E5"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
 
-        <!-- Add Button -->
-        <ImageView
-            android:id="@+id/widget_add_button"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_add"
-            app:tint="#4F46E5"
-            android:layout_marginStart="8dp"
-            android:contentDescription="Add Task" />
+            <!-- 새로고침 버튼 -->
+            <TextView
+                android:id="@+id/btn_refresh"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="↻"
+                android:textColor="#9CA3AF"
+                android:textSize="18sp"
+                android:gravity="center"
+                android:paddingHorizontal="6dp"
+                android:layout_marginEnd="16dp"
+                android:contentDescription="Refresh" />
+
+            <!-- + 버튼: 우측 끝 (흰색, 배경 없음) -->
+            <TextView
+                android:id="@+id/widget_add_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingHorizontal="8dp"
+                android:contentDescription="Add Task" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Task List -->

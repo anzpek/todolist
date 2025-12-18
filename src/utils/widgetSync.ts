@@ -127,11 +127,15 @@ export const syncWidget = async (todosOrOptions: Todo[] | SyncWidgetOptions) => 
         console.log('📱 syncWidget: Today widget data:', todayWidgetData.length, 'items')
 
         // ========================================
-        // 캘린더 위젯용 - 미완료 + 날짜가 있는 모든 할일 (우선순위 정렬)
+        // 캘린더 위젯용 - 미완료 + 날짜가 있는 모든 할일 + 반복 할일
         // ========================================
         const calendarFiltered = todos.filter((todo) => {
             if (todo.completed) return false
-            return todo.startDate || todo.dueDate
+            // 날짜가 있는 할일
+            if (todo.startDate || todo.dueDate) return true
+            // 반복 할일 (날짜가 없어도 recurrence가 있으면 표시)
+            if (todo.recurrence && todo.recurrence !== 'none') return true
+            return false
         })
 
         // 우선순위 정렬 추가

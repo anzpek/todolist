@@ -78,6 +78,20 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     }
   }, [currentView])
 
+  // 딥링크 이벤트 수신: 할일 추가 모달 열기
+  useEffect(() => {
+    const handleOpenAddModal = () => {
+      console.log('Received openAddTodoModal event')
+      setInitialDateForAdd(undefined)
+      setIsAddModalOpen(true)
+    }
+
+    window.addEventListener('openAddTodoModal', handleOpenAddModal)
+    return () => {
+      window.removeEventListener('openAddTodoModal', handleOpenAddModal)
+    }
+  }, [])
+
   const handleDateChange = (date: Date) => {
     setSelectedDate(date)
   }
