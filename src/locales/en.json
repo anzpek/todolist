@@ -185,12 +185,12 @@
     },
     "updateNotification": {
         "title": "System Update",
-        "newFeatures": "What's New",
+        "newFeatures": "What's New (v1.3.1)",
         "changes": [
-            "Improved Android Back Button (Closes modals -> Confirm Exit)",
-            "Fixed Auto-focus issue on 'Add Task' popup",
-            "Resolved White Screen issue on startup (Stability fix)",
-            "Adjusted FAB position & UI improvements"
+            "New Sharing/Collaboration features (Create groups, Invite, Manage permissions)",
+            "Weekly Calendar Widget (Check schedule on home screen)",
+            "Notification Center (Check invites and changes)",
+            "Overall UI/UX improvements and stability fixes"
         ],
         "dontShowAgain": "Don't show again",
         "close": "Close"
@@ -541,6 +541,20 @@
             "loginDesc": "Login with Google to sync cloud data across multiple devices (PC, Tablet, Mobile). Guest mode saves data locally only.",
             "security": "Security & Backup",
             "securityDesc": "All data is securely transmitted and stored. Guest data may be lost if the app is deleted, so Google Login is recommended for data protection."
+        },
+        "sharing": {
+            "title": "5. Sharing & Collaboration",
+            "createDetail": "Create New Group",
+            "createDetailDesc": "Create a new group in the 'Sharing Settings' menu and invite team members via email.",
+            "permissionDetail": "Permission Management",
+            "permissionDetailDesc": "Assign 'Can View', 'Can Edit', or 'Admin' permissions to team members for secure collaboration.",
+            "filterDetail": "Sharing Filters",
+            "filterDetailDesc": "Distinguish between 'My Tasks' and 'Shared Tasks' using the filters at the top of the main screen."
+        },
+        "notifications": {
+            "title": "6. Notification Center",
+            "centerDetail": "Check Notifications",
+            "centerDetailDesc": "Click the bell icon at the top right to see new invite requests or project changes at a glance."
         },
         "more": {
             "title": "Have Questions?",

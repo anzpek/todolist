@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Book, CheckSquare, Calendar, Repeat, Search, Settings, Shield, Zap } from 'lucide-react'
+import { Book, CheckSquare, Calendar, Repeat, Search, Settings, Shield, Zap, Users, Bell } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../contexts/ThemeContext' // Added
 
@@ -37,6 +37,24 @@ const HelpGuide = () => {
                 { title: t('guide.advanced.recurring'), desc: t('guide.advanced.recurringDesc') },
                 { title: t('guide.advanced.subtasks'), desc: t('guide.advanced.subtasksDesc') },
                 { title: t('guide.advanced.tags'), desc: t('guide.advanced.tagsDesc') }
+            ]
+        },
+        {
+            id: 'sharing',
+            title: t('guide.sharing.title'),
+            icon: Users,
+            items: [
+                { title: t('guide.sharing.createDetail'), desc: t('guide.sharing.createDetailDesc') },
+                { title: t('guide.sharing.permissionDetail'), desc: t('guide.sharing.permissionDetailDesc') },
+                { title: t('guide.sharing.filterDetail'), desc: t('guide.sharing.filterDetailDesc') }
+            ]
+        },
+        {
+            id: 'notifications',
+            title: t('guide.notifications.title'),
+            icon: Bell,
+            items: [
+                { title: t('guide.notifications.centerDetail'), desc: t('guide.notifications.centerDetailDesc') }
             ]
         },
         {
