@@ -20,6 +20,13 @@ interface TodoListProps {
   projectFilter?: 'all' | 'longterm' | 'shortterm'
   tagFilter?: string[]
   completionDateFilter?: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
+  sharingFilter?: 'all' | 'private' | 'shared' | 'my_shared' | string
+  sharingFilterState?: {
+    showPersonal: boolean
+    showMyShared: boolean
+    showGroupShared: boolean
+    selectedGroupId: string | null
+  }
   selectedDate?: Date // 오늘 할일 뷰에서 선택된 날짜
   onDateChange?: (date: Date) => void
   onEdit?: (todo: Todo) => void
@@ -33,6 +40,8 @@ const TodoList = memo(({
   projectFilter = 'all',
   tagFilter = [],
   completionDateFilter = 'all',
+  sharingFilter = 'all',
+  sharingFilterState,
   selectedDate,
   onDateChange,
   onEdit
@@ -124,12 +133,133 @@ const TodoList = memo(({
           if (!hasMatchingTag) return false
         }
 
+        // 공유 필터
+        if (sharingFilterState) {
+          const { showPersonal, showMyShared, showGroupShared, selectedGroupId } = sharingFilterState;
+
+          // 1. 그룹 필터링
+          if (selectedGroupId) {
+            if (todo.sharedGroupId !== selectedGroupId) return false;
+          }
+
+          // 2. 가시성 타입 필터링
+          const isPersonalTodo = todo.visibility?.isPersonal !== false;
+          const isSharedTodo = todo.visibility?.isShared === true;
+          const isMyShared = isSharedTodo && todo.ownerId === currentUser?.uid;
+          const isSharedWithMe = isSharedTodo && todo.ownerId !== currentUser?.uid;
+
+          let matchesType = false;
+          // 내 할일: 공유되지 않았거나, 개인적 가시성이 켜진 경우
+          // 정확히는 "내 할일" 탭은 "공유 여부와 상관없이 내가 소유한 할일 중 개인 보기 설정된 것"?
+          // 아니면 "순수 개인 할일"?
+          // 사용자의 정의: "내 할일 : 내 할일 체크된 모든 할일 보이는거야." (visibility.isPersonal이 true인 것)
+
+          // 로직 수정:
+          // 내 할일 (showPersonal): visibility.isPersonal === true
+          // 내가 공유 (showMyShared): visibility.isShared === true && owner === me
+          // 그룹 공유 (showGroupShared): visibility.isShared === true && owner !== me
+
+          // 1. 내 할일 (순수 개인 할일: 공유되지 않은 것)
+          // 사용자가 '최고'라고 했던 시점의 로직으로 복원
+          if (showPersonal && isPersonalTodo && !isSharedTodo) {
+            matchesType = true
+          }
+
+          // 2. 내가 공유 (visibility.isShared === true && ownerId === 나)
+          if (showMyShared && isMyShared) {
+            matchesType = true
+          }
+
+          // 3. 그룹 공유 (visibility.isShared === true && ownerId !== 나)
+          if (showGroupShared && isSharedWithMe) {
+            matchesType = true
+          }
+
+          // 위 로직의 문제점: showPersonal 체크 시 isShared여도 isPersonal이면 보임.
+          // 사용자가 "내 할일"을 껐는데 "내가 공유"를 켰을 때, isPersonal && isShared 인 항목이 보일까?
+          // showPersonal=false, showMyShared=true -> isMyShared=true 이므로 보임. OK.
+
+          // 사용자가 "내 할일"을 켰는데 "내가 공유"를 껐을 때
+          // showPersonal=true, showMyShared=false -> isPersonal=true 이므로 보임.
+          // 그런데 이게 '공유된 할일' 리스트에 섞여 나오는게 맞나?
+          // 사용자의 의도는 "내 할일" 섹션과 "공유" 섹션을 분리해서 보고 싶은 것일 수 있음.
+          // 하지만 지금은 통합 리스트임.
+
+          // 사용자 요청 재확인:
+          // 내 할일 : 내 할일 체크된 모든 할일
+          // 내가 공유 : 내가 공유한 공유 할일
+          // 그룹 공유 : 그룹이 공유한 공유 할일
+
+          // 만약 "내 할일" 토글을 끄면 -> 순수 개인 할일은 사라짐.
+          // "내가 공유" 토글을 끄면 -> 내가 공유한 할일들이 사라짐.
+          // 근데 어떤 할일이 둘 다 해당되면? (isPersonal & sMyShared)
+          // 둘 중 하나만 켜져도 보여야 하는게 맞음 (OR 조건).
+
+          // 다만 "내 할일" 정의를 좀 더 엄격하게 "공유되지 않은 개인 할일"로 할지, "개인에게 보이는 할일"로 할지.
+          // 보통 필터 버튼은 "해당 속성을 가진 것 포함"이므로 OR가 자연스러움.
+
+          // 하지만, "내 할일" 버튼만을 켰을 때 "공유된 할일"이 보이는게 혼동을 줄 수 있음.
+          // 코드로 돌아가서:
+          if (showPersonal && isPersonalTodo && !isSharedTodo) matchesType = true; // 순수 개인 할일
+          if (showPersonal && isPersonalTodo && isSharedTodo) matchesType = true; // 공유되었지만 내 할일로도 표시되는 것
+
+          // 다시 정리:
+          // A: isPersonal && !isShared (순수 개인)
+          // B: isPersonal && isShared (공유 겸용)
+          // C: !isPersonal && isShared (공유 전용)
+
+          // showPersonal -> A, B 포함?
+          // showMyShared -> B, C(내가 주인인 경우) 포함?
+
+          // 깔끔하게:
+          // showPersonal => isPersonal === true 인 것들? 
+          // 아니면 showPersonal => isPersonal && !isShared?
+
+          // 사용자의 "내 할일 체크된 모든 할일" 표현을 보면 isPersonal: true 전체를 의미하는 듯.
+          // 하지만 "내가 공유" 항목과 겹침.
+
+          // 이전 로직(TodoContext)에서는
+          // if (showPersonal && isPersonalTodo && !isSharedTodo) matchesType = true;
+          // 라고 했음. 즉 "순수 개인 할일"만 "내 할일" 필터에 걸리게 함.
+          // 이렇게 하면 "공유되었지만 내 할일인 것"은 "내 할일" 필터만 켰을 때는 안 보임. "내가 공유"를 켜야 보임.
+          // 이게 더 명확할 수 있음.
+
+          // 일단 TodoContext와 동일한 로직인 "순수 개인 할일"로 구현.
+          matchesType = false;
+          if (showPersonal && isPersonalTodo && !isSharedTodo) matchesType = true;
+          if (showMyShared && isMyShared) matchesType = true;
+          if (showGroupShared && isSharedWithMe) matchesType = true;
+
+          if (!matchesType) return false;
+
+        } else if (sharingFilter !== 'all') { // 레거시 필터링
+          const isPersonalTodo = todo.visibility?.isPersonal !== false;
+          const isSharedTodo = todo.visibility?.isShared === true;
+          const isMyShared = isSharedTodo && todo.ownerId === currentUser?.uid;
+          const isSharedWithMe = isSharedTodo && todo.ownerId !== currentUser?.uid;
+
+          if (sharingFilter === 'private') {
+            // 개인 할일만: 공유되지 않고 개인 할일인 것
+            if (isSharedTodo) return false;
+            if (!isPersonalTodo) return false;
+          } else if (sharingFilter === 'shared') {
+            // 나에게 공유된 할일만 (다른 사람이 소유자)
+            if (!isSharedWithMe) return false;
+          } else if (sharingFilter === 'my_shared') {
+            // 내가 공유한 할일만
+            if (!isMyShared) return false;
+          } else {
+            // 특정 그룹 ID로 필터링
+            if (todo.sharedGroupId !== sharingFilter) return false;
+          }
+        }
+
         return true
       })
     }
 
     return applyFilters(currentTodos)
-  }, [currentTodos, searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter])
+  }, [currentTodos, searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter, sharingFilter, sharingFilterState])
 
   // 완료되지 않은 할일: 메인 할일이 완료되지 않은 모든 할일
   const incompleteTodos = filteredTodos.filter(todo => !todo.completed)
@@ -628,7 +758,7 @@ const TodoList = memo(({
         </div>
       )}
 
-      {sortedCompletedTodos.length > 0 && (currentView === 'today' || currentView === 'week' || currentView === 'month') && (
+      {sortedCompletedTodos.length > 0 && (currentView === 'week' || currentView === 'month') && (
         <div>
           <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-4 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5" />

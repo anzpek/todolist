@@ -1,11 +1,12 @@
+import ShareSettingsModal from './ShareSettingsModal'
 import { useState, useEffect, useRef } from 'react'
-import { Calendar, Clock, Tag, Flag, Plus, Briefcase, Layers, ChevronDown, ChevronUp, Trash2, FileText, FolderPlus, X } from 'lucide-react'
+import { Calendar, Clock, Tag, Flag, Plus, Briefcase, Layers, ChevronDown, ChevronUp, Trash2, FileText, FolderPlus, X, Share2, Users, Search, UserPlus, Shield } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
 import { firestoreService } from '../services/firestoreService'
 import ProjectTemplateManager from './ProjectTemplateManager'
-import type { Priority, RecurrenceType, TaskType, ProjectTemplate } from '../types/todo'
+import type { Priority, RecurrenceType, TaskType, ProjectTemplate, SharedUser, SharePermission } from '../types/todo'
 import { useTranslation } from 'react-i18next'
 
 interface StandardTodoFormProps {
@@ -48,6 +49,42 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
     const [formData, setFormData] = useState(initialFormState)
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [newSubTaskTitle, setNewSubTaskTitle] = useState('')
+
+    // 공유 기능 상태
+    const [isPersonal, setIsPersonal] = useState(true)
+    const [isShared, setIsShared] = useState(false)
+    const [searchEmail, setSearchEmail] = useState('')
+    const [searchResult, setSearchResult] = useState<SharedUser | null>(null)
+    const [sharedWith, setSharedWith] = useState<SharedUser[]>([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [searchError, setSearchError] = useState('')
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+
+    // 공유 그룹 목록 (Firestore에서 로드)
+    interface SharingGroup {
+        id: string
+        name: string
+        members: SharedUser[]
+        isReference?: boolean
+        originalGroupId?: string
+        originalOwnerId?: string
+    }
+    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+    const [selectedGroupOwnerId, setSelectedGroupOwnerId] = useState<string | null>(null)
+    const [sharingGroups, setSharingGroups] = useState<SharingGroup[]>([])
+
+    // 공유 그룹 로드 (Firestore에서)
+    useEffect(() => {
+        if (!currentUser?.uid) return
+
+        const unsubscribe = firestoreService.subscribeSharingGroups(
+            currentUser.uid,
+            (groups) => setSharingGroups(groups)
+        )
+
+        return () => unsubscribe()
+    }, [currentUser?.uid])
+
     useEffect(() => {
         setFormData(prev => ({
             ...prev,
@@ -148,6 +185,51 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
         handleChange('subTasks', formData.subTasks.filter(st => st.id !== id))
     }
 
+    const handleSearchUser = async () => {
+        if (!searchEmail.trim()) return
+        if (searchEmail === currentUser?.email) {
+            setSearchError(t('sharing.cannotShareSelf') || 'Cannot share with yourself')
+            return
+        }
+
+        setIsSearching(true)
+        setSearchError('')
+        setSearchResult(null)
+
+        try {
+            const user = await firestoreService.findUserByEmail(searchEmail)
+            if (user) {
+                setSearchResult(user)
+            } else {
+                setSearchError(t('sharing.userNotFound') || 'User not found')
+            }
+        } catch (error) {
+            setSearchError(t('common.error') || 'Error occurred')
+        } finally {
+            setIsSearching(false)
+        }
+    }
+
+    const handleAddSharedUser = () => {
+        if (!searchResult) return
+        if (sharedWith.some(u => u.uid === searchResult.uid)) {
+            setSearchError(t('sharing.alreadyAdded') || 'User already added')
+            return
+        }
+
+        setSharedWith([...sharedWith, { ...searchResult, permission: 'read' }])
+        setSearchResult(null)
+        setSearchEmail('')
+    }
+
+    const handleRemoveSharedUser = (uid: string) => {
+        setSharedWith(sharedWith.filter(u => u.uid !== uid))
+    }
+
+    const handlePermissionChange = (uid: string, permission: SharePermission) => {
+        setSharedWith(sharedWith.map(u => u.uid === uid ? { ...u, permission } : u))
+    }
+
     const parseNaturalLanguage = (input: string) => {
         const today = new Date()
         let date = today
@@ -187,6 +269,12 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
             return
         }
 
+        // Validate visibility
+        if (!isPersonal && !isShared) {
+            alert(t('sharing.selectOne') || 'Please select at least one task type.')
+            return
+        }
+
         const todoData = {
             title: text,
             completed: false,
@@ -201,13 +289,29 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
                 priority: 'medium' as Priority,
                 createdAt: new Date(),
                 updatedAt: new Date()
-            })) : undefined
+            })) : undefined,
+
+            // 공유 설정
+            ownerId: currentUser?.uid,
+            visibility: {
+                isPersonal,
+                isShared
+            },
+            sharedWith: isShared ? sharedWith : [],
+            sharedGroupId: isShared ? selectedGroupId : undefined,
+            sharedGroupOwnerId: isShared ? selectedGroupOwnerId : undefined
         }
 
         addTodo(todoData)
         onSuccess()
         setText('')
         setFormData(initialFormState)
+        setIsPersonal(true)
+        setIsShared(false)
+        setSharedWith([])
+        setSearchEmail('')
+        setSelectedGroupId(null)
+        setSelectedGroupOwnerId(null)
     }
 
     return (
@@ -468,6 +572,107 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
                     )}
                 </div>
 
+
+                {/* 공유 설정 (Checkboxes) */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/50">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {t('sharing.settingsTitle') || 'Sharing'}
+                    </label>
+                    <div className="flex space-x-4 mb-3">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={isPersonal}
+                                onChange={(e) => setIsPersonal(e.target.checked)}
+                                className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                {t('sharing.myTask') || 'My Task'}
+                            </span>
+                        </label>
+
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={isShared}
+                                onChange={(e) => setIsShared(e.target.checked)}
+                                className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                {t('sharing.sharedTask') || 'Shared Task'}
+                            </span>
+                        </label>
+                    </div>
+
+                    {isShared && (
+                        <div className="space-y-3">
+                            {/* 공유 그룹 선택 */}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    공유 대상 선택
+                                </label>
+                                <select
+                                    value={sharedWith.length > 0 ? sharedWith.map(u => u.uid).sort().join(',') : ''}
+                                    onChange={(e) => {
+                                        const groupId = e.target.value
+                                        if (groupId) {
+                                            const selectedGroup = sharingGroups.find(g => g.id === groupId)
+                                            if (selectedGroup) {
+                                                console.log('🔍 선택된 그룹:', {
+                                                    id: selectedGroup.id,
+                                                    name: selectedGroup.name,
+                                                    members: selectedGroup.members,
+                                                    membersCount: selectedGroup.members?.length || 0,
+                                                    isReference: selectedGroup.isReference
+                                                });
+                                                setSharedWith(selectedGroup.members || [])
+                                                // 참조 그룹인 경우 원본 그룹 정보 사용, 아니면 현재 그룹 정보 사용
+                                                if (selectedGroup.isReference) {
+                                                    setSelectedGroupId(selectedGroup.originalGroupId || null)
+                                                    setSelectedGroupOwnerId(selectedGroup.originalOwnerId || null)
+                                                } else {
+                                                    setSelectedGroupId(groupId)
+                                                    setSelectedGroupOwnerId(currentUser?.uid || null)
+                                                }
+                                            }
+                                        } else {
+                                            setSharedWith([])
+                                            setSelectedGroupId(null)
+                                            setSelectedGroupOwnerId(null)
+                                        }
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                                >
+                                    <option value="">-- 공유 대상 선택 또는 직접 추가 --</option>
+                                    {sharingGroups.map(group => (
+                                        <option key={group.id} value={group.id}>
+                                            👥 {group.name} ({group.members.length}명)
+                                        </option>
+                                    ))}
+                                </select>
+                                {sharingGroups.length === 0 && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        💡 공유 그룹이 없습니다. 사이드바 "공유 설정"에서 먼저 그룹을 만들어주세요.
+                                    </p>
+                                )}
+                            </div>
+
+                            {sharedWith.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {sharedWith.map(user => (
+                                        <span key={user.uid} className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full text-xs text-gray-600 dark:text-gray-300">
+                                            <span className="w-4 h-4 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center text-[10px] font-bold">
+                                                {user.displayName?.[0] || user.email[0].toUpperCase()}
+                                            </span>
+                                            {user.displayName || user.email.split('@')[0]}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 {/* 태그 */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -534,12 +739,24 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
                         {t('modal.addTodo.submit')}
                     </button>
                 </div>
-            </form>
+            </form >
 
             <ProjectTemplateManager
                 isOpen={isTemplateManagerOpen}
                 onClose={() => setIsTemplateManagerOpen(false)}
                 onSelectTemplate={handleTemplateSelect}
+            />
+
+            <ShareSettingsModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                initialSharedWith={sharedWith}
+                onUpdate={(updatedSharedWith) => {
+                    setSharedWith(updatedSharedWith)
+                    // If users are added, ensure isShared is true
+                    if (updatedSharedWith.length > 0) setIsShared(true)
+                }}
+                currentUserId={currentUser?.uid}
             />
         </>
     )

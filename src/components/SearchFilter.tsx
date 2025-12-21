@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, Filter, X, Tag, Calendar, Check } from 'lucide-react'
 import type { Priority, TaskType } from '../types/todo'
 import { useTranslation } from 'react-i18next'
+import { useTodos } from '../contexts/TodoContext'
 
 interface SearchFilterProps {
   searchTerm: string
@@ -103,7 +104,8 @@ const SearchFilter = ({
         glass-panel shadow-xl transform origin-top transition-all duration-300 ease-out
         ${isFilterOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
       `}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+
           {/* 우선순위 필터 */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">

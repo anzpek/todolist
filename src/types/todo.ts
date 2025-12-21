@@ -1,5 +1,45 @@
 export type Priority = 'low' | 'medium' | 'high' | 'urgent'
 
+export type SharePermission = 'read' | 'edit' | 'admin'
+
+export interface SharedUser {
+  uid: string
+  email: string
+  displayName?: string
+  photoURL?: string | null
+  permission: SharePermission
+}
+
+export interface SharingRequest {
+  id: string
+  fromUid: string
+  fromEmail: string
+  toEmail: string
+  todoId: string
+  todoTitle: string
+  shareName?: string // Optional custom name for the share
+  permission: SharePermission
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: Date
+}
+
+export interface SharingGroup {
+  id: string
+  name: string
+  members: SharedUser[]       // 수락된 멤버들
+  pendingMembers?: SharedUser[] // 초대 대기 중인 멤버들
+  isReference?: boolean         // 내가 만든 그룹이 아닌 참조 그룹 여부
+  originalGroupId?: string      // 원본 그룹 ID
+  originalOwnerId?: string      // 원본 그룹 소유자 UID
+  originalOwnerEmail?: string   // 원본 그룹 소유자 이메일
+  createdAt: Date
+}
+
+export interface TaskVisibility {
+  isPersonal: boolean // 내 할 일 목록에 표시
+  isShared: boolean   // 공유 관련 목록에 표시
+}
+
 export type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'none'
 
 // 고급 반복 설정 타입들
@@ -113,6 +153,36 @@ export interface Todo {
   order?: number // 정렬 순서 (드래그 앤 드롭용)
   createdAt: Date
   updatedAt: Date
+
+  // 공유 기능 관련
+  ownerId?: string // 소유자 UID
+  sharedWith?: SharedUser[] // 공유 대상 목록
+  sharedWithUids?: string[] // 공유 대상 UID 목록 (쿼리용)
+  editorUids?: string[] // 편집 권한 UID 목록 (쿼리용)
+  adminUids?: string[] // 관리(삭제) 권한 UID 목록 (쿼리용)
+  sharedGroupId?: string // 공유 그룹 ID (그룹 멤버 변경 시 자동 반영용)
+  sharedGroupOwnerId?: string // 공유 그룹 소유자 UID
+  visibility?: TaskVisibility // 노출 설정 (내 할 일 / 공유 할 일)
+  lastModifiedBy?: string // 마지막 수정자 UID (NEW/최근 수정 배지용)
+  // 프론트엔드 편의용 (DB 저장 X)
+  myPermission?: SharePermission // 현재 사용자의 권한
+}
+
+// 공유 알림 (권한 변경, 새 할일 추가 등)
+export interface SharingNotification {
+  id: string
+  type: 'permission_change' | 'todo_added' | 'todo_updated'
+  targetUid: string           // 알림 받을 사용자
+  fromUid: string             // 변경한 사용자
+  fromEmail: string
+  groupId?: string
+  groupName?: string
+  todoId?: string
+  todoTitle?: string
+  previousPermission?: SharePermission
+  newPermission?: SharePermission
+  createdAt: Date
+  read: boolean
 }
 
 export interface TodoStats {

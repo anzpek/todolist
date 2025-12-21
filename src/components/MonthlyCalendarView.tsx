@@ -24,6 +24,13 @@ interface MonthlyCalendarViewProps {
   projectFilter: 'all' | 'longterm' | 'shortterm'
   tagFilter: string[]
   completionDateFilter: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
+  sharingFilter: 'all' | 'private' | 'shared' | 'my_shared' | string
+  sharingFilterState?: { // Added sharingFilterState prop
+    showPersonal: boolean
+    showMyShared: boolean
+    showGroupShared: boolean
+    selectedGroupId: string | null
+  }
   onAddTodo: (date?: Date) => void
   isMobile?: boolean
 }
@@ -37,6 +44,8 @@ const MonthlyCalendarView = ({
   projectFilter,
   tagFilter,
   completionDateFilter,
+  sharingFilter,
+  sharingFilterState, // Destructure
   onAddTodo,
   isMobile = false
 }: MonthlyCalendarViewProps) => {
@@ -100,9 +109,11 @@ const MonthlyCalendarView = ({
       projectFilter,
       tagFilter,
       completionDateFilter,
+      sharingFilter, // Added sharingFilter
+      sharingFilterState, // Pass sharingFilterState
       includeCompleted: true
     })
-  }, [searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter, getFilteredTodos])
+  }, [searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter, sharingFilter, sharingFilterState, getFilteredTodos])
 
   const getTodosForDate = (date: Date) => {
     const todosForDate = filteredTodos.filter(todo => {

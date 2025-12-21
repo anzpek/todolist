@@ -35,7 +35,7 @@ echo.
 echo [4/4] Starting Development Server...
 echo If this closes immediately, there is an error in the application.
 echo.
-call npm run dev -- --port 4000
+call npx vite --port 4000
 if %errorlevel% neq 0 (
     echo [ERROR] Server crashed or failed to start.
 )

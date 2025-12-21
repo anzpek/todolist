@@ -15,6 +15,8 @@ import {
   arrayUnion,
   setDoc,
   where,
+  limit,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { Todo, SubTask } from '../types/todo';
@@ -22,6 +24,7 @@ import { debug } from '../utils/debug';
 import { handleFirestoreError, withRetry } from '../utils/errorHandling';
 import { getHolidayInfoSync, isWeekend, getFirstWorkdayOfMonth, getLastWorkdayOfMonth, checkIsHoliday, type CustomHoliday } from '../utils/holidays';
 import type { SimpleRecurringTemplate, RecurrenceException, ConflictException, SimpleRecurringInstance } from '../utils/simpleRecurring';
+import type { SharedUser, TaskVisibility, SharePermission } from '../types/todo';
 
 // #region Helper Functions
 const safeToDate = (value: any): Date | undefined => {
@@ -151,16 +154,17 @@ export const firestoreService = {
           throw new Error('User ID is required')
         }
 
+        // 1. 개인 할 일 가져오기
         const todosRef = collection(db, `users/${uid}/todos`)
         const q = query(todosRef, orderBy('createdAt', 'desc'))
         const snapshot = await getDocs(q)
 
-        const todos = snapshot.docs.map(doc => {
+        const privateTodos = snapshot.docs.map(doc => {
           const data = doc.data()
-
+          // 🔥 IMPORTANT: id: doc.id must come AFTER ...data to ensure Firestore ID takes precedence
           return {
-            id: doc.id,
             ...data,
+            id: doc.id,
             createdAt: safeToDate(data.createdAt) || new Date(),
             updatedAt: safeToDate(data.updatedAt) || new Date(),
             dueDate: safeToDate(data.dueDate),
@@ -171,12 +175,80 @@ export const firestoreService = {
               createdAt: safeToDate(subTask.createdAt) || new Date(),
               updatedAt: safeToDate(subTask.updatedAt) || new Date(),
               completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
-            })) : []
+            })) : [],
+            myPermission: 'admin' // 내 개인 할 일은 관리자 권한
           }
         }) as Todo[]
 
-        debug.log('Firestore getTodos 성공:', { count: todos.length, uid })
-        return todos
+        // 2. 공유된 할 일 가져오기 (두 개의 별도 쿼리로 분리)
+        const sharedTodosRef = collection(db, 'shared_todos')
+
+        // 쿼리 1: 내가 소유한 공유 할일
+        const mySharedQuery = query(
+          sharedTodosRef,
+          where('ownerId', '==', uid)
+        );
+
+        // 쿼리 2: 나와 공유된 할일
+        const sharedWithMeQuery = query(
+          sharedTodosRef,
+          where('sharedWithUids', 'array-contains', uid)
+        );
+
+        const [mySharedSnapshot, sharedWithMeSnapshot] = await Promise.all([
+          getDocs(mySharedQuery),
+          getDocs(sharedWithMeQuery)
+        ]);
+
+        const mapSharedDoc = (doc: any): Todo => {
+          const data = doc.data();
+          let myPermission: SharePermission = 'read';
+          if (data.ownerId === uid) {
+            myPermission = 'admin';
+          } else if (data.sharedWith) {
+            const me = data.sharedWith.find((u: SharedUser) => u.uid === uid);
+            if (me) myPermission = me.permission;
+          }
+          // 🔥 IMPORTANT: id: doc.id must come AFTER ...data to ensure Firestore ID takes precedence
+          return {
+            ...data,
+            id: doc.id,
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date(),
+            dueDate: safeToDate(data.dueDate),
+            startDate: safeToDate(data.startDate),
+            completedAt: safeToDate(data.completedAt),
+            subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
+              ...subTask,
+              createdAt: safeToDate(subTask.createdAt) || new Date(),
+              updatedAt: safeToDate(subTask.updatedAt) || new Date(),
+              completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
+            })) : [],
+            myPermission
+          } as Todo;
+        };
+
+        // 중복 제거 및 병합
+        const allSharedDocs = [...mySharedSnapshot.docs, ...sharedWithMeSnapshot.docs];
+        const uniqueMap = new Map<string, Todo>();
+        allSharedDocs.forEach(doc => {
+          if (!uniqueMap.has(doc.id)) {
+            uniqueMap.set(doc.id, mapSharedDoc(doc));
+          }
+        });
+        const sharedTodos = Array.from(uniqueMap.values());
+
+        debug.log('Firestore getTodos 성공:', { private: privateTodos.length, shared: sharedTodos.length, uid })
+
+        // 두 목록 병합 (정렬은 클라이언트에서 다시 하거나 여기서 createdAt 기준 병합 정렬)
+        // 간단히 병합 후 createdAt 역순 정렬
+        const allTodos = [...privateTodos, ...sharedTodos].sort((a, b) => {
+          const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+          const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+          return dateB - dateA;
+        });
+
+        return allTodos;
       } catch (error) {
         debug.error('Firestore getTodos 실패:', error)
         throw handleFirestoreError(error, 'getTodos')
@@ -191,17 +263,73 @@ export const firestoreService = {
           throw new Error('User ID and todo title are required')
         }
 
-        const todosRef = collection(db, `users/${uid}/todos`)
+        const isShared = todo.visibility?.isShared || false;
+        // 공유 할 일이면 shared_todos, 아니면 개인 todos에 저장
+        const collectionPath = isShared ? 'shared_todos' : `users/${uid}/todos`;
+        const todosRef = collection(db, collectionPath);
+
+        console.log('📤 addTodo called:', {
+          isShared,
+          collectionPath,
+          sharedWith: todo.sharedWith,
+          sharedWithUids: todo.sharedWith?.map(u => u.uid) || [],
+          sharedWithCount: todo.sharedWith?.length || 0,
+          sharedGroupId: (todo as any).sharedGroupId,
+          ownerId: uid
+        });
+
         const cleanedTodo = removeUndefinedValues(todo)
+
+        const sharedWithUids = todo.sharedWith ? todo.sharedWith.map(u => u.uid) : [];
+
+        // editorUids 생성 (보안 규칙용: 편집 권한 있는 사용자)
+        const editorUids = todo.sharedWith
+          ? todo.sharedWith.filter(u => u.permission === 'edit' || u.permission === 'admin').map(u => u.uid)
+          : [];
+
+        // adminUids 생성 (보안 규칙용: 삭제 권한 있는 사용자)
+        let adminUids = todo.sharedWith
+          ? todo.sharedWith.filter(u => u.permission === 'admin').map(u => u.uid)
+          : [];
+
+        // 🔧 공유 그룹의 admin 멤버들도 adminUids에 포함 (삭제 권한 부여)
+        const sharedGroupId = (todo as any).sharedGroupId;
+        const sharedGroupOwnerId = (todo as any).sharedGroupOwnerId;
+        if (isShared && sharedGroupId && sharedGroupOwnerId) {
+          try {
+            const groupRef = doc(db, `users/${sharedGroupOwnerId}/sharing_groups`, sharedGroupId);
+            const groupSnap = await getDoc(groupRef);
+            if (groupSnap.exists()) {
+              const groupData = groupSnap.data();
+              const groupAdminUids = (groupData.members || [])
+                .filter((m: SharedUser) => m.permission === 'admin')
+                .map((m: SharedUser) => m.uid);
+              // 중복 없이 병합
+              adminUids = [...new Set([...adminUids, ...groupAdminUids])];
+              console.log('📋 공유 그룹 admin 포함:', groupAdminUids);
+            }
+          } catch (e) {
+            console.warn('⚠️ 공유 그룹 admin 조회 실패:', e);
+          }
+        }
+
+        // 소유자도 항상 admin으로 포함
+        if (!adminUids.includes(uid)) {
+          adminUids.push(uid);
+        }
 
         const todoData = {
           ...cleanedTodo,
+          ownerId: uid, // 소유자 설정
+          sharedWithUids, // 공유된 사용자 UID 목록
+          editorUids,     // 편집 가능 사용자 UID 목록
+          adminUids,      // 관리(삭제) 권한 UID 목록
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         }
 
         const docRef = await addDoc(todosRef, todoData)
-        debug.log('Firestore addTodo 성공:', docRef.id)
+        debug.log(`Firestore addTodo 성공 (${isShared ? 'Shared' : 'Private'}):`, docRef.id)
         return docRef.id
       } catch (error) {
         debug.error('Firestore addTodo 실패:', error)
@@ -212,20 +340,85 @@ export const firestoreService = {
 
   updateTodo: async (id: string, updates: Partial<Todo>, uid: string): Promise<void> => {
     try {
-      const todoRef = doc(db, `users/${uid}/todos`, id)
-      const docSnap = await getDoc(todoRef)
+      // 1. 먼저 어느 컬렉션에 있는지 확인
+      const privateRef = doc(db, `users/${uid}/todos`, id);
+      const sharedRef = doc(db, 'shared_todos', id);
 
-      if (!docSnap.exists()) {
-        debug.warn(`할일 문서 ${id}가 존재하지 않습니다. 업데이트를 건너뜁니다.`)
-        return
+      const privateSnap = await getDoc(privateRef);
+      const sharedSnap = await getDoc(sharedRef);
+
+      const isPrivate = privateSnap.exists();
+      const isShared = sharedSnap.exists();
+
+      if (!isPrivate && !isShared) {
+        debug.warn(`할일 문서 ${id}가 존재하지 않습니다. 업데이트를 건너뜁니다.`);
+        return;
       }
 
-      const updateData = {
-        ...updates,
-        updatedAt: serverTimestamp()
+      const targetRef = isPrivate ? privateRef : sharedRef;
+      const currentData = isPrivate ? privateSnap.data() : sharedSnap.data();
+
+      // 2. 가시성 변경(Private <-> Shared) 체크
+      // updates.visibility가 있고, 기존 상태와 다르다면 이동 필요
+      const newVisibility = updates.visibility;
+      const destinationIsShared = newVisibility?.isShared;
+
+      // 이동이 필요한 경우:
+      // A. 현재 Private인데 -> Shared로 변경됨
+      // B. 현재 Shared인데 -> Shared가 아님(Private)으로 변경됨
+      const needsMigration = (isPrivate && destinationIsShared === true) ||
+        (isShared && destinationIsShared === false && newVisibility !== undefined);
+
+      if (needsMigration) {
+        const sourceRef = targetRef;
+        const destRef = isPrivate ? doc(db, 'shared_todos', id) : doc(db, `users/${uid}/todos`, id); // ID 유지하면서 이동
+
+        const sharedWithUids = updates.sharedWith ? updates.sharedWith.map(u => u.uid) : (currentData.sharedWith ? currentData.sharedWith.map((u: SharedUser) => u.uid) : []);
+
+        const editorUids = updates.sharedWith
+          ? updates.sharedWith.filter(u => u.permission === 'edit' || u.permission === 'admin').map(u => u.uid)
+          : (currentData.sharedWith ? currentData.sharedWith.filter((u: SharedUser) => u.permission === 'edit' || u.permission === 'admin').map((u: SharedUser) => u.uid) : []);
+
+        const newData = {
+          ...currentData,
+          ...updates,
+          ownerId: currentData.ownerId || uid, // 기존 ownerId 유지하거나 없으면 현재 사용자
+          sharedWithUids,
+          editorUids,
+          adminUids: updates.sharedWith
+            ? updates.sharedWith.filter(u => u.permission === 'admin').map(u => u.uid)
+            : (currentData.sharedWith ? currentData.sharedWith.filter((u: SharedUser) => u.permission === 'admin').map((u: SharedUser) => u.uid) : []),
+          updatedAt: serverTimestamp()
+        };
+
+        const batch = writeBatch(db);
+        batch.set(destRef, newData); // 새 위치에 생성
+        batch.delete(sourceRef);     // 기존 위치 삭제
+        await batch.commit();
+        debug.log(`Todo migrated: ${isPrivate ? 'Private -> Shared' : 'Shared -> Private'}`);
+      } else {
+        // 컬렉션 변경 없음, 단순 업데이트
+        const u = { ...updates };
+        if (updates.sharedWith) {
+          // sharedWith가 업데이트되면 sharedWithUids와 editorUids 갱신
+          u['sharedWithUids'] = updates.sharedWith.map(user => user.uid);
+          u['editorUids'] = updates.sharedWith.filter(user => user.permission === 'edit' || user.permission === 'admin').map(user => user.uid);
+          u['adminUids'] = updates.sharedWith.filter(user => user.permission === 'admin').map(user => user.uid);
+        }
+
+        // 공유 할일인 경우 lastModifiedBy 추가
+        const updateData: any = {
+          ...u,
+          updatedAt: serverTimestamp()
+        };
+        if (isShared) {
+          updateData.lastModifiedBy = uid;
+        }
+
+        await updateDoc(targetRef, updateData);
+        debug.log(`Firestore updateTodo 성공 (${id})`);
       }
 
-      await updateDoc(todoRef, updateData)
     } catch (error) {
       debug.error('Firestore updateTodo 실패:', error)
       throw error
@@ -234,8 +427,105 @@ export const firestoreService = {
 
   deleteTodo: async (id: string, uid: string): Promise<void> => {
     try {
-      const todoRef = doc(db, `users/${uid}/todos`, id)
-      await deleteDoc(todoRef)
+      console.log('🗑️ deleteTodo 시작:', { id, uid });
+
+      // 어디 있는지 확인 후 삭제
+      const privateRef = doc(db, `users/${uid}/todos`, id);
+      const sharedRef = doc(db, 'shared_todos', id);
+
+      let deletionCount = 0;
+
+      // 1. 개인 할일 삭제 시도
+      const privateSnap = await getDoc(privateRef);
+      if (privateSnap.exists()) {
+        await deleteDoc(privateRef);
+        console.log('✅ 개인 할일 삭제 완료:', id);
+        deletionCount++;
+      }
+
+      // 2. 공유 할일 삭제/나가기 시도
+      const sharedSnap = await getDoc(sharedRef);
+      if (sharedSnap.exists()) {
+        const data = sharedSnap.data() as any;
+
+        // 소유자 또는 관리자 확인
+        let isAdmin = (data.adminUids || []).includes(uid);
+
+        // 🔧 기존 할일에 adminUids가 없을 수 있으므로 그룹에서 직접 확인
+        if (!isAdmin && data.sharedGroupId && data.sharedGroupOwnerId) {
+          try {
+            const groupRef = doc(db, `users/${data.sharedGroupOwnerId}/sharing_groups`, data.sharedGroupId);
+            const groupSnap = await getDoc(groupRef);
+            if (groupSnap.exists()) {
+              const groupData = groupSnap.data();
+              const groupAdmins = (groupData.members || []).filter((m: any) => m.permission === 'admin');
+              isAdmin = groupAdmins.some((m: any) => m.uid === uid);
+
+              // 관리자가 맞다면 adminUids 업데이트 (다음 삭제를 위해)
+              if (isAdmin) {
+                const updatedAdminUids = [...new Set([...(data.adminUids || []), uid])];
+                await updateDoc(sharedRef, { adminUids: updatedAdminUids });
+                console.log('📋 adminUids 업데이트됨:', updatedAdminUids);
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️ 그룹 admin 확인 실패 (계속 진행):', e);
+          }
+        }
+
+        if (data.ownerId === uid || isAdmin) {
+          // 🔧 내 할일 + 공유할일 둘 다 체크된 경우 처리
+          // 삭제하는 사람이 소유자가 아니고, 할일이 isPersonal:true인 경우
+          // → 완전 삭제하지 않고 공유만 해제 (소유자에게는 계속 보임)
+          const hasPersonalFlag = data.visibility?.isPersonal === true;
+          const deletingByNonOwner = data.ownerId !== uid;
+
+          if (hasPersonalFlag && deletingByNonOwner) {
+            // 공유만 해제하고 소유자 전용으로 변경
+            // (다른 유저의 컬렉션에 쓸 수 없으므로 shared_todos에서 업데이트)
+            await updateDoc(sharedRef, {
+              'visibility.isShared': false,
+              sharedWith: [],
+              sharedWithUids: [],
+              editorUids: [],
+              adminUids: [data.ownerId], // 소유자만 관리자로
+              updatedAt: serverTimestamp()
+            });
+
+            console.log('✅ 공유 해제됨 - 소유자 전용으로 변경:', id);
+          } else {
+            // 소유자가 직접 삭제하거나 isPersonal이 false인 경우 → 완전 삭제
+            await deleteDoc(sharedRef);
+            console.log('✅ 공유 할일 영구 삭제 완료 (소유자/관리자):', id);
+          }
+        } else {
+          // 비소유자라면 공유 목록에서 나가기 (자신을 제거)
+          const newSharedWithUids = (data.sharedWithUids || []).filter((u: string) => u !== uid);
+          const newSharedWith = (data.sharedWith || []).filter((u: any) => u.uid !== uid);
+          const newEditorUids = (data.editorUids || []).filter((u: string) => u !== uid);
+          const newAdminUids = (data.adminUids || []).filter((u: string) => u !== uid);
+
+          // 만약 나 혼자만 남은 상태에서 나가는 거라면, 문서를 아예 삭제할지 고민
+          // 하지만 소유자가 따로 있으므로 update만 함.
+
+          await updateDoc(sharedRef, {
+            sharedWithUids: newSharedWithUids,
+            sharedWith: newSharedWith,
+            editorUids: newEditorUids,
+            adminUids: newAdminUids,
+            updatedAt: serverTimestamp()
+          });
+          console.log('✅ 공유 할일 나가기 완료 (비소유자):', id);
+        }
+        deletionCount++;
+      }
+
+      // 3. 만약 아무곳에서도 발견되지 않았지만 호출되었다면?
+      // 로컬 only 데이터였거나 이미 삭제된 것.
+      if (deletionCount === 0) {
+        console.warn('⚠️ 삭제할 할일을 Firestore에서 찾지 못함 (이미 삭제됨?):', id);
+      }
+
     } catch (error: any) {
       console.error('❌ Firestore deleteTodo 실패:', error)
       throw error
@@ -244,35 +534,167 @@ export const firestoreService = {
 
   subscribeTodos: (uid: string, callback: (todos: Todo[]) => void) => {
     try {
-      const todosRef = collection(db, `users/${uid}/todos`)
-      const q = query(todosRef, orderBy('createdAt', 'desc'))
+      let privateTodos: Todo[] = [];
+      let sharedTodos: Todo[] = [];
+      let unsubscribeShared: () => void = () => { };
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const todos = snapshot.docs.map(doc => {
-          const data = doc.data()
-          return {
-            ...data,
-            id: doc.id,
-            createdAt: safeToDate(data.createdAt) || new Date(),
-            updatedAt: safeToDate(data.updatedAt) || new Date(),
-            dueDate: safeToDate(data.dueDate),
-            startDate: safeToDate(data.startDate),
-            completedAt: safeToDate(data.completedAt),
-            subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
-              ...subTask,
-              createdAt: safeToDate(subTask.createdAt) || new Date(),
-              updatedAt: safeToDate(subTask.updatedAt) || new Date(),
-              completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
-            })) : []
-          } as Todo;
+      const notifyUpdate = () => {
+        // 간단히 병합 후 createdAt 역순 정렬
+        const allTodos = [...privateTodos, ...sharedTodos].sort((a, b) => {
+          const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+          const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+          return dateB - dateA;
         });
-        callback(todos);
-      }, (error) => {
-        console.error('❌ Firestore 구독 오류:', error)
-        callback([])
-      })
+        callback(allTodos);
+      };
 
-      return unsubscribe
+      // 1. 개인 할 일 구독 최적화
+      // 조건: (완료되지 않음) OR (완료되었지만 최근 30일 이내)
+      const todosRef = collection(db, `users/${uid}/todos`);
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      // 쿼리 1: 완료되지 않은 할 일 (Active)
+      const qActive = query(todosRef, where('completed', '==', false));
+
+      // 쿼리 2: 최근 완료된 할 일 (Recent History)
+      const qRecent = query(
+        todosRef,
+        where('completed', '==', true),
+        where('completedAt', '>=', thirtyDaysAgo)
+      );
+
+      let activeTodos: Todo[] = [];
+      let recentTodos: Todo[] = [];
+
+      const mergePrivateTodos = () => {
+        const merged = [...activeTodos, ...recentTodos];
+        const unique = new Map();
+        merged.forEach(t => unique.set(t.id, t));
+        privateTodos = Array.from(unique.values());
+        notifyUpdate();
+      };
+
+      const mapDocToTodo = (doc: any): Todo => {
+        const data = doc.data();
+        // 🔥 IMPORTANT: id: doc.id must come AFTER ...data to ensure Firestore ID takes precedence
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: safeToDate(data.createdAt) || new Date(),
+          updatedAt: safeToDate(data.updatedAt) || new Date(),
+          dueDate: safeToDate(data.dueDate),
+          startDate: safeToDate(data.startDate),
+          completedAt: safeToDate(data.completedAt),
+          subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
+            ...subTask,
+            createdAt: safeToDate(subTask.createdAt) || new Date(),
+            updatedAt: safeToDate(subTask.updatedAt) || new Date(),
+            completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
+          })) : [],
+          myPermission: 'admin'
+        } as Todo;
+      };
+
+      const unsubActive = onSnapshot(qActive, (snapshot) => {
+        activeTodos = snapshot.docs.map(mapDocToTodo);
+        mergePrivateTodos();
+      }, (error) => console.error('❌ Active Todos 구독 오류:', error));
+
+      const unsubRecent = onSnapshot(qRecent, (snapshot) => {
+        recentTodos = snapshot.docs.map(mapDocToTodo);
+        mergePrivateTodos();
+      }, (error) => console.error('❌ Recent Todos 구독 오류:', error));
+
+      const unsubscribePrivate = () => {
+        unsubActive();
+        unsubRecent();
+      };
+
+      // 2. 공유된 할 일 구독
+      let mySharedTodos: Todo[] = [];
+      let sharedWithMeTodos: Todo[] = [];
+      let unsubscribeMyShared: () => void = () => { };
+      let unsubscribeSharedWithMe: () => void = () => { };
+
+      const mergeSharedTodos = () => {
+        const allShared = [...mySharedTodos, ...sharedWithMeTodos];
+        const uniqueMap = new Map<string, Todo>();
+        allShared.forEach(todo => uniqueMap.set(todo.id, todo));
+        sharedTodos = Array.from(uniqueMap.values());
+        notifyUpdate();
+      };
+
+      const mapSharedTodoDoc = (doc: any): Todo => {
+        const data = doc.data();
+        let myPermission: SharePermission = 'read';
+        if (data.ownerId === uid) {
+          myPermission = 'admin';
+        } else if (data.sharedWith) {
+          const me = data.sharedWith.find((u: SharedUser) => u.uid === uid);
+          if (me) myPermission = me.permission;
+        }
+        // 🔥 IMPORTANT: id: doc.id must come AFTER ...data to ensure Firestore ID takes precedence
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: safeToDate(data.createdAt) || new Date(),
+          updatedAt: safeToDate(data.updatedAt) || new Date(),
+          dueDate: safeToDate(data.dueDate),
+          startDate: safeToDate(data.startDate),
+          completedAt: safeToDate(data.completedAt),
+          subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
+            ...subTask,
+            createdAt: safeToDate(subTask.createdAt) || new Date(),
+            updatedAt: safeToDate(subTask.updatedAt) || new Date(),
+            completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
+          })) : [],
+          myPermission
+        } as Todo;
+      };
+
+      try {
+        const sharedTodosRef = collection(db, 'shared_todos');
+
+        const qMyShared = query(
+          sharedTodosRef,
+          where('ownerId', '==', uid)
+        );
+
+        unsubscribeMyShared = onSnapshot(qMyShared, (snapshot) => {
+          console.log('📥 내 공유 할일 수신:', snapshot.docs.length, '개');
+          mySharedTodos = snapshot.docs.map(mapSharedTodoDoc);
+          mergeSharedTodos();
+        }, (error) => {
+          console.error('❌ 내 공유 할일 구독 오류:', error);
+        });
+
+        const qSharedWithMe = query(
+          sharedTodosRef,
+          where('sharedWithUids', 'array-contains', uid)
+        );
+
+        unsubscribeSharedWithMe = onSnapshot(qSharedWithMe, (snapshot) => {
+          console.log('📥 공유받은 할일 수신:', snapshot.docs.length, '개');
+          sharedWithMeTodos = snapshot.docs.map(mapSharedTodoDoc);
+          mergeSharedTodos();
+        }, (error) => {
+          console.error('❌ 공유받은 할일 구독 오류:', error);
+        });
+
+        unsubscribeShared = () => {
+          unsubscribeMyShared();
+          unsubscribeSharedWithMe();
+        };
+      } catch (err) {
+        console.error('❌ 공유 할일 쿼리 생성 실패:', err);
+      }
+
+      return () => {
+        unsubscribePrivate();
+        unsubscribeShared();
+      }
     } catch (error) {
       console.error('❌ Firestore subscribeTodos 초기화 실패:', error)
       callback([])
@@ -471,18 +893,61 @@ export const firestoreService = {
 
   subscribeRecurringInstances: (uid: string, callback: (instances: any[]) => void) => {
     const instancesRef = collection(db, `users/${uid}/recurringInstances`)
-    const q = query(instancesRef, orderBy('date', 'asc'))
-    return onSnapshot(q, (snapshot) => {
-      const instances = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: safeToDate(doc.data().date) || new Date(),
-        createdAt: safeToDate(doc.data().createdAt) || new Date(),
-        updatedAt: safeToDate(doc.data().updatedAt) || new Date(),
-        completedAt: safeToDate(doc.data().completedAt)
-      }))
-      callback(instances)
-    })
+
+    // 최적화: 완료되지 않은 것과 최근 30일 이내 완료된 것만 구독
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // 1. 미완료 (Active) - 날짜순 정렬
+    const qActive = query(instancesRef, where('completed', '==', false), orderBy('date', 'asc'));
+
+    // 2. 최근 완료 (Recent History) - 날짜순 정렬
+    const qRecent = query(
+      instancesRef,
+      where('completed', '==', true),
+      where('date', '>=', thirtyDaysAgo),
+      orderBy('date', 'asc')
+    );
+
+    let activeInstances: any[] = [];
+    let recentInstances: any[] = [];
+
+    const notifyUpdate = () => {
+      const merged = [...activeInstances, ...recentInstances];
+      // 통합 날짜순 정렬
+      merged.sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date.getTime() : 0;
+        const dateB = b.date instanceof Date ? b.date.getTime() : 0;
+        return dateA - dateB;
+      });
+      callback(merged);
+    };
+
+    const mapDoc = (doc: any) => ({
+      id: doc.id,
+      ...doc.data(),
+      date: safeToDate(doc.data().date) || new Date(),
+      createdAt: safeToDate(doc.data().createdAt) || new Date(),
+      updatedAt: safeToDate(doc.data().updatedAt) || new Date(),
+      completedAt: safeToDate(doc.data().completedAt)
+    });
+
+    // Active 구독
+    const unsubActive = onSnapshot(qActive, (snapshot) => {
+      activeInstances = snapshot.docs.map(mapDoc);
+      notifyUpdate();
+    }, (error) => console.error('❌ 반복 인스턴스(Active) 구독 오류:', error));
+
+    // Recent 구독
+    const unsubRecent = onSnapshot(qRecent, (snapshot) => {
+      recentInstances = snapshot.docs.map(mapDoc);
+      notifyUpdate();
+    }, (error) => console.error('❌ 반복 인스턴스(Recent) 구독 오류:', error));
+
+    return () => {
+      unsubActive();
+      unsubRecent();
+    };
   },
 
   async _isExceptionDate(date: Date, template: SimpleRecurringTemplate, uid: string, isRecursiveCall: boolean): Promise<boolean> {
@@ -673,12 +1138,213 @@ export const firestoreService = {
         await firestoreService._deleteCollection(oldUid, 'projectTemplates');
 
 
-        debug.log(`Data migration completed successfully from ${oldUid} to ${newUid}`);
+        debug.log(`User data migrated from ${oldUid} to ${newUid}`);
       } catch (error) {
-        debug.error('Data migration failed:', error);
+        debug.error('Migration failed:', error);
         throw handleFirestoreError(error, 'migrateUserData');
       }
     });
+  },
+
+  // ===== 공유 초대 로직 =====
+
+  // 1. 초대 발송
+  sendSharingInvitation: async (fromUser: SharedUser, toEmail: string, groupId: string, groupName: string, permission: SharePermission, shareName?: string): Promise<string> => {
+    return withRetry(async () => {
+      try {
+        debug.log('sendSharingInvitation: Sending invitation', { fromUser: fromUser.email, toEmail, groupId, groupName });
+
+        const invitationsRef = collection(db, 'sharing_requests')
+
+        // 이미 대기중인 동일한 초대가 있는지 확인
+        const q = query(
+          invitationsRef,
+          where('fromUid', '==', fromUser.uid),
+          where('toEmail', '==', toEmail),
+          where('groupId', '==', groupId),
+          where('status', '==', 'pending')
+        );
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+          debug.log('sendSharingInvitation: Already invited');
+          throw new Error('Already invited this user to this group.');
+        }
+
+        const requestData = {
+          fromUid: fromUser.uid,
+          fromEmail: fromUser.email,
+          toEmail: toEmail,
+          groupId: groupId,
+          groupName: groupName,
+          // 하위 호환성을 위해 todoId, todoTitle도 유지
+          todoId: groupId,
+          todoTitle: groupName,
+          shareName: shareName || '',
+          permission: permission,
+          status: 'pending',
+          createdAt: serverTimestamp()
+        };
+
+        debug.log('sendSharingInvitation: Creating request with data', requestData);
+        const docRef = await addDoc(invitationsRef, requestData);
+        debug.log('sendSharingInvitation: Invitation sent successfully:', docRef.id);
+        return docRef.id;
+      } catch (error) {
+        debug.error('sendSharingInvitation: Failed to send invitation:', error);
+        throw handleFirestoreError(error, 'sendSharingInvitation');
+      }
+    });
+  },
+
+  // 2. 받은 초대 실시간 구독
+  subscribeToIncomingInvitations: (userEmail: string, callback: (requests: any[]) => void) => {
+    try {
+      debug.log('subscribeToIncomingInvitations: Subscribing for email:', userEmail);
+
+      const invitationsRef = collection(db, 'sharing_requests');
+      const q = query(
+        invitationsRef,
+        where('toEmail', '==', userEmail),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc')
+      );
+
+      return onSnapshot(q, (snapshot) => {
+        const requests = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: safeToDate(doc.data().createdAt) || new Date()
+        }));
+        debug.log('subscribeToIncomingInvitations: Received requests: ' + requests.length);
+        callback(requests);
+      }, (error) => {
+        debug.error('subscribeToIncomingInvitations: Subscription error:', error);
+        callback([]);
+      });
+    } catch (error) {
+      debug.error('subscribeToIncomingInvitations: Failed to subscribe:', error);
+      callback([]);
+      return () => { };
+    }
+  },
+
+  // 2.1 보낸 초대 실시간 구독 (내가 보낸 요청들 상태 확인용)
+  subscribeToSentInvitations: (uid: string, callback: (requests: any[]) => void) => {
+    try {
+      const invitationsRef = collection(db, 'sharing_requests');
+      const q = query(
+        invitationsRef,
+        where('fromUid', '==', uid),
+        orderBy('createdAt', 'desc')
+      );
+
+      return onSnapshot(q, (snapshot) => {
+        const requests = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: safeToDate(doc.data().createdAt) || new Date()
+        }));
+        callback(requests);
+      }, (error) => {
+        debug.error('Sent invitation subscription error:', error);
+        callback([]);
+      });
+    } catch (error) {
+      debug.error('Failed to subscribe sent invitations:', error);
+      callback([]);
+      return () => { };
+    }
+  },
+
+  // 3. 초대 응답 (수락/거절)
+  respondToInvitation: async (requestId: string, response: 'accepted' | 'rejected', currentUser: SharedUser): Promise<void> => {
+    try {
+      console.log('📩 respondToInvitation called:', { requestId, response, currentUser: currentUser.email });
+
+      const requestRef = doc(db, 'sharing_requests', requestId);
+      const requestSnap = await getDoc(requestRef);
+
+      if (!requestSnap.exists()) {
+        console.error('❌ Invitation not found:', requestId);
+        throw new Error('Invitation not found');
+      }
+
+      const requestData = requestSnap.data();
+      console.log('📄 Request data:', requestData);
+
+      if (requestData.toEmail.toLowerCase() !== currentUser.email.toLowerCase()) {
+        console.error('❌ Not authorized:', requestData.toEmail, '!==', currentUser.email);
+        throw new Error('Not authorized to respond to this invitation');
+      }
+
+      // 상태 업데이트
+      await updateDoc(requestRef, {
+        status: response,
+        respondedAt: serverTimestamp()
+      });
+      console.log('✅ Request status updated to:', response);
+
+      // 수락인 경우, 그룹에 멤버 추가 + 내 계정에도 참조 그룹 저장
+      if (response === 'accepted') {
+        const groupId = requestData.groupId || requestData.todoId; // 하위 호환성
+        const groupOwnerId = requestData.fromUid;
+
+        console.log('👥 Adding user to group:', { groupId, groupOwnerId });
+
+        // 1. 그룹 소유자의 sharing_groups에서 해당 그룹 찾기
+        const groupRef = doc(db, `users/${groupOwnerId}/sharing_groups`, groupId);
+        const groupSnap = await getDoc(groupRef);
+
+        if (groupSnap.exists()) {
+          const groupData = groupSnap.data();
+          const currentMembers = groupData.members || [];
+
+          // 이미 멤버가 아닌 경우에만 추가
+          if (!currentMembers.some((m: SharedUser) => m.uid === currentUser.uid)) {
+            const newMember: SharedUser = {
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName || '',
+              permission: requestData.permission || 'edit'
+            };
+
+            await updateDoc(groupRef, {
+              members: [...currentMembers, newMember],
+              updatedAt: serverTimestamp()
+            });
+            console.log('✅ Member added to owner group:', currentUser.email);
+          } else {
+            console.log('ℹ️ User already in group');
+          }
+
+          // 2. 내 계정에도 참조 그룹 저장 (내 공유 설정에서 보이도록)
+          const myGroupRef = doc(db, `users/${currentUser.uid}/sharing_groups`, `ref_${groupId}`);
+          await setDoc(myGroupRef, {
+            name: groupData.name,
+            isReference: true, // 내가 만든 그룹이 아닌 참조 그룹임을 표시
+            originalGroupId: groupId,
+            originalOwnerId: groupOwnerId,
+            originalOwnerEmail: requestData.fromEmail,
+            members: [...currentMembers, {
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName || '',
+              permission: requestData.permission || 'edit'
+            }],
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          console.log('✅ Reference group created in my account');
+        } else {
+          console.error('❌ Group not found:', groupId);
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to respond invitation:', error);
+      throw error;
+    }
   },
 
   regenerateRecurringInstances: async (templateId: string, uid: string): Promise<void> => {
@@ -736,6 +1402,8 @@ export const firestoreService = {
               ...newInstance,
               completed: existingInstance.completed || false,
               completedAt: existingInstance.completedAt || null,
+              skipped: existingInstance.skipped || false,
+              skippedReason: existingInstance.skippedReason || null,
               updatedAt: serverTimestamp(),
             });
           } else {
@@ -806,6 +1474,50 @@ export const firestoreService = {
     });
   },
 
+  // User Management
+  checkAndCreateUser: async (user: { uid: string, email: string | null, displayName: string | null }): Promise<void> => {
+    if (!user.uid) return;
+    const userRef = doc(db, 'users', user.uid);
+    try {
+      await setDoc(userRef, {
+        email: user.email,
+        displayName: user.displayName,
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (e) {
+      debug.error('Failed to update user profile', e);
+    }
+  },
+
+  findUserByEmail: async (email: string): Promise<SharedUser | null> => {
+    try {
+      if (!email) return null;
+      debug.log('findUserByEmail: Searching for email:', email);
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', email), limit(1));
+      const snapshot = await getDocs(q);
+
+      debug.log('findUserByEmail: Found docs:', snapshot.size);
+      if (snapshot.empty) {
+        debug.log('findUserByEmail: No user found with email:', email);
+        return null;
+      }
+
+      const userData = snapshot.docs[0].data();
+      debug.log('findUserByEmail: User found:', userData);
+      return {
+        uid: snapshot.docs[0].id,
+        email: userData.email,
+        displayName: userData.displayName || '',
+        permission: 'read' // 기본값 (실제 사용 시 재설정됨)
+      };
+    } catch (e) {
+      debug.error('Failed to find user by email', e);
+      return null;
+    }
+  },
+
   updateUserStartScreen: async (uid: string, startScreen: 'last' | 'today' | 'week' | 'month'): Promise<void> => {
     return withRetry(async () => {
       try {
@@ -817,5 +1529,435 @@ export const firestoreService = {
         throw error;
       }
     });
+  },
+
+  // ===== 공유 그룹 관리 =====
+  subscribeSharingGroups: (uid: string, callback: (groups: any[]) => void) => {
+    try {
+      const groupsRef = collection(db, `users/${uid}/sharing_groups`);
+      const q = query(groupsRef, orderBy('createdAt', 'desc'));
+
+      return onSnapshot(q, (snapshot) => {
+        const groups = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: safeToDate(doc.data().createdAt) || new Date()
+        }));
+        callback(groups);
+      }, (error) => {
+        debug.error('Sharing groups subscription error:', error);
+        callback([]);
+      });
+    } catch (error) {
+      debug.error('Failed to subscribe sharing groups:', error);
+      callback([]);
+      return () => { };
+    }
+  },
+
+  createSharingGroup: async (uid: string, group: { name: string; members: SharedUser[] }): Promise<string> => {
+    try {
+      const groupsRef = collection(db, `users/${uid}/sharing_groups`);
+      const docRef = await addDoc(groupsRef, {
+        name: group.name,
+        members: group.members,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      debug.log('Sharing group created:', docRef.id);
+      return docRef.id;
+    } catch (error) {
+      debug.error('Failed to create sharing group:', error);
+      throw error;
+    }
+  },
+
+  updateSharingGroup: async (uid: string, groupId: string, updates: Partial<{ name: string; members: SharedUser[] }>): Promise<void> => {
+    try {
+      console.log('🔄 updateSharingGroup 시작:', { uid, groupId, updates });
+
+      // 1. 현재 그룹 정보 가져오기 (기존 멤버 목록 확인용)
+      const groupRef = doc(db, `users/${uid}/sharing_groups`, groupId);
+      const groupSnap = await getDoc(groupRef);
+      const existingMembers = groupSnap.exists() ? groupSnap.data().members || [] : [];
+      console.log('📋 기존 멤버:', existingMembers.map((m: any) => ({ uid: m.uid, permission: m.permission })));
+
+      // 2. 소유자의 그룹 문서 업데이트
+      await updateDoc(groupRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+      console.log('✅ 소유자 그룹 업데이트 완료:', groupId);
+
+      // 🔧 그룹 권한 변경 시 관련 shared_todos도 업데이트
+      if (updates.members) {
+        console.log('📝 업데이트할 멤버:', updates.members.map(m => ({ uid: m.uid, permission: m.permission })));
+        const todosRef = collection(db, 'shared_todos');
+        const q = query(
+          todosRef,
+          where('sharedGroupId', '==', groupId),
+          where('ownerId', '==', uid)
+        );
+        const todoSnapshot = await getDocs(q);
+
+        if (todoSnapshot.docs.length > 0) {
+          // 권한별 UID 배열 생성
+          const editorUids = updates.members
+            .filter(m => m.permission === 'edit' || m.permission === 'admin')
+            .map(m => m.uid);
+          const adminUids = updates.members
+            .filter(m => m.permission === 'admin')
+            .map(m => m.uid);
+          const sharedWithUids = updates.members.map(m => m.uid);
+
+          // sharedWith 배열 업데이트
+          const sharedWith = updates.members.map(m => ({
+            uid: m.uid,
+            email: m.email,
+            displayName: m.displayName,
+            permission: m.permission
+          }));
+
+          const batch = writeBatch(db);
+          todoSnapshot.docs.forEach(todoDoc => {
+            batch.update(todoDoc.ref, {
+              sharedWith,
+              sharedWithUids,
+              editorUids,
+              adminUids,
+              updatedAt: serverTimestamp()
+            });
+          });
+
+          await batch.commit();
+          console.log(`✅ ${todoSnapshot.docs.length}개의 공유 할일 권한 동기화됨`);
+        }
+
+        // 🔧 3. 각 멤버의 참조 그룹 문서도 업데이트 (멤버 목록 동기화)
+        const allMembers = [...new Set([...existingMembers.map((m: any) => m.uid), ...updates.members.map(m => m.uid)])];
+        const memberUpdatePromises = allMembers
+          .filter(memberUid => memberUid !== uid) // 소유자 제외
+          .map(async (memberUid) => {
+            try {
+              // 🔧 멤버의 참조 그룹은 `ref_{groupId}` 형태로 저장됨
+              // getDoc은 READ 권한이 필요하므로 바로 updateDoc 시도
+              const memberGroupRef = doc(db, `users/${memberUid}/sharing_groups`, `ref_${groupId}`);
+              await updateDoc(memberGroupRef, {
+                ...updates,
+                updatedAt: serverTimestamp()
+              });
+              console.log(`✅ 멤버 ${memberUid}의 그룹 참조 업데이트됨 (ref_${groupId})`);
+            } catch (e: any) {
+              // 문서가 없거나 권한 오류 (초대 수락 전일 수 있음)
+              if (e.code === 'not-found') {
+                console.log(`ℹ️ 멤버 ${memberUid}의 그룹 참조가 없음 (초대 수락 전)`);
+              } else {
+                console.warn(`⚠️ 멤버 ${memberUid}의 그룹 참조 업데이트 실패:`, e.message);
+              }
+            }
+          });
+
+        await Promise.allSettled(memberUpdatePromises);
+      }
+    } catch (error) {
+      debug.error('Failed to update sharing group:', error);
+      throw error;
+    }
+  },
+
+  deleteSharingGroup: async (uid: string, groupId: string): Promise<void> => {
+    try {
+      console.log('🗑️ Deleting sharing group:', groupId);
+
+      // 1. 그룹 정보 가져오기 (멤버 목록 확인용)
+      const groupRef = doc(db, `users/${uid}/sharing_groups`, groupId);
+      const groupSnap = await getDoc(groupRef);
+
+      if (!groupSnap.exists()) {
+        console.warn('❌ Group not found for deletion:', groupId);
+        return;
+      }
+
+      const groupData = groupSnap.data();
+      const members = groupData.members || [];
+
+      // 2. 다른 멤버들의 참조 그룹 삭제 (권한이 허용되면)
+      // client-side에서 다른 유저의 컬렉션을 삭제하려면 보안 규칙이 허용해야 함
+      // 실패하더라도 내 그룹은 삭제 진행
+      const memberCleanups = members
+        .filter((m: SharedUser) => m.uid !== uid)
+        .map(async (member: SharedUser) => {
+          try {
+            const refDocPath = `users/${member.uid}/sharing_groups/ref_${groupId}`;
+            await deleteDoc(doc(db, refDocPath));
+            console.log('✅ Deleted reference for member:', member.email);
+          } catch (err) {
+            console.warn(`⚠️ Failed to delete reference for ${member.email} (likely permission issue):`, err);
+          }
+        });
+
+      await Promise.allSettled(memberCleanups);
+
+      // 3. 연관된 공유 할일들 처리 (공유 해제) - 권한 오류 허용
+      // shared_todos에서 해당 groupId를 가진 모든 할일 검색
+      try {
+        const todosRef = collection(db, 'shared_todos');
+        // 자신이 소유자인 할일만 업데이트 가능 (보안 규칙)
+        const q = query(
+          todosRef,
+          where('sharedGroupId', '==', groupId),
+          where('ownerId', '==', uid)  // 자신이 소유한 할일만
+        );
+        const todoSnapshot = await getDocs(q);
+
+        if (todoSnapshot.docs.length > 0) {
+          const batch = writeBatch(db);
+
+          todoSnapshot.docs.forEach((todoDoc) => {
+            batch.update(todoDoc.ref, {
+              sharedGroupId: deleteField(),
+              sharedGroupName: deleteField(),
+              sharedWith: [],
+              sharedWithUids: [],
+              editorUids: [],
+              adminUids: [],
+              'visibility.isShared': false,
+              updatedAt: serverTimestamp()
+            });
+          });
+
+          await batch.commit();
+          console.log(`✅ Unshared ${todoSnapshot.docs.length} todos associated with group.`);
+        }
+      } catch (todoError) {
+        // 할일 업데이트 실패해도 그룹 삭제는 계속 진행
+        console.warn('⚠️ Failed to unshare some todos (continuing with group deletion):', todoError);
+      }
+
+      // 4. 내 그룹 문서 삭제
+      try {
+        await deleteDoc(groupRef);
+        console.log('✅ Sharing group deleted:', groupId);
+      } catch (deleteError: any) {
+        // 그룹 삭제 자체가 실패한 경우
+        debug.error('Failed to delete group document:', deleteError);
+        throw deleteError;
+      }
+
+    } catch (error) {
+      debug.error('Failed to delete sharing group:', error);
+      throw error;
+    }
+  },
+
+  // 3. 수락된 초대 처리 (Sender가 실행)
+  processAcceptedInvitation: async (request: any): Promise<void> => {
+    const { id, groupId, fromUid, toEmail, permission } = request;
+    console.log('🔄 Processing accepted invitation:', id);
+
+    try {
+      // 1. 초대받은 사용자 정보 찾기 (이메일 기반)
+      const targetUser = await firestoreService.findUserByEmail(toEmail);
+      if (!targetUser) {
+        console.warn('❌ 초대를 수락한 사용자를 찾을 수 없음:', toEmail);
+        return;
+      }
+      const targetUserWithPerm = { ...targetUser, permission };
+
+      // 2. 그룹 멤버 추가 (이미 존재하는지 확인)
+      const groupRef = doc(db, `users/${fromUid}/sharing_groups`, groupId);
+      const groupSnap = await getDoc(groupRef);
+
+      if (groupSnap.exists()) {
+        const groupData = groupSnap.data();
+        const existingMembers = groupData.members || [];
+
+        if (!existingMembers.some((m: any) => m.uid === targetUser.uid)) {
+          const updatedMembers = [...existingMembers, targetUserWithPerm];
+          await updateDoc(groupRef, {
+            members: updatedMembers,
+            updatedAt: serverTimestamp()
+          });
+          console.log('✅ 그룹 멤버 추가 완료:', groupId, targetUser.uid);
+        }
+      } else {
+        console.warn('⚠️ 그룹을 찾을 수 없음 (삭제되었을 수 있음):', groupId);
+        await deleteDoc(doc(db, 'sharing_requests', id));
+        return;
+      }
+
+      // 3. 해당 그룹의 모든 공유 할일 업데이트 (새 멤버 추가)
+      const todosRef = collection(db, 'shared_todos');
+      const q = query(todosRef, where('sharedGroupId', '==', groupId));
+      const snapshot = await getDocs(q);
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snapshot.docs.forEach(todoDoc => {
+        const data = todoDoc.data();
+        const currentSharedWith = data.sharedWith || [];
+
+        if (!currentSharedWith.some((u: any) => u.uid === targetUser.uid)) {
+          const newSharedWith = [...currentSharedWith, targetUserWithPerm];
+          const newSharedWithUids = [...(data.sharedWithUids || []), targetUser.uid];
+
+          const updates: any = {
+            sharedWith: newSharedWith,
+            sharedWithUids: newSharedWithUids,
+            updatedAt: serverTimestamp()
+          };
+
+          if (permission === 'edit' || permission === 'admin') {
+            updates.editorUids = [...(data.editorUids || []), targetUser.uid];
+          }
+          if (permission === 'admin') {
+            updates.adminUids = [...(data.adminUids || []), targetUser.uid];
+          }
+
+          batch.update(todoDoc.ref, updates);
+          updateCount++;
+        }
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(`✅ ${updateCount}개의 공유 할일에 새 멤버 추가 완료`);
+      }
+
+      // 4. 요청 삭제 (처리 완료)
+      await deleteDoc(doc(db, 'sharing_requests', id));
+      console.log('✅ 초대 요청 처리 완료 및 삭제:', id);
+
+    } catch (error) {
+      console.error('❌ processAcceptedInvitation 실패:', error);
+      throw error;
+    }
+  },
+
+  leaveSharingGroup: async (uid: string, groupId: string): Promise<void> => {
+    try {
+      console.log('🚪 leaveSharingGroup 시작:', { uid, groupId });
+
+      // 1. 해당 그룹과 연동된, 내가 포함된 모든 공유 할일 찾기
+      const todosRef = collection(db, 'shared_todos');
+      const q = query(
+        todosRef,
+        where('sharedGroupId', '==', groupId),
+        where('sharedWithUids', 'array-contains', uid)
+      );
+      const snapshot = await getDocs(q);
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const newSharedWith = (data.sharedWith || []).filter((u: any) => u.uid !== uid);
+        const newSharedWithUids = (data.sharedWithUids || []).filter((u: string) => u !== uid);
+        const newEditorUids = (data.editorUids || []).filter((u: string) => u !== uid);
+        const newAdminUids = (data.adminUids || []).filter((u: string) => u !== uid);
+
+        batch.update(doc.ref, {
+          sharedWith: newSharedWith,
+          sharedWithUids: newSharedWithUids,
+          editorUids: newEditorUids,
+          adminUids: newAdminUids,
+          updatedAt: serverTimestamp()
+        });
+        updateCount++;
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(`✅ ${updateCount}개의 공유 할일에서 나가기 처리됨.`);
+      }
+
+      // 2. 내 그룹 목록에서 그룹 삭제
+      const groupRef = doc(db, `users/${uid}/sharing_groups`, groupId);
+      await deleteDoc(groupRef);
+      console.log('✅ 공유 그룹 목록에서 삭제 완료:', groupId);
+
+    } catch (error) {
+      console.error('❌ leaveSharingGroup 실패:', error);
+      throw error;
+    }
+  },
+
+  // ===== 공유 알림 관련 함수 =====
+
+  // 권한 변경 알림 발송
+  sendPermissionChangeNotification: async (
+    fromUser: { uid: string; email: string },
+    targetUid: string,
+    groupId: string,
+    groupName: string,
+    previousPermission: SharePermission,
+    newPermission: SharePermission
+  ): Promise<string> => {
+    try {
+      const notificationsRef = collection(db, 'sharing_notifications');
+      const notificationData = {
+        type: 'permission_change',
+        targetUid,
+        fromUid: fromUser.uid,
+        fromEmail: fromUser.email,
+        groupId,
+        groupName,
+        previousPermission,
+        newPermission,
+        createdAt: serverTimestamp(),
+        read: false
+      };
+      const docRef = await addDoc(notificationsRef, notificationData);
+      console.log('✅ 권한 변경 알림 발송:', docRef.id);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ 권한 변경 알림 발송 실패:', error);
+      throw error;
+    }
+  },
+
+  // 공유 알림 구독
+  subscribeToSharingNotifications: (uid: string, callback: (notifications: any[]) => void) => {
+    const notificationsRef = collection(db, 'sharing_notifications');
+    const q = query(
+      notificationsRef,
+      where('targetUid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    return onSnapshot(q, (snapshot) => {
+      const notifications = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: safeToDate(doc.data().createdAt) || new Date()
+      }));
+      callback(notifications);
+    });
+  },
+
+  // 알림 읽음 처리
+  markNotificationAsRead: async (notificationId: string): Promise<void> => {
+    try {
+      const notificationRef = doc(db, 'sharing_notifications', notificationId);
+      await updateDoc(notificationRef, { read: true });
+      console.log('✅ 알림 읽음 처리:', notificationId);
+    } catch (error) {
+      console.error('❌ 알림 읽음 처리 실패:', error);
+      throw error;
+    }
+  },
+
+  // 알림 삭제
+  deleteNotification: async (notificationId: string): Promise<void> => {
+    try {
+      const notificationRef = doc(db, 'sharing_notifications', notificationId);
+      await deleteDoc(notificationRef);
+      console.log('✅ 알림 삭제:', notificationId);
+    } catch (error) {
+      console.error('❌ 알림 삭제 실패:', error);
+      throw error;
+    }
   },
 };

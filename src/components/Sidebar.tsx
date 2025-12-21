@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff, Settings, Book, Layout } from 'lucide-react'
 import type { ViewType } from '../types/views'
 import { useTodos } from '../contexts/TodoContext'
@@ -9,6 +10,7 @@ import ThemeToggle from './ThemeToggle'
 import StatsCard from './StatsCard'
 import ProjectAnalysis from './ProjectAnalysis'
 import { useTranslation } from 'react-i18next'
+import { firestoreService } from '../services/firestoreService'
 
 interface SidebarProps {
   currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide'
@@ -38,6 +40,37 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
   // 반복 템플릿 통계
   const activeTemplates = recurringTemplates.filter(template => template.isActive)
 
+  // 공유 요청 수 (받은 pending 요청)
+  const [pendingRequestCount, setPendingRequestCount] = useState(0)
+  // 권한 변경 알림 수
+  const [permissionNotificationCount, setPermissionNotificationCount] = useState(0)
+
+  useEffect(() => {
+    if (!currentUser?.email) return
+    const unsubscribe = firestoreService.subscribeToIncomingInvitations(
+      currentUser.email,
+      (requests) => setPendingRequestCount(requests.length)
+    )
+    return () => unsubscribe()
+  }, [currentUser?.email])
+
+  // 권한 변경 알림 구독
+  useEffect(() => {
+    if (!currentUser?.uid) return
+    const unsubscribe = firestoreService.subscribeToSharingNotifications(
+      currentUser.uid,
+      (notifications) => {
+        // 읽지 않은 알림만 카운트
+        const unreadCount = notifications.filter(n => !n.read && !n.isRead).length
+        setPermissionNotificationCount(unreadCount)
+      }
+    )
+    return () => unsubscribe()
+  }, [currentUser?.uid])
+
+  // 총 공유 관련 알림 수
+  const totalSharingNotifications = pendingRequestCount + permissionNotificationCount
+
   const menuItems = [
     { id: 'today', label: t('nav.today'), icon: Calendar, count: todayTodos.filter(t => !t.completed).length },
     { id: 'week', label: t('nav.week'), icon: CalendarDays },
@@ -45,6 +78,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
     { id: 'board', label: t('nav.board') || 'Kanban', icon: Layout },
     { id: 'recurring', label: t('nav.recurring'), icon: Repeat, count: activeTemplates.length },
     { id: 'history', label: t('nav.history'), icon: History },
+    { id: 'sharing', label: t('nav.sharing') || '공유 설정', icon: Users, count: totalSharingNotifications, highlight: totalSharingNotifications > 0 },
     { id: 'analytics', label: t('nav.analytics'), icon: Users },
     { id: 'vacation', label: t('nav.vacation'), icon: Calendar },
     { id: 'guide', label: t('guide.title'), icon: Book },
@@ -120,7 +154,12 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
                   <span className="font-medium">{item.label}</span>
                 </div>
                 {item.count !== undefined && item.count > 0 && (
-                  <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isActive ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${(item as any).highlight
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : isActive
+                      ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                    }`}>
                     {item.count}
                   </span>
                 )}

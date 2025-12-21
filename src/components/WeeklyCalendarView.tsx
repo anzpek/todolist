@@ -25,6 +25,13 @@ interface WeeklyCalendarViewProps {
   projectFilter: 'all' | 'longterm' | 'shortterm'
   tagFilter: string[]
   completionDateFilter: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
+  sharingFilter: 'all' | 'private' | 'shared' | 'my_shared' | string
+  sharingFilterState?: { // Added sharingFilterState prop
+    showPersonal: boolean
+    showMyShared: boolean
+    showGroupShared: boolean
+    selectedGroupId: string | null
+  }
   onAddTodo: (date?: Date) => void
   isMobile?: boolean
 }
@@ -38,6 +45,8 @@ const WeeklyCalendarView = ({
   projectFilter,
   tagFilter,
   completionDateFilter,
+  sharingFilter,
+  sharingFilterState, // Destructure sharingFilterState
   onAddTodo,
   isMobile = false
 }: WeeklyCalendarViewProps) => {
@@ -102,9 +111,11 @@ const WeeklyCalendarView = ({
       projectFilter,
       tagFilter,
       completionDateFilter,
+      sharingFilter,
+      sharingFilterState, // Pass sharingFilterState
       includeCompleted: true
     })
-  }, [searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter, getFilteredTodos])
+  }, [searchTerm, priorityFilter, typeFilter, projectFilter, tagFilter, completionDateFilter, sharingFilter, sharingFilterState, getFilteredTodos])
 
   const getTodosForDate = (date: Date) => {
     const todosForDate = filteredTodos.filter(todo => {

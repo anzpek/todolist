@@ -1,1 +1,1 @@
-export type ViewType = 'today' | 'week' | 'month' | 'board'
+export type ViewType = 'today' | 'week' | 'month' | 'board' | 'sharing'

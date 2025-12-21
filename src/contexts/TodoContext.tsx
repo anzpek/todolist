@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useRef, useMemo, useCallback, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Todo, SubTask, Priority, TaskType } from '../types/todo'
+import type { Todo, SubTask, Priority, TaskType, SharingGroup } from '../types/todo'
 import type { RecurringTemplate, RecurringInstance } from '../types/context'
 import { generateId } from '../utils/helpers'
 import { simpleRecurringSystem, type SimpleRecurringTemplate, type SimpleRecurringInstance } from '../utils/simpleRecurring'
@@ -14,6 +14,7 @@ interface TodoState {
   todos: Todo[]
   recurringTemplates: SimpleRecurringTemplate[]
   recurringInstances: SimpleRecurringInstance[]
+  sharingGroups: SharingGroup[]
   loading: boolean
   error: string | null
   syncing: boolean
@@ -39,6 +40,7 @@ type TodoAction =
   | { type: 'SET_RECURRING_INSTANCES'; payload: SimpleRecurringInstance[] }
   | { type: 'UPDATE_RECURRING_INSTANCE'; payload: { id: string; updates: Partial<SimpleRecurringInstance> } }
   | { type: 'GENERATE_RECURRING_INSTANCES' }
+  | { type: 'SET_SHARING_GROUPS'; payload: SharingGroup[] }
 
 interface TodoContextType extends TodoState {
   addTodo: (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
@@ -66,6 +68,13 @@ interface TodoContextType extends TodoState {
     projectFilter?: 'all' | 'longterm' | 'shortterm'
     tagFilter?: string[]
     completionDateFilter?: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
+    sharingFilter?: 'all' | 'private' | 'shared' | 'my_shared' | string
+    sharingFilterState?: {
+      showPersonal: boolean
+      showMyShared: boolean
+      showGroupShared: boolean
+      selectedGroupId: string | null
+    }
     includeCompleted?: boolean
   }) => Todo[]
   // 반복 할일 관련 함수들
@@ -113,6 +122,7 @@ const initialState: TodoState = {
   todos: [],
   recurringTemplates: [],
   recurringInstances: [],
+  sharingGroups: [],
   loading: false,
   error: null,
   syncing: false
@@ -247,6 +257,8 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
       }
     case 'SET_RECURRING_TEMPLATES':
       return { ...state, recurringTemplates: action.payload }
+    case 'SET_SHARING_GROUPS':
+      return { ...state, sharingGroups: action.payload }
     case 'ADD_RECURRING_TEMPLATE':
       return { ...state, recurringTemplates: [action.payload, ...state.recurringTemplates] }
     case 'UPDATE_RECURRING_TEMPLATE':
@@ -381,6 +393,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const todoUnsubscribeRef = useRef<(() => void) | null>(null)
   const templateUnsubscribeRef = useRef<(() => void) | null>(null)
   const instanceUnsubscribeRef = useRef<(() => void) | null>(null)
+  const sharingGroupUnsubscribeRef = useRef<(() => void) | null>(null)
 
   // Firebase 실시간 구독 설정
   useEffect(() => {
@@ -411,6 +424,10 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     if (instanceUnsubscribeRef.current) {
       instanceUnsubscribeRef.current()
       instanceUnsubscribeRef.current = null
+    }
+    if (sharingGroupUnsubscribeRef.current) {
+      sharingGroupUnsubscribeRef.current()
+      sharingGroupUnsubscribeRef.current = null
     }
 
     // 마이그레이션과 구독을 비동기로 처리
@@ -449,7 +466,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           }
         )
 
-        // 3. Firestore 반복 인스턴스 실시간 구독
+        // 3. Firestore 공유 그룹 실시간 구독
+        sharingGroupUnsubscribeRef.current = firestoreService.subscribeSharingGroups(
+          currentUser.uid,
+          (groups) => {
+            dispatch({ type: 'SET_SHARING_GROUPS', payload: groups })
+            console.log('공유 그룹 Firestore에서 로드됨:', groups.length, '개')
+          }
+        )
+
+        // 4. Firestore 반복 인스턴스 실시간 구독
         console.log('🚀 반복 인스턴스 실시간 구독 설정 시작...')
 
         // 먼저 직접 데이터 조회로 확인
@@ -551,6 +577,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (todoUnsubscribeRef.current) todoUnsubscribeRef.current()
       if (templateUnsubscribeRef.current) templateUnsubscribeRef.current()
       if (instanceUnsubscribeRef.current) instanceUnsubscribeRef.current()
+      if (sharingGroupUnsubscribeRef.current) sharingGroupUnsubscribeRef.current()
     }
   }, [currentUser, authLoading])
 
@@ -698,12 +725,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
               // Let's use the dispatch + firestore call.
               const todo = state.todos.find(t => t.id === todoId);
               if (todo) {
-                await firestoreService.updateTodo(currentUser.uid, todoId, {
+                await firestoreService.updateTodo(todoId, {
                   // COMPLETE action means set to true
                   completed: true,
                   completedAt: new Date(),
                   updatedAt: new Date()
-                });
+                }, currentUser.uid);
               }
             }
 
@@ -773,41 +800,31 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         const { Capacitor } = await import('@capacitor/core');
         if (Capacitor.getPlatform() !== 'android') return;
 
-        // 저장된 설정 확인
-        const savedSettings = localStorage.getItem('notification-settings');
-        if (!savedSettings) return;
-
-        const settings = JSON.parse(savedSettings);
-        if (!settings.dailyReminder) return;
-
-        const time = settings.reminderTime || '09:00';
-
-        // getTodayTodos 함수 생성 (현재 state 기반)
-        const getTodayTodosForNotification = () => {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          return state.todos.filter(todo => {
-            if (todo.completed) return false;
-
-            if (todo.startDate) {
-              const start = new Date(todo.startDate);
-              start.setHours(0, 0, 0, 0);
-              return start <= today;
-            }
-
-            if (todo.dueDate) {
-              const due = new Date(todo.dueDate);
-              due.setHours(0, 0, 0, 0);
-              return due.toDateString() === today.toDateString();
-            }
-
-            return false;
-          });
-        };
-
         const { notificationManager } = await import('../utils/notifications');
-        await notificationManager.scheduleDailyBriefing(time, getTodayTodosForNotification);
+
+        let settings: any = null;
+        if (currentUser) {
+          settings = await firestoreService.getUserSettings(currentUser.uid);
+        }
+
+        // Fallback or guest settings
+        if (!settings) {
+          const savedSettings = localStorage.getItem('notification-settings');
+          if (savedSettings) {
+            settings = JSON.parse(savedSettings);
+          }
+        }
+
+        // Default if still null
+        if (!settings) {
+          settings = {
+            dailyReminder: true,
+            dailyReminderTime: '09:00',
+            dailyRecurrence: [1, 2, 3, 4, 5]
+          };
+        }
+
+        await notificationManager.scheduleDailyBriefing(settings, state.todos, []);
         console.log('📅 Daily briefing scheduled on app startup');
       } catch (e) {
         console.warn('Failed to initialize daily briefing', e);
@@ -1218,10 +1235,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
       // 일반 할일 삭제 처리
       if (currentUser) {
-        await firestoreService.deleteTodo(id, currentUser.uid);
-      } else {
-        dispatch({ type: 'DELETE_TODO', payload: id });
+        try {
+          await firestoreService.deleteTodo(id, currentUser.uid);
+        } catch (err) {
+          console.warn('Firestore 삭제 시도 실패 (로컬 ID일 수 있음):', err);
+        }
       }
+      // 항상 로컬 상태에서도 삭제 (로컬 ID 할일 또는 Firestore 삭제 후)
+      dispatch({ type: 'DELETE_TODO', payload: id });
       console.log('✅ 일반 할일 삭제 완료:', id);
 
     } catch (error) {
@@ -2198,6 +2219,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     projectFilter?: 'all' | 'longterm' | 'shortterm'
     tagFilter?: string[]
     completionDateFilter?: 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'
+    sharingFilter?: 'all' | 'private' | 'shared' | 'my_shared' | string
+    sharingFilterState?: {
+      showPersonal: boolean
+      showMyShared: boolean
+      showGroupShared: boolean
+      selectedGroupId: string | null
+    }
     includeCompleted?: boolean
   }) => {
     // 일반 할일과 반복 할일을 모두 포함
@@ -2253,6 +2281,71 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           todoTags.includes(filterTag)
         )
         if (!hasMatchingTag) return false
+      }
+
+      // 공유 필터
+      // 공유 필터 (새로운 상세 필터 상태 우선 적용)
+      if (filters.sharingFilterState) {
+        const { showPersonal, showMyShared, showGroupShared, selectedGroupId } = filters.sharingFilterState;
+
+        // 1. 그룹 필터링 (선택된 그룹이 있는 경우)
+        if (selectedGroupId) {
+          if (todo.sharedGroupId !== selectedGroupId && todo.sharedGroupOwnerId !== selectedGroupId) { // sharedGroupOwnerId check might be needed depending on logic, but usually sharedGroupId is enough
+            // 그룹 ID 매칭 확인. 레거시 호환성을 위해 sharedGroupId만 체크
+            if (todo.sharedGroupId !== selectedGroupId) return false;
+          }
+        }
+
+        // 2. 가시성 타입 필터링
+        const isPersonalTodo = todo.visibility?.isPersonal !== false;
+        const isSharedTodo = todo.visibility?.isShared === true;
+        const isMyShared = isSharedTodo && todo.ownerId === currentUser?.uid;
+        const isSharedWithMe = isSharedTodo && todo.ownerId !== currentUser?.uid;
+
+        // 적어도 하나의 조건에는 맞아야 함
+        let matchesType = false;
+
+        // 1. 내 할일 (순수 개인 할일: 공유되지 않은 것)
+        if (showPersonal && isPersonalTodo && !isSharedTodo) matchesType = true;
+
+        // 2. 내가 공유 (visibility.isShared === true && ownerId === 나)
+        if (showMyShared && isMyShared) matchesType = true;
+
+        // 3. 그룹 공유 (visibility.isShared === true && ownerId !== 나)
+        if (showGroupShared && isSharedWithMe) matchesType = true;
+
+        // 개인 할일이면서 동시에 공유된 할일인 경우 (드문 케이스지만) 처리:
+        // isPersonalTodo && isSharedTodo 인 경우 => showPersonal OR showMyShared/showGroupShared 중 하나라도 켜져 있으면 보여야 함?
+        // 기획상: 
+        // "내 할일" = 순수 개인 할일 (공유X)
+        // "내가 공유" = 내가 주인인데 공유된 할일
+        // "그룹 공유" = 남이 주인이고 나한테 공유된 할일
+        // 위 로직대로라면 matchesType 체크로 충분함.
+
+        if (!matchesType) return false;
+
+      } else if (filters.sharingFilter && filters.sharingFilter !== 'all') {
+        // 기존 단일 필터 로직 (하위 호환성)
+        // visibility 필드 사용 (sharedWith 배열 대신)
+        const isPersonalTodo = todo.visibility?.isPersonal !== false;
+        const isSharedTodo = todo.visibility?.isShared === true;
+        const isMyShared = isSharedTodo && todo.ownerId === currentUser?.uid;
+        const isSharedWithMe = isSharedTodo && todo.ownerId !== currentUser?.uid;
+
+        if (filters.sharingFilter === 'private') {
+          // 개인 할일만: isPersonal이 true이고 isShared가 false인 것
+          if (isSharedTodo) return false;
+          if (!isPersonalTodo) return false;
+        } else if (filters.sharingFilter === 'shared') {
+          // 공유된 할일: 나에게 공유된 것 (다른 사람이 소유자)
+          if (!isSharedWithMe) return false;
+        } else if (filters.sharingFilter === 'my_shared') {
+          // 내가 공유한 할일: 내가 소유자이고 공유 중인 것
+          if (!isMyShared) return false;
+        } else {
+          // 특정 그룹 ID 필터링
+          if (todo.sharedGroupId !== filters.sharingFilter) return false;
+        }
       }
 
       // 완료일 필터

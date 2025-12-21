@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Check, Trash2, Edit, MoreVertical, Calendar, Clock, ArrowRight, Flag, Play, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
-import { format, isAfter, isBefore, startOfDay, addDays } from 'date-fns'
+import { Check, Trash2, Edit, MoreVertical, Calendar, Clock, ArrowRight, Flag, Play, ChevronDown, ChevronUp, RotateCcw, Users, Sparkles, RefreshCw } from 'lucide-react'
+import { format, isAfter, isBefore, startOfDay, addDays, differenceInHours } from 'date-fns'
 import { ko, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
 import { useTodos } from '../contexts/TodoContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useSwipe } from '../hooks/useSwipe'
 import type { Todo } from '../types/todo'
 import SubTaskManager from './SubTaskManager'
@@ -18,9 +19,31 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
   const { t, i18n } = useTranslation()
   const dateLocale = i18n.language === 'ko' ? ko : enUS
   const { toggleTodo, deleteTodo, updateTodo } = useTodos()
+  const { currentUser } = useAuth()
   const [isSwiping, setIsSwiping] = useState(false)
   const itemRef = useRef<HTMLDivElement>(null)
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // NEW/최근 수정 배지 계산 (공유 할일에만 적용)
+  const isSharedTodo = todo.visibility?.isShared
+  const hoursThreshold = 24 // 24시간 이내
+  const now = new Date()
+
+  // NEW: 다른 사용자가 생성한 공유 할일 (24시간 이내)
+  const isNewSharedTodo = isSharedTodo &&
+    todo.ownerId &&
+    todo.ownerId !== currentUser?.uid &&
+    todo.createdAt &&
+    differenceInHours(now, new Date(todo.createdAt)) <= hoursThreshold
+
+  // 최근 수정: 다른 사용자가 수정한 공유 할일 (24시간 이내, 생성 후 수정된 경우)
+  const isRecentlyModified = isSharedTodo &&
+    todo.lastModifiedBy &&
+    todo.lastModifiedBy !== currentUser?.uid &&
+    todo.updatedAt &&
+    todo.createdAt &&
+    new Date(todo.updatedAt).getTime() !== new Date(todo.createdAt).getTime() &&
+    differenceInHours(now, new Date(todo.updatedAt)) <= hoursThreshold
 
   // 서브태스크 계산
   const totalSubTasks = todo.subTasks?.length || 0
@@ -82,14 +105,20 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
     }
   }
 
+  // 권한 체크
+  const canEdit = !todo.myPermission || todo.myPermission === 'edit' || todo.myPermission === 'admin';
+  const canDelete = !todo.myPermission || todo.myPermission === 'admin';
+
   // 스와이프 핸들러
   const swipeHandlers = useSwipe({
     onSwipeLeft: () => {
-      if (confirm(t('calendar.deleteConfirm'))) {
+      if (canDelete && confirm(t('calendar.deleteConfirm'))) {
         deleteTodo(todo.id)
       }
     },
-    onSwipeRight: () => toggleTodo(todo.id)
+    onSwipeRight: () => {
+      if (canEdit) toggleTodo(todo.id)
+    }
   }, {
     minSwipeDistance: 50
   })
@@ -112,7 +141,10 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
         relative group mb-3 transition-all duration-300 ease-out
         ${todo.completed ? 'opacity-60' : 'opacity-100'}
       `}
-      onClick={() => onEdit?.(todo)}
+      onClick={() => {
+        // 읽기 전용이어도 상세 내용은 볼 수 있어야 하므로 모달은 열리게 함 (모달 내부에서 수정 불가능하게 처리됨)
+        onEdit?.(todo)
+      }}
       {...swipeHandlers}
     >
       <div className={`
@@ -128,6 +160,29 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
           <div className="hidden md:flex absolute top-4 right-20 flex-col items-end gap-1.5 z-10">
             {/* 1행: 태그들 */}
             <div className="flex items-center gap-1.5">
+              {todo.visibility?.isShared && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {t('sharing.shared') || 'Shared'}
+                </span>
+              )}
+
+              {/* NEW 배지 */}
+              {isNewSharedTodo && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-500 text-white rounded-full flex items-center gap-1 animate-pulse">
+                  <Sparkles className="w-3 h-3" />
+                  NEW
+                </span>
+              )}
+
+              {/* 최근 수정 배지 */}
+              {!isNewSharedTodo && isRecentlyModified && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-orange-500 text-white rounded-full flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3" />
+                  최근 수정
+                </span>
+              )}
+
               {todo.recurrence && todo.recurrence !== 'none' && (
                 <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800 flex items-center gap-1">
                   <ArrowRight className="w-3 h-3" />
@@ -169,6 +224,23 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
 
         {/* 모바일용 메타데이터 (반복 아이콘, 장기 뱃지) */}
         <div className="md:hidden absolute top-4 right-20 flex items-center gap-1.5 z-10">
+          {/* NEW 배지 (모바일) */}
+          {isNewSharedTodo && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-500 text-white rounded-full flex items-center gap-0.5 animate-pulse">
+              <Sparkles className="w-3 h-3" />
+              NEW
+            </span>
+          )}
+          {/* 최근 수정 배지 (모바일) */}
+          {!isNewSharedTodo && isRecentlyModified && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-orange-500 text-white rounded-full flex items-center gap-0.5">
+              <RefreshCw className="w-3 h-3" />
+              수정됨
+            </span>
+          )}
+          {todo.visibility?.isShared && (
+            <Users className="w-4 h-4 text-blue-500" />
+          )}
           {todo.recurrence && todo.recurrence !== 'none' && (
             <RotateCcw className="w-4 h-4 text-purple-500" />
           )}
@@ -181,29 +253,33 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
 
         {/* Action Buttons (Always visible) */}
         <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-1">
-          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit?.(todo)
-              }}
-              className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-              title={t('common.edit')}
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                if (window.confirm(t('common.deleteConfirm'))) {
-                  deleteTodo(todo.id)
-                }
-              }}
-              className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              title={t('common.delete')}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-1">
+            {canEdit && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit?.(todo)
+                }}
+                className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                title={t('common.edit')}
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (window.confirm(t('common.deleteConfirm') || '이 할일을 삭제하시겠습니까?')) {
+                    deleteTodo(todo.id)
+                  }
+                }}
+                className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                title={t('common.delete')}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -212,14 +288,16 @@ const TodoItem = ({ todo, onEdit, compact = false }: TodoItemProps) => {
           <button
             onClick={(e) => {
               e.stopPropagation()
-              handleToggle()
+              if (canEdit) handleToggle()
             }}
+            disabled={!canEdit}
             className={`
               flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 mt-1
               ${todo.completed
                 ? 'bg-primary-500 border-primary-500 text-white scale-110'
                 : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-400 bg-white dark:bg-gray-800'
               }
+              ${!canEdit ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           >
             {todo.completed && <Check className="w-4 h-4" strokeWidth={3} />}

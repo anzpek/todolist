@@ -15,6 +15,7 @@ import {
 import { Capacitor } from '@capacitor/core'
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { auth, googleProvider } from '../config/firebase'
+import { firestoreService } from '../services/firestoreService'
 
 interface User {
   uid: string
@@ -60,6 +61,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           photoURL: firebaseUser.photoURL,
           isAnonymous: firebaseUser.isAnonymous
         })
+
+        // Firestore에 사용자 정보 미러링 (검색용)
+        if (!firebaseUser.isAnonymous && firebaseUser.email) {
+          firestoreService.checkAndCreateUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName
+          }).catch(err => console.error('User profile sync failed:', err));
+        }
+
         setIsAnonymous(firebaseUser.isAnonymous)
       } else {
         setCurrentUser(null)
@@ -106,6 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         uid: 'local-user',
         email: null,
         displayName: 'Local User',
+        photoURL: null,
         isAnonymous: true
       })
       setIsAnonymous(true)

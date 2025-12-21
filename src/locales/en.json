@@ -34,13 +34,15 @@
         "history": "History",
         "analytics": "Analytics",
         "vacation": "Vacation",
+        "sharing": "Sharing Settings",
         "settings": "Settings",
         "summary": {
             "yesterday": "Yesterday",
             "overdue": "Overdue",
             "tomorrow": "Tomorrow",
             "count": "items"
-        }
+        },
+        "notifications": "Notifications"
     },
     "settings": {
         "widget": {
@@ -175,6 +177,10 @@
             "setup": "Setup Notifications",
             "desc": "Deadlines, celebrations, etc."
         },
+        "notifications": {
+            "empty": "No new notifications",
+            "inviteTitle": "Invitation to share"
+        },
         "appInfo": "Designed for simplicity & productivity"
     },
     "updateNotification": {
@@ -204,7 +210,9 @@
         "today": "Today",
         "addTodo": "Add Task",
         "confirmExit": "Are you sure you want to exit?",
-        "progress": "Progress"
+        "progress": "Progress",
+        "accept": "Accept",
+        "decline": "Decline"
     },
     "days": {
         "sunday": "Sunday",
@@ -539,5 +547,75 @@
             "contact": "If you need further assistance or have suggestions, please use 'Contact Us' in the Settings menu.",
             "button": "Contact Us"
         }
+    },
+    "sharing": {
+        "settingsTitle": "Sharing Settings",
+        "private": "Private",
+        "shared": "Shared",
+        "inviteUser": "Invite User",
+        "accessList": "Shared Users",
+        "noUsers": "No shared users.",
+        "inviteSent": "Invite sent!",
+        "pendingInvites": "Pending Invites",
+        "confirmRevoke": "Revoke access for this user?",
+        "shareName": "Share Name",
+        "sendInvite": "Send Invite",
+        "cannotShareSelf": "Cannot share with yourself.",
+        "alreadyAdded": "User already added.",
+        "userNotFound": "User not found.",
+        "alreadyInvited": "User already invited.",
+        "addToShared": "Add to shared list",
+        "myTask": "My Task",
+        "sharedTask": "Shared Task",
+        "selectTarget": "Select Sharing Target",
+        "selectTargetPlaceholder": "-- Select Sharing Target --",
+        "noGroups": "No sharing groups found. Please create a group in 'Sharing Settings' first.",
+        "filter": "Filter",
+        "personal": "My Tasks",
+        "myShared": "Shared by Me",
+        "groupShared": "Group Shared",
+        "filterPersonal": "Personal Tasks (Private)",
+        "filterMyShared": "Tasks Shared by Me",
+        "filterGroupShared": "Tasks Shared by Group",
+        "group": "Group",
+        "allGroups": "All",
+        "noGroupsShort": "No Groups",
+        "title": "Sharing Status",
+        "columnMember": "Member",
+        "columnPermission": "Permission",
+        "columnManage": "Manage",
+        "me": "(Me)",
+        "roleView": "Can View",
+        "roleEdit": "Can Edit",
+        "roleAdmin": "Admin",
+        "roleViewer": "Viewer",
+        "roleEditor": "Editor",
+        "removeMember": "Remove Member",
+        "waitingAccept": "Waiting for acceptance...",
+        "invited": "Invited",
+        "confirmDeleteGroup": "Are you sure you want to delete this group? All shared data will be deleted.",
+        "subtitle": "Share tasks and collaborate with your team",
+        "createNewGroup": "Create New Group",
+        "incomingInvites": "Incoming Invites",
+        "inviteMessage": "{{email}} invited you to '{{group}}'",
+        "accept": "Accept",
+        "reject": "Reject",
+        "permissionChange": "Permission Change",
+        "permissionChangeMessage": "{{email}} changed your permission in '{{group}}'",
+        "check": "OK",
+        "groupNamePlaceholder": "Group Name (e.g. Family, Marketing Team)",
+        "inviteMember": "Invite Member",
+        "searchEmailPlaceholder": "Search email address",
+        "search": "Search",
+        "add": "Add",
+        "createGroupSendInvite": "Create Group & Send Invites",
+        "cancel": "Cancel",
+        "owner": "Owner",
+        "leave": "Leave",
+        "deleteGroup": "Delete Group",
+        "referenceGroup": "Reference Group",
+        "inviteMemberPlaceholder": "Email to invite",
+        "savePermissionChanges": "Save Permission Changes",
+        "noGroupsDesc": "Create a new group to share tasks with your team!"
     }
 }

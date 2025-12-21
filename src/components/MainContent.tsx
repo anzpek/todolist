@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
-  User
+  User,
+  Users
 } from 'lucide-react'
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { ko, enUS } from 'date-fns/locale'
@@ -31,17 +32,21 @@ import FloatingActionButton from './FloatingActionButton'
 import AddTodoModal from './AddTodoModal'
 import HelpGuide from './HelpGuide'
 import EditTodoModal from './EditTodoModal'
+import SharingSettingsView from './SharingSettingsView'
 import SearchFilter from './SearchFilter'
+import SharingQuickFilter, { type SharingFilterState } from './SharingQuickFilter'
 import TodoItem from './TodoItem'
+import NotificationCenter from './NotificationCenter'
 import { useTodos } from '../contexts/TodoContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import type { Priority, TaskType, Todo } from '../types/todo'
 import { App } from '@capacitor/app'
-import { useTheme } from '../contexts/ThemeContext' // Added import
+import { useTheme } from '../contexts/ThemeContext'
+import { firestoreService } from '../services/firestoreService'
 
 interface MainContentProps {
-  currentView: 'today' | 'week' | 'month' | 'board' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide'
+  currentView: 'today' | 'week' | 'month' | 'board' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide' | 'sharing'
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   searchInputRef?: any
@@ -71,7 +76,54 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
   const [filterTags, setFilterTags] = useState<string[]>([])
   const [completionDateFilter, setCompletionDateFilter] = useState<'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth'>('all')
 
-  // View change side effects
+  // 새로운 공유 필터 상태 (3개 토글 + 그룹 선택)
+  // 새로운 공유 필터 상태 (3개 토글 + 그룹 선택)
+  const [sharingFilterState, setSharingFilterState] = useState<SharingFilterState>(() => {
+    const saved = localStorage.getItem('sharingFilterState')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {
+        console.error('Failed to parse sharingFilterState', e)
+      }
+    }
+    return {
+      showPersonal: true,
+      showMyShared: true,
+      showGroupShared: true,
+      selectedGroupId: null
+    }
+  })
+
+  // 필터 상태 유지
+  useEffect(() => {
+    localStorage.setItem('sharingFilterState', JSON.stringify(sharingFilterState))
+  }, [sharingFilterState])
+
+  const [isSharingFilterModalOpen, setIsSharingFilterModalOpen] = useState(false)
+
+  // sharingFilterState를 기존 하위 컴포넌트에서 사용하던 형식으로 변환
+  // 하위 컴포넌트들은 아직 새 형식을 지원하지 않으므로 호환성 유지
+  const sharingFilter = (() => {
+    // 모두 선택된 경우: 전체
+    if (sharingFilterState.showPersonal && sharingFilterState.showMyShared && sharingFilterState.showGroupShared) {
+      return sharingFilterState.selectedGroupId || 'all'
+    }
+    // 개인만 선택
+    if (sharingFilterState.showPersonal && !sharingFilterState.showMyShared && !sharingFilterState.showGroupShared) {
+      return 'private'
+    }
+    // 내가 공유한 것만
+    if (!sharingFilterState.showPersonal && sharingFilterState.showMyShared && !sharingFilterState.showGroupShared) {
+      return 'my_shared'
+    }
+    // 그룹 공유(받은)만
+    if (!sharingFilterState.showPersonal && !sharingFilterState.showMyShared && sharingFilterState.showGroupShared) {
+      return 'shared'
+    }
+    // 복합 선택: 전체로 처리하되 필터링은 sharingFilterState로 직접 수행
+    return 'all'
+  })()
   useEffect(() => {
     if (currentView === 'board') {
       setCompletionDateFilter('today')
@@ -91,6 +143,29 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
       window.removeEventListener('openAddTodoModal', handleOpenAddModal)
     }
   }, [])
+
+  // 초대 수락 감지 및 자동 처리 (Sender Side Sync)
+  useEffect(() => {
+    if (!currentUser?.uid) return
+
+    const unsubscribe = firestoreService.subscribeToSentInvitations(
+      currentUser.uid,
+      async (requests) => {
+        // 수락된 요청만 필터링하여 처리
+        const acceptedRequests = requests.filter(r => r.status === 'accepted')
+
+        for (const req of acceptedRequests) {
+          console.log('🔔 수락된 초대 감지:', req.toEmail)
+          try {
+            await firestoreService.processAcceptedInvitation(req)
+          } catch (error) {
+            console.error('초대 처리 중 오류 발생:', error)
+          }
+        }
+      }
+    )
+    return () => unsubscribe()
+  }, [currentUser?.uid])
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date)
@@ -127,6 +202,12 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
     setProjectFilter('all')
     setFilterTags([])
     setCompletionDateFilter('all')
+    setSharingFilterState({
+      showPersonal: true,
+      showMyShared: true,
+      showGroupShared: true,
+      selectedGroupId: null
+    })
   }
 
   const handleEditTodo = (todo: Todo) => {
@@ -248,6 +329,28 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
 
             {/* User Profile & Add Button */}
             <div className="flex items-center gap-4">
+
+              {/* Quick Sharing Filter (Visible on all views) */}
+              <div className="hidden lg:block">
+                <SharingQuickFilter
+                  filterState={sharingFilterState}
+                  onChange={setSharingFilterState}
+                />
+              </div>
+
+              {/* Mobile Sharing Filter Button */}
+              <button
+                onClick={() => setIsSharingFilterModalOpen(true)}
+                className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg relative"
+              >
+                <Users className="w-6 h-6" />
+                {(!sharingFilterState.showPersonal || !sharingFilterState.showMyShared || !sharingFilterState.showGroupShared || sharingFilterState.selectedGroupId) && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
+                )}
+              </button>
+
+              <NotificationCenter />
+
               <button
                 onClick={() => {
                   setInitialDateForAdd(undefined)
@@ -371,6 +474,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             projectFilter={projectFilter}
             tagFilter={filterTags}
             completionDateFilter={completionDateFilter}
+            sharingFilter={sharingFilter}
+            sharingFilterState={sharingFilterState}
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
             onEdit={handleEditTodo}
@@ -385,6 +490,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             projectFilter={projectFilter}
             tagFilter={filterTags}
             completionDateFilter={completionDateFilter}
+            sharingFilter={sharingFilter}
+            sharingFilterState={sharingFilterState}
             onAddTodo={(date) => {
               setInitialDateForAdd(date)
               setIsAddModalOpen(true)
@@ -402,6 +509,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               projectFilter={projectFilter}
               tagFilter={filterTags}
               completionDateFilter={completionDateFilter}
+              sharingFilter={sharingFilter}
+              sharingFilterState={sharingFilterState}
               onAddTodo={(date) => {
                 setInitialDateForAdd(date)
                 setIsAddModalOpen(true)
@@ -409,7 +518,7 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               isMobile={isMobile}
             />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <TodoList currentView="month" onEdit={handleEditTodo} />
+              <TodoList currentView="month" onEdit={handleEditTodo} sharingFilter={sharingFilter} sharingFilterState={sharingFilterState} />
               <div className="hidden lg:block">
                 <ProjectAnalysis />
               </div>
@@ -454,6 +563,8 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
           <SettingsView />
         ) : currentView === 'guide' ? (
           <HelpGuide />
+        ) : currentView === 'sharing' ? (
+          <SharingSettingsView />
         ) : null}
       </div>
 
@@ -482,6 +593,51 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
           onClose={() => setEditingTodo(null)}
           todo={editingTodo}
         />
+      )}
+      {/* Mobile Sharing Filter Modal */}
+      {isSharingFilterModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 sm:pt-32"
+          onClick={() => setIsSharingFilterModalOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" />
+
+          <div
+            className="relative w-full max-w-sm bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5 shadow-2xl border border-white/20 dark:border-white/10 ring-1 ring-black/5 animate-in slide-in-from-top-4 duration-200"
+            onClick={e => e.stopPropagation()}
+            style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}
+          >
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-200/50 dark:border-gray-700/50">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <Filter className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                {t('sharing.settingsTitle')}
+              </h3>
+              <button
+                onClick={() => setIsSharingFilterModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <SharingQuickFilter
+              filterState={sharingFilterState}
+              onChange={setSharingFilterState}
+              isMobile={true}
+            />
+
+            <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+              <button
+                onClick={() => setIsSharingFilterModalOpen(false)}
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <span>{t('common.confirm')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )
