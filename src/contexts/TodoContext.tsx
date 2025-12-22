@@ -278,9 +278,7 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
       }
     case 'SET_RECURRING_INSTANCES':
       // Firebase 데이터 우선 병합 (Firebase 데이터가 로컬 데이터를 덮어씀)
-      console.log('🔄 SET_RECURRING_INSTANCES - Firebase 데이터로 state 업데이트')
-      console.log(`   기존 인스턴스 수: ${state.recurringInstances.length}`)
-      console.log(`   새 Firebase 인스턴스 수: ${action.payload.length}`)
+
 
       // 월간업무보고 상태 확인
       const newMonthlyReport = action.payload.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
@@ -447,8 +445,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         todoUnsubscribeRef.current = firestoreService.subscribeTodos(
           currentUser.uid,
           (todos) => {
-            console.log('📨 Firestore에서 할일 업데이트 수신:', todos.length, '개')
-            console.log('📋 Firestore에서 로드된 모든 할일 ID:', todos.map(t => t.id))
+
 
             // 바로 적용 (중복 제거는 reducer에서 처리)
             dispatch({ type: 'SET_TODOS', payload: todos })
@@ -497,63 +494,31 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // 🔥 월간업무보고 직접 조회 추가
-        const directMonthlyReport = directInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
-        if (directMonthlyReport) {
-          console.log('🔥🔥🔥 직접 조회한 월간업무보고 데이터:')
-          console.log('  ID:', directMonthlyReport.id)
-          console.log('  completed:', directMonthlyReport.completed, typeof directMonthlyReport.completed)
-          console.log('  completedAt:', directMonthlyReport.completedAt)
-          console.log('  updatedAt:', directMonthlyReport.updatedAt)
-        } else {
-          console.log('❌ 직접 조회에서 월간업무보고를 찾을 수 없음')
-          console.log('📋 전체 직접 조회 인스턴스:', directInstances.map(i => i.id))
-        }
+
 
         const instanceUnsubscribe = firestoreService.subscribeRecurringInstances(
           currentUser.uid,
           (instances) => {
-            console.log('🔄 실시간 구독 데이터 수신 - 개수:', instances.length)
-            console.log('⏰ 구독 수신 시각:', new Date().toISOString())
+
 
             // 🔍 월간업무보고 완료 상태 확인 (간소화)
-            const monthlyReports = instances.filter(i => i.templateId === 'vCyWLYn3LuDq1nVUPSyE')
-            if (monthlyReports.length > 0) {
-              console.log('🔄 Firebase 구독 - 월간업무보고:')
-              monthlyReports.forEach(report => {
-                console.log(`   ID: ${report.id}, 완료: ${report.completed}`)
 
-                // 현재 로컬 상태와 비교
-                const currentLocal = state.recurringInstances.find(i => i.id === report.id)
-                if (currentLocal && currentLocal.completed !== report.completed) {
-                  console.log(`   ⚠️ 상태 불일치: 로컬(${currentLocal.completed}) vs Firebase(${report.completed})`)
-                }
-              })
-            }
 
             dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
-            console.log('✅ Firebase 구독 데이터 dispatch 완료')
+
           }
         )
 
         if (instanceUnsubscribe) {
-          console.log('✅ 반복 인스턴스 실시간 구독 설정 성공')
+
           instanceUnsubscribeRef.current = instanceUnsubscribe
 
           // 🔧 간소화된 Firebase 강제 동기화
           setTimeout(async () => {
             try {
-              console.log('🔧 Firebase 강제 동기화 실행...')
               const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
-
-              // 월간업무보고 상태 확인
-              const monthlyReport = freshInstances.find(i => i.id === 'vCyWLYn3LuDq1nVUPSyE_2025-08-26')
-              if (monthlyReport) {
-                console.log(`🔧 Firebase 월간업무보고: ID=${monthlyReport.id}, 완료=${monthlyReport.completed}`)
-              }
-
               // 강제 동기화 (Firebase 데이터를 최종 진실로 사용)
               dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
-              console.log('✅ Firebase 강제 동기화 완료')
 
             } catch (error) {
               console.error('❌ Firebase 강제 동기화 실패:', error)
@@ -585,8 +550,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (state.recurringTemplates.length === 0) return
 
-    console.log('🔄 반복 템플릿 변경 감지 - 인스턴스 재생성 시작')
-    console.log('📋 현재 템플릿 수:', state.recurringTemplates.length)
+
 
     const generateRecurringInstances = async () => {
       try {
@@ -596,16 +560,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
           for (const template of state.recurringTemplates) {
             try {
-              console.log(`📝 템플릿 처리 중: ${template.title}`)
+
               const instances = simpleRecurringSystem.generateInstances(template, customHolidays)
               allInstances.push(...instances)
-              console.log(`✅ 템플릿 ${template.title}: ${instances.length}개 인스턴스 생성`)
+
             } catch (error) {
               console.error(`❌ 템플릿 ${template.title} 인스턴스 생성 실패:`, error)
             }
           }
 
-          console.log('📊 총 생성된 인스턴스:', allInstances.length)
+
           dispatch({ type: 'SET_RECURRING_INSTANCES', payload: allInstances })
           return
         }
@@ -613,14 +577,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         // Firebase 사용자: 각 템플릿별로 재생성
         for (const template of state.recurringTemplates) {
           try {
-            console.log(`🔥 Firebase 템플릿 재생성: ${template.title}`)
+
             await firestoreService.regenerateRecurringInstances(template.id, currentUser.uid)
           } catch (error) {
             console.error(`❌ Firebase 템플릿 ${template.title} 재생성 실패:`, error)
           }
         }
 
-        console.log('✅ 모든 템플릿 재생성 완료')
+
       } catch (error) {
         console.error('❌ 반복 인스턴스 재생성 실패:', error)
       }
@@ -635,26 +599,25 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
     const syncInstancesToFirebase = async () => {
       try {
-        console.log(`🔄 반복 인스턴스 Firebase 동기화 확인 중... (총 ${state.recurringInstances.length}개)`)
+
 
         // Firebase에서 기존 인스턴스 조회
         const existingInstances = await firestoreService.getRecurringInstances(currentUser.uid)
         const existingIds = new Set(existingInstances.map(i => i.id))
 
-        console.log(`📂 Firebase에 기존 인스턴스: ${existingInstances.length}개`)
-        console.log(`📋 로컬 인스턴스: ${state.recurringInstances.length}개`)
+
 
         // 새로운 인스턴스만 Firebase에 추가 (실제로 없는 것들만)
         const newInstances = state.recurringInstances.filter(instance => {
           const isNew = !existingIds.has(instance.id)
           if (isNew) {
-            console.log(`🆕 새로운 인스턴스 발견: ${instance.id} (날짜: ${instance.date})`)
+
           }
           return isNew
         })
 
         if (newInstances.length > 0) {
-          console.log(`🔄 Firebase에 새로운 반복 인스턴스 ${newInstances.length}개 추가 시작...`)
+
 
           for (const instance of newInstances) {
             try {
@@ -664,15 +627,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
                 // ID 유지를 위해 직접 설정 (일반적으로는 Firestore가 생성하지만)
                 id: instance.id
               }, currentUser.uid)
-              console.log(`✅ 반복 인스턴스 Firebase 추가 성공: ${instance.id} -> Firestore ID: ${firestoreId}`)
+
             } catch (error) {
               console.error(`❌ 반복 인스턴스 Firebase 추가 실패: ${instance.id}`, error)
             }
           }
 
-          console.log(`🎉 반복 인스턴스 Firebase 동기화 완료!`)
-        } else {
-          console.log(`✅ 모든 반복 인스턴스가 이미 Firebase에 동기화되어 있음`)
+
         }
       } catch (error) {
         console.error('❌ 반복 인스턴스 Firebase 동기화 실패:', error)
@@ -1313,13 +1274,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         instanceId = id.replace('recurring_', '')
         console.log('📍 ID에서 인스턴스 ID 추출:', instanceId)
       } else {
-        console.log('📍 메타데이터에서 인스턴스 ID:', instanceId)
+        // console.log('📍 메타데이터에서 인스턴스 ID:', instanceId)
       }
 
       const instance = state.recurringInstances.find(i => i.id === instanceId)
 
       if (instance) {
-        console.log('✅ 기존 인스턴스 발견:', instance)
+        // console.log('✅ 기존 인스턴스 발견:', instance)
         const updatedInstance = {
           ...instance,
           completed: !instance.completed,
@@ -1684,13 +1645,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const today = targetDate ? new Date(targetDate) : new Date()
     today.setHours(0, 0, 0, 0) // 시간 부분을 00:00:00으로 설정
 
-    console.log('🗓️ getTodayTodos 호출됨, 대상 날짜:', today.toDateString())
+    // console.log('🗓️ getTodayTodos 호출됨, 대상 날짜:', today.toDateString())
 
     const regularTodos = state.todos.filter(todo => {
-      console.log(`🔍 할일 체크: "${todo.title}"`)
-      console.log(`  startDate: ${todo.startDate ? new Date(todo.startDate).toDateString() : 'null'}`)
-      console.log(`  dueDate: ${todo.dueDate ? new Date(todo.dueDate).toDateString() : 'null'}`)
-      console.log(`  completed: ${todo.completed}`)
+      // console.log(`🔍 할일 체크: "${todo.title}"`)
+      // console.log(`  startDate: ${todo.startDate ? new Date(todo.startDate).toDateString() : 'null'}`)
+      // console.log(`  dueDate: ${todo.dueDate ? new Date(todo.dueDate).toDateString() : 'null'}`)
+      // console.log(`  completed: ${todo.completed}`)
 
       // 완료된 할일의 경우: 메인 할일이 오늘 완료되었거나, 서브태스크 중 오늘 완료된 것이 있으면 표시
       if (todo.completed) {
@@ -1733,15 +1694,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (startDate) startDate.setHours(0, 0, 0, 0)
       if (dueDate) dueDate.setHours(0, 0, 0, 0)
 
-      console.log(`  처리된 startDate: ${startDate ? startDate.toDateString() : 'null'}`)
-      console.log(`  처리된 dueDate: ${dueDate ? dueDate.toDateString() : 'null'}`)
+
 
       // 1. 시작일과 마감일이 모두 있는 경우: 기간 내에 포함되는지 확인
       if (startDate && dueDate) {
         const isInPeriod = today.getTime() >= startDate.getTime() && today.getTime() <= dueDate.getTime()
-        console.log(`📅 기간 할일 체크: "${todo.title}"`)
-        console.log(`  시작일: ${startDate.toDateString()}, 마감일: ${dueDate.toDateString()}`)
-        console.log(`  오늘: ${today.toDateString()}, 기간 내 포함: ${isInPeriod}`)
+
         // 미완료 할일: 시작일~마감일 기간 내 모든 날짜에 표시
         return isInPeriod
       }
@@ -1755,13 +1713,12 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (!startDate && dueDate) {
         // 마감일이 오늘이거나 이후인 경우: 지속적으로 표시
         if (dueDate.getTime() >= today.getTime()) {
-          console.log(`📅 마감일 할일 체크: "${todo.title}" - 마감일까지 표시`)
-          console.log(`  마감일: ${dueDate.toDateString()}, 오늘: ${today.toDateString()}`)
+
           return true
         }
 
         // 마감일이 지난 경우: 어제 못한 일로만 처리 (오늘 할일에는 표시 안함)
-        console.log(`📅 마감일 지난 할일: "${todo.title}" - 어제 할일로만 표시`)
+
         return false
       }
 
@@ -1787,10 +1744,19 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
         // 2. 과거에 시작했지만 아직 완료하지 않은 할일 (이월)
         if (startDate.getTime() < today.getTime() && !todo.completed) {
-          console.log(`➡️ 이월된 반복 할일: "${todo.title}" (${startDate.toLocaleDateString()})`)
           return true
         }
       }
+
+      // 3. 오늘 완료된 반복 할일 (시작일 상관없이 표시)
+      if (todo.completed && todo.completedAt) {
+        const completedDate = new Date(todo.completedAt)
+        completedDate.setHours(0, 0, 0, 0)
+        if (completedDate.getTime() === today.getTime()) {
+          return true
+        }
+      }
+
       return false
     })
 
@@ -1799,7 +1765,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const allTodos = [...regularTodos, ...filteredTodayRecurring]
     const uniqueTodos = allTodos.filter(todo => {
       if (seenIds.has(todo.id)) {
-        console.warn(`⚠️ 중복 키 발견 및 제거: ${todo.id}`)
+
         return false
       }
       seenIds.add(todo.id)
@@ -1812,13 +1778,13 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const getWeekTodos = () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    console.log('📅 getWeekTodos 호출됨')
+    // console.log('📅 getWeekTodos 호출됨')
 
     // 월간업무보고 디버깅 (간단)
     const allRecurring = getRecurringTodos()
     const monthlyReports = allRecurring.filter(t => t.title.includes('월간업무보고'))
     if (monthlyReports.length > 0) {
-      console.log('📅 getWeekTodos - 월간업무보고:', monthlyReports[0]?.priority || 'none')
+
     }
 
     // 이번 주의 시작일 (일요일)
@@ -1881,7 +1847,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const weekRecurringTodos = weeklyRecurringTodos.filter(todo => {
       // 월간업무보고 특별 디버깅
       if (todo.title.includes('월간업무보고')) {
-        console.log(`🔍 주간뷰 - 월간업무보고 필터링: completed=${todo.completed}, completedAt=${todo.completedAt}`)
+
       }
 
       // ✅ 완료된 반복 할일: 이번 주에 완료된 것만 표시
@@ -1892,14 +1858,14 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
           const isInThisWeek = completedDate >= startOfWeek && completedDate <= endOfWeek
 
           if (todo.title.includes('월간업무보고')) {
-            console.log(`   ✅ 완료된 월간업무보고: 완료일=${completedDate.toDateString()}, 이번주포함=${isInThisWeek}`)
+
           }
 
           return isInThisWeek
         }
 
         if (todo.title.includes('월간업무보고')) {
-          console.log(`   ❌ 완료된 월간업무보고: 완료일 없음 - 표시 안함`)
+
         }
 
         return false // 완료되었지만 완료일이 없으면 표시 안함
@@ -1917,10 +1883,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (startDate && dueDate) {
         // 반복 할일: 할일 기간과 주간 범위가 겹치면 표시
         const overlapsWeek = dueDate.getTime() >= startOfWeek.getTime() && startDate.getTime() <= endOfWeek.getTime()
-        console.log(`🔄 주간 반복 기간 할일 체크: "${todo.title}"`)
-        console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
-        console.log(`  주간 범위: ${startOfWeek.toDateString()} ~ ${endOfWeek.toDateString()}`)
-        console.log(`  겹침 여부: ${overlapsWeek}`)
+
         return overlapsWeek
       }
 
@@ -1946,7 +1909,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     const allWeekTodos = [...regularTodos, ...weekRecurringTodos]
 
     // 🔥 오늘 할일과 동일한 정렬 적용
-    console.log('📊 getWeekTodos 정렬 전 월간업무보고 개수:', allWeekTodos.filter(t => t.title.includes('월간업무보고')).length)
+
 
     // 우선순위별 정렬 (urgent → high → medium → low)
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
@@ -1964,7 +1927,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
 
-    console.log('📊 getWeekTodos 정렬 후 월간업무보고:', sortedWeekTodos.filter(t => t.title.includes('월간업무보고')).map(t => `${t.title}: ${t.priority}`))
+
 
     return filterSequentialRecurring(sortedWeekTodos)
   }
@@ -1972,7 +1935,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const getMonthTodos = () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    console.log('📆 getMonthTodos 호출됨')
+    // console.log('📆 getMonthTodos 호출됨')
 
     // 이번 달의 시작일 (1일)
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -2052,10 +2015,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       if (startDate && dueDate) {
         // 반복 할일: 할일 기간과 월간 범위가 겹치면 표시
         const overlapsMonth = dueDate.getTime() >= startOfMonth.getTime() && startDate.getTime() <= endOfMonth.getTime()
-        console.log(`🔄 월간 반복 기간 할일 체크: "${todo.title}"`)
-        console.log(`  할일 기간: ${startDate.toDateString()} ~ ${dueDate.toDateString()}`)
-        console.log(`  월간 범위: ${startOfMonth.toDateString()} ~ ${endOfMonth.toDateString()}`)
-        console.log(`  겹침 여부: ${overlapsMonth}`)
+
         return overlapsMonth
       }
 
@@ -2508,7 +2468,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const cleanupDuplicateTemplates = async () => {
     if (!currentUser) return; // 안전을 위해 로그인 사용자만 자동 정리
 
-    console.log('🧹 중복 반복 템플릿 정리 시작 (Deep Check)')
+
 
     // 서명(Signature) 기반 그룹화
     const groups: { [key: string]: SimpleRecurringTemplate[] } = {}
@@ -2552,7 +2512,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       // 정리 후 화면 새로고침 권장
       // window.location.reload() // 너무 공격적이므로 생략
     } else {
-      console.log('✅ 중복된 템플릿이 없습니다.')
+
     }
   }
 
@@ -2612,7 +2572,15 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       return simpleRecurringSystem.convertToTodo(instance, template);
     }).filter((todo): todo is Todo => todo !== null); // null이 아닌 Todo 객체만 필터링
 
-    return recurringTodos;
+    // 중복 ID 제거
+    const seenIds = new Set<string>();
+    return recurringTodos.filter(todo => {
+      if (seenIds.has(todo.id)) {
+        return false;
+      }
+      seenIds.add(todo.id);
+      return true;
+    });
   }
 
   // 기존 할일들에 order 값을 초기화하는 함수

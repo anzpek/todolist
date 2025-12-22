@@ -83,7 +83,9 @@ service cloud.firestore {
     match /shared_todos/{todoId} {
       // Read: Owner OR SharedWith (Viewer or Editor)
       allow read: if request.auth != null && (
-          isOwner(resource.data) || isSharedWith(resource.data)
+          resource == null || 
+          isOwner(resource.data) || 
+          isSharedWith(resource.data)
       );
 
       // Create: Any authenticated user can create a shared task

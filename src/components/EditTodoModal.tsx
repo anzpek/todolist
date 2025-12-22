@@ -208,15 +208,16 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
         if (formData.startDate) {
           try {
             updates.startDate = new Date(formData.startDate)
-            console.log('수정: 시작일 설정됨:', updates.startDate)
           } catch (error) {
             console.error('수정: 시작일 파싱 오류:', error)
             throw new Error('시작일 형식이 올바르지 않습니다')
           }
+        } else {
+          // 시작일 삭제 (빈 값인 경우)
+          (updates as any).startDate = null;
         }
         if (formData.startTime) {
           updates.startTime = formData.startTime
-          console.log('수정: 시작 시간 설정됨:', updates.startTime)
         }
         // 시간 표시 여부 저장
         (updates as any).showStartTime = formData.showStartTime;
@@ -229,16 +230,15 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
             const combinedDateTimeStr = `${dateStr}T${timeStr}:00`
 
             updates.dueDate = new Date(combinedDateTimeStr)
-            console.log(`수정: 마감일 설정: ${dateStr} ${timeStr} →`, updates.dueDate)
 
             // dueTime은 별도 저장하지 않고 dueDate에 포함
-            if (formData.dueTime) {
-              console.log('수정: 마감시간이 dueDate에 포함됨:', formData.dueTime)
-            }
           } catch (error) {
             console.error('수정: 마감일 파싱 오류:', error)
             throw new Error(`마감일 형식이 올바르지 않습니다: ${formData.dueDate} ${formData.dueTime || ''}`)
           }
+        } else {
+          // 마감일 삭제 (빈 값인 경우)
+          (updates as any).dueDate = null;
         }
         if (formData.type === 'project') {
           updates.project = formData.project

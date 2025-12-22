@@ -618,13 +618,8 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
                                         if (groupId) {
                                             const selectedGroup = sharingGroups.find(g => g.id === groupId)
                                             if (selectedGroup) {
-                                                console.log('🔍 선택된 그룹:', {
-                                                    id: selectedGroup.id,
-                                                    name: selectedGroup.name,
-                                                    members: selectedGroup.members,
-                                                    membersCount: selectedGroup.members?.length || 0,
-                                                    isReference: selectedGroup.isReference
-                                                });
+
+
                                                 setSharedWith(selectedGroup.members || [])
                                                 // 참조 그룹인 경우 원본 그룹 정보 사용, 아니면 현재 그룹 정보 사용
                                                 if (selectedGroup.isReference) {

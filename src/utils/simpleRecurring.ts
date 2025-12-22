@@ -138,7 +138,7 @@ class SimpleRecurringSystem {
     const month = date.getMonth()
     const day = date.getDate()
 
-    console.log(`calculateWeekOfMonth: ${date.toDateString()}, year=${year}, month=${month + 1}, day=${day}`)
+    // console.log(`calculateWeekOfMonth: ${date.toDateString()}, year=${year}, month=${month + 1}, day=${day}`)
 
     // 해당 월의 첫날과 마지막날
     const firstDayOfMonth = new Date(year, month, 1)
@@ -192,16 +192,16 @@ class SimpleRecurringSystem {
 
     // 'show' 옵션이면 날짜 조정하지 않고 그대로 반환
     if (holidayHandling === 'show') {
-      console.log(`🎯 공휴일 'show' 설정: ${adjustedDate.toDateString()} 그대로 사용`)
+      // console.log(`🎯 공휴일 'show' 설정: ${adjustedDate.toDateString()} 그대로 사용`)
       return adjustedDate
     }
 
-    console.log(`🔍 공휴일 조정 시작: ${date.toDateString()}, 옵션: ${holidayHandling}`)
+    // console.log(`🔍 공휴일 조정 시작: ${date.toDateString()}, 옵션: ${holidayHandling}`)
 
     const isHoliday = checkIsHoliday(adjustedDate, customHolidays)
     const isWeekendDay = isWeekend(adjustedDate)
 
-    console.log(`   원본 날짜 상태: 공휴일=${isHoliday}, 주말=${isWeekendDay}`)
+    // console.log(`   원본 날짜 상태: 공휴일=${isHoliday}, 주말=${isWeekendDay}`)
 
     // 이미 평일이면 조정하지 않음
     if (!isHoliday && !isWeekendDay) {
@@ -242,7 +242,7 @@ class SimpleRecurringSystem {
       return date
     }
 
-    console.log(`🎯 공휴일 조정 완료: ${date.toDateString()} → ${adjustedDate.toDateString()}`)
+    // console.log(`🎯 공휴일 조정 완료: ${date.toDateString()} → ${adjustedDate.toDateString()}`)
     return adjustedDate
   }
 
@@ -761,17 +761,10 @@ class SimpleRecurringSystem {
     const todoId = `recurring_${instance.id}`
 
     // 주간업무보고 특별 로깅
-    if (instance.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21') {
-      console.log('🔄🔄🔄 convertToTodo 호출됨 - 주간업무보고')
-      console.log('  입력 instance.completed:', instance.completed, typeof instance.completed)
-      console.log('  입력 instance 전체:', JSON.stringify(instance, null, 2))
-      console.log('  템플릿 제목:', template.title)
-    }
+
 
     // 월간업무보고 인스턴스 정보 확인 (간소화)
-    if (template.title.includes('월간업무보고')) {
-      console.log('🔥 월간업무보고 convertToTodo - ID:', instance.id, '완료:', instance.completed)
-    }
+
 
     // 🔥 월간업무보고 우선순위 강제 수정
     const isMonthlyReport = template.title.includes('월간업무보고') ||
@@ -781,9 +774,7 @@ class SimpleRecurringSystem {
 
     const finalPriority = isMonthlyReport ? 'urgent' : template.priority
 
-    if (isMonthlyReport && template.priority !== 'urgent') {
-      console.log(`🔥 월간업무보고 우선순위 강제 수정: ${template.priority} → urgent`)
-    }
+
 
     // 🔥 시간대 오류 방지: instance.date를 정오(12:00)로 설정하여 UTC 변환 시 날짜가 바뀌지 않도록 함
     const adjustedDate = new Date(instance.date)

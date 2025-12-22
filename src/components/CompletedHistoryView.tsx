@@ -41,13 +41,20 @@ const CompletedHistoryView = ({
     ? { backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, var(--glass-opacity, 0.1))` }
     : {}
 
-  // 모든 할일 (일반 + 반복 할일) 가져오기
+  // 모든 할일 (일반 + 반복 할일) 가져오기 - 중복 제거 적용
   const recurringTodos = getRecurringTodos()
-  const allTodos = [...todos, ...recurringTodos]
 
-  console.log('📊 완료 히스토리 - 전체 할일:', allTodos.length)
-  console.log('📊 완료 히스토리 - 일반 할일:', todos.length)
-  console.log('📊 완료 히스토리 - 반복 할일:', recurringTodos.length)
+  // ID 기반 중복 제거
+  const seenIds = new Set<string>()
+  const allTodos = [...todos, ...recurringTodos].filter(todo => {
+    if (seenIds.has(todo.id)) {
+      return false
+    }
+    seenIds.add(todo.id)
+    return true
+  })
+
+
 
   // 완료된 할일만 필터링 (일반 할일 + 반복 할일 포함)
   const completedMainTodos = allTodos.filter(todo =>

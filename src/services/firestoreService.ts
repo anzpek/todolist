@@ -339,19 +339,39 @@ export const firestoreService = {
   },
 
   updateTodo: async (id: string, updates: Partial<Todo>, uid: string): Promise<void> => {
+    let isPrivate = false;
+    let isShared = false;
     try {
       // 1. 먼저 어느 컬렉션에 있는지 확인
       const privateRef = doc(db, `users/${uid}/todos`, id);
-      const sharedRef = doc(db, 'shared_todos', id);
-
+      const sharedRef = doc(db, 'shared_todos', id);      // 1. 개인 할일 확인
+      debug.log(`Trying to read private todo: ${id} at ${privateRef.path}`);
       const privateSnap = await getDoc(privateRef);
-      const sharedSnap = await getDoc(sharedRef);
 
-      const isPrivate = privateSnap.exists();
-      const isShared = sharedSnap.exists();
+      let sharedSnap: any; // 스코프 문제 해결을 위해 상위 선언
+
+      if (privateSnap.exists()) {
+        isPrivate = true;
+        // 개인 할일로 확인되면 공유 할일 체크는 생략 (최적화 및 권한 오류 방지)
+      } else {
+        // 2. 공유 할일 확인 (개인 할일에 없을 때만)
+        try {
+          debug.log(`Trying to read shared todo: ${id} at ${sharedRef.path}`);
+          sharedSnap = await getDoc(sharedRef);
+          isShared = sharedSnap.exists();
+        } catch (err: any) {
+          // 공유 할일이 존재하지 않는데 읽으려 하면 권한 오류가 발생할 수 있음 (규칙상 resource.data 접근 시)
+          if (err.code === 'permission-denied') {
+            debug.warn(`Shared todo permission denied (treated as not found): ${id}`);
+            isShared = false;
+          } else {
+            throw err;
+          }
+        }
+      }
 
       if (!isPrivate && !isShared) {
-        debug.warn(`할일 문서 ${id}가 존재하지 않습니다. 업데이트를 건너뜁니다.`);
+        debug.warn(`할일 문서 ${id}가 존재하지 않거나 권한이 없습니다. 업데이트를 건너뜁니다.`);
         return;
       }
 
@@ -420,7 +440,16 @@ export const firestoreService = {
       }
 
     } catch (error) {
-      debug.error('Firestore updateTodo 실패:', error)
+      debug.error('Firestore updateTodo 실패:', {
+        error,
+        context: JSON.stringify({
+          id,
+          uid,
+          targetPath: isPrivate ? `users/${uid}/todos/${id}` : `shared_todos/${id}`,
+          isPrivate,
+          isShared
+        })
+      });
       throw error
     }
   },
@@ -663,7 +692,7 @@ export const firestoreService = {
         );
 
         unsubscribeMyShared = onSnapshot(qMyShared, (snapshot) => {
-          console.log('📥 내 공유 할일 수신:', snapshot.docs.length, '개');
+
           mySharedTodos = snapshot.docs.map(mapSharedTodoDoc);
           mergeSharedTodos();
         }, (error) => {
@@ -676,7 +705,7 @@ export const firestoreService = {
         );
 
         unsubscribeSharedWithMe = onSnapshot(qSharedWithMe, (snapshot) => {
-          console.log('📥 공유받은 할일 수신:', snapshot.docs.length, '개');
+
           sharedWithMeTodos = snapshot.docs.map(mapSharedTodoDoc);
           mergeSharedTodos();
         }, (error) => {

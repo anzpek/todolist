@@ -216,7 +216,7 @@ export class NotificationManager {
     todos: Todo[],
     customHolidays: CustomHoliday[]
   ) {
-    console.log('🔄 Scheduling all notifications...')
+
 
     // 0. (Web) 미래 예정된 알림들 청소 (재설정을 위해)
     const now = new Date()
@@ -249,7 +249,7 @@ export class NotificationManager {
     }
 
     this.saveNotifications()
-    console.log('✅ All notifications scheduled successfully')
+
   }
 
   public async scheduleDailyBriefing(
