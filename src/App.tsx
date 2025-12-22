@@ -28,6 +28,7 @@ const ErrorBoundary = lazy(() => import('./components/ErrorBoundary'))
 const OfflineNotification = lazy(() => import('./components/OfflineNotification'))
 const BottomNavigation = lazy(() => import('./components/BottomNavigation'))
 import UpdateNotificationModal from './components/UpdateNotificationModal'
+import { AppUpdateProvider } from './contexts/AppUpdateContext'
 
 // 로딩 스피너 컴포넌트
 const LoadingSpinner = () => (
@@ -120,6 +121,7 @@ function AppInner({
         {/* PWA 설치 프롬프트 */}
         <PWAInstallPrompt />
 
+        {/* 업데이트 알림 모달 */}
         {/* 업데이트 알림 모달 */}
         <UpdateNotificationModal />
       </div>
@@ -496,7 +498,9 @@ function App() {
               <VacationProvider>
                 <CustomHolidayProvider>
                   <TodoProvider>
-                    <AppContent />
+                    <AppUpdateProvider>
+                      <AppContent />
+                    </AppUpdateProvider>
                   </TodoProvider>
                 </CustomHolidayProvider>
               </VacationProvider>

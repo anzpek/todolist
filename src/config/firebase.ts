@@ -13,6 +13,7 @@ import {
   connectFirestoreEmulator
 } from 'firebase/firestore'
 import { getStorage, connectStorageEmulator } from 'firebase/storage'
+import { getRemoteConfig } from 'firebase/remote-config'
 import { debug } from '../utils/debug'
 
 // Firebase 실제 프로덕션 설정
@@ -67,6 +68,10 @@ try {
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+export const remoteConfig = getRemoteConfig(app)
+
+// Remote Config 설정
+remoteConfig.settings.minimumFetchIntervalMillis = import.meta.env.DEV ? 0 : 3600000 // 개발: 0, 운영: 1시간
 
 // 개발 환경에서만 에뮬레이터 연결 (보안상 분리)
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
