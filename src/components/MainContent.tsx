@@ -558,7 +558,14 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
             tagFilter={filterTags}
           />
         ) : currentView === 'vacation' ? (
-          <VacationDashboard />
+          <div className="w-full h-[calc(100vh-100px)] rounded-xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-800">
+            <iframe
+              src="https://anzpek.github.io/vacation-manager-react/"
+              className="w-full h-full border-0"
+              title="Vacation Management System"
+              allow="clipboard-write"
+            />
+          </div>
         ) : currentView === 'settings' ? (
           <SettingsView />
         ) : currentView === 'guide' ? (
