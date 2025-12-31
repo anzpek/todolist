@@ -13,8 +13,15 @@ const getEmployeeColor = (name: string) => {
 };
 
 export const VacationDashboard: React.FC = () => {
-    const { currentDepartment, logout, vacations, addVacation, deleteVacation } = useVacation();
+    const { currentDepartment, logout, vacations, addVacation, deleteVacation, loadMonthVacations } = useVacation();
     const [selectedDate, setSelectedDate] = useState(new Date());
+
+    // Fetch data when month changes
+    React.useEffect(() => {
+        if (currentDepartment) {
+            loadMonthVacations(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+        }
+    }, [currentDepartment, selectedDate, loadMonthVacations]);
 
     const handlePrevMonth = () => {
         setSelectedDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));

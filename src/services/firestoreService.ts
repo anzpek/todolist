@@ -581,17 +581,18 @@ export const firestoreService = {
       // 조건: (완료되지 않음) OR (완료되었지만 최근 30일 이내)
       const todosRef = collection(db, `users/${uid}/todos`);
 
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       // 쿼리 1: 완료되지 않은 할 일 (Active)
       const qActive = query(todosRef, where('completed', '==', false));
 
-      // 쿼리 2: 최근 완료된 할 일 (Recent History)
+      // 쿼리 2: 최근 완료된 할 일 (Recent History - 최근 7일)
+      // "오늘"과 "어제" 뷰를 커버하기 위한 최소한의 데이터만 실시간 구독
       const qRecent = query(
         todosRef,
         where('completed', '==', true),
-        where('completedAt', '>=', thirtyDaysAgo)
+        where('completedAt', '>=', sevenDaysAgo)
       );
 
       let activeTodos: Todo[] = [];
@@ -641,7 +642,7 @@ export const firestoreService = {
         unsubRecent();
       };
 
-      // 2. 공유된 할 일 구독
+      // 2. 공유된 할 일 구독 (공유는 양이 적으므로 일단 전체 유지하거나 추후 최적화)
       let mySharedTodos: Todo[] = [];
       let sharedWithMeTodos: Todo[] = [];
       let unsubscribeMyShared: () => void = () => { };
@@ -728,6 +729,51 @@ export const firestoreService = {
       console.error('❌ Firestore subscribeTodos 초기화 실패:', error)
       callback([])
       return () => { }
+    }
+  },
+
+  // 특정 기간의 완료된 할 일 일회성 조회 (캐싱을 위해 사용)
+  getCompletedTodos: async (uid: string, startDate: Date, endDate: Date): Promise<Todo[]> => {
+    try {
+      const todosRef = collection(db, `users/${uid}/todos`);
+
+      // 날짜 경계 설정 (혹시 모를 시간차 문제 방지)
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      const q = query(
+        todosRef,
+        where('completed', '==', true),
+        where('completedAt', '>=', start),
+        where('completedAt', '<=', end)
+      );
+
+      const snapshot = await getDocs(q);
+
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: safeToDate(data.createdAt) || new Date(),
+          updatedAt: safeToDate(data.updatedAt) || new Date(),
+          dueDate: safeToDate(data.dueDate),
+          startDate: safeToDate(data.startDate),
+          completedAt: safeToDate(data.completedAt),
+          subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
+            ...subTask,
+            createdAt: safeToDate(subTask.createdAt) || new Date(),
+            updatedAt: safeToDate(subTask.updatedAt) || new Date(),
+            completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
+          })) : [],
+          myPermission: 'admin'
+        } as Todo;
+      });
+    } catch (error) {
+      console.error('❌ getCompletedTodos 실패:', error);
+      return [];
     }
   },
 

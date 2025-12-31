@@ -18,6 +18,7 @@ interface TodoState {
   loading: boolean
   error: string | null
   syncing: boolean
+  fetchedMonths: Set<string> // 캐시된 월 추적 (YYYY-MM)
 }
 
 type TodoAction =
@@ -25,6 +26,8 @@ type TodoAction =
   | { type: 'SET_SYNCING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_TODOS'; payload: Todo[] }
+  | { type: 'MERGE_TODOS'; payload: Todo[] } // 새로운 액션: 기존 데이터 유지하며 병합
+  | { type: 'MARK_MONTH_FETCHED'; payload: string }
   | { type: 'ADD_TODO'; payload: Todo }
   | { type: 'UPDATE_TODO'; payload: { id: string; updates: Partial<Todo> } }
   | { type: 'DELETE_TODO'; payload: string }
@@ -114,6 +117,9 @@ interface TodoContextType extends TodoState {
   filterTags: string[]
   setFilterTags: (tags: string[]) => void
   allTags: string[]
+
+  // Optimization
+  loadHistoricalTodos: (year: number, month: number) => Promise<void>
 }
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined)
@@ -125,7 +131,8 @@ const initialState: TodoState = {
   sharingGroups: [],
   loading: false,
   error: null,
-  syncing: false
+  syncing: false,
+  fetchedMonths: new Set()
 }
 
 function todoReducer(state: TodoState, action: TodoAction): TodoState {
@@ -137,19 +144,72 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
     case 'SET_ERROR':
       return { ...state, error: action.payload }
     case 'SET_TODOS':
-      // 중복 제거 후 설정
-      const uniqueSetTodos = action.payload.filter((todo, index, array) =>
+      // 실시간 구독용 (전체 덮어쓰기 보다는 스마트하게 병합 필요하지만, 
+      // 기존 로직은 SET_TODOS가 전체 리스트를 준다고 가정함.
+      // 하지만 이제는 "Active + Recent"만 옴.
+      // 따라서 기존에 로드된 "Historical" 데이터가 날아가지 않도록 해야 함.)
+
+      // 만약 SET_TODOS가 "전체"를 의미한다면 문제없지만, 구독 콜백에서는 "Active+Recent"만 줌.
+      // 그러므로 기존의 Historical Data (오래된 완료 항목)를 유지해야 함.
+
+      const incomingTodos = action.payload;
+      const incomingIds = new Set(incomingTodos.map(t => t.id));
+
+      // 기존 할일 중 "완료되었고 + 최근이 아닌(incoming에 없는)" 것들은 유지
+      const preservedTodos = state.todos.filter(existing => {
+        // 들어오는 데이터에 있다면 제외 (새것으로 교체될 것임)
+        if (incomingIds.has(existing.id)) return false;
+
+        // 들어오는 데이터에 없는데 완료된 항목 -> Historical Data이므로 유지
+        // (단, 삭제된 항목일 수도 있으나, 실시간 리스너가 "Active" 목록도 주므로,
+        // Active 목록에 없다는 건 "완료됨" or "삭제됨"이다.
+        // 하지만 우리는 ActiveQuery + RecentQuery 결과를 합쳐서 받음.
+        // 7일 이전의 완료된 항목은 쿼리 결과에 없음 -> 따라서 유지해야 함.
+        // 7일 이내인데 없다? -> 삭제되었거나 Active로 바뀜(근데 Active면 쿼리에 있음).
+        // 결론: Active Query에 없고 Recent Query에도 없는 것은 "오래된 완료" or "삭제됨".
+        // 여기서 삭제된 것을 구분하기 어려움. 
+        // *해결책*: 실시간 구독은 "Active + Recent" 영역의 동기화를 책임짐.
+        // Historical Data는 "일회성 로드"로 취급하되, 사용자가 명시적으로 지우지 않는 한 유지.
+        // 삭제 이벤트는 별도로 처리하거나, Historical Data는 실시간성을 포기한다고 했으므로(계획서),
+        // 여기서는 "유지"하는 전략이 맞음.
+
+        return existing.completed;
+      });
+
+      // 병합
+      const mergedTodos = [...preservedTodos, ...incomingTodos];
+
+      // 중복 제거 (혹시 모를)
+      const uniqueMerged = mergedTodos.filter((todo, index, array) =>
         array.findIndex(t => t.id === todo.id) === index
-      )
-      if (uniqueSetTodos.length !== action.payload.length) {
-        console.warn(`⚠️ SET_TODOS 중복 제거: ${action.payload.length} → ${uniqueSetTodos.length}`)
-      }
-      return { ...state, todos: uniqueSetTodos }
+      );
+
+      return { ...state, todos: uniqueMerged };
+
+    case 'MERGE_TODOS':
+      const newTodos = action.payload;
+      // 기존 데이터에 병합 (ID 기준 덮어쓰기)
+      const currentMap = new Map(state.todos.map(t => [t.id, t]));
+      newTodos.forEach(t => currentMap.set(t.id, t));
+
+      return {
+        ...state,
+        todos: Array.from(currentMap.values()).sort((a, b) => {
+          // 정렬: 생성일 역순 (기존 로직 유지)
+          const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+          const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+          return dateB - dateA;
+        })
+      };
+
+    case 'MARK_MONTH_FETCHED':
+      return { ...state, fetchedMonths: new Set(state.fetchedMonths).add(action.payload) };
+
     case 'ADD_TODO':
       // 기존 할일과 중복 방지
       const existsInCurrent = state.todos.some(t => t.id === action.payload.id)
       if (existsInCurrent) {
-        console.warn(`⚠️ ADD_TODO 중복 방지: ${action.payload.id} 이미 존재`)
+        // console.warn(`⚠️ ADD_TODO 중복 방지: ${action.payload.id} 이미 존재`) // 로그 너무 많아서 주석
         return state
       }
       return { ...state, todos: [action.payload, ...state.todos] }
@@ -644,6 +704,43 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   }, [currentUser, state.recurringInstances.length, state.recurringInstances]) // dependencies mostly handled by internal logic, but best to include needed ones
 
 
+
+  // Load Historical Todos (Cached)
+  const loadHistoricalTodos = useCallback(async (year: number, month: number) => {
+    if (!currentUser) return;
+
+    // Check Cache
+    const monthKey = `${year}-${month}`;
+    if (state.fetchedMonths.has(monthKey)) {
+      console.log(`🧠 Cache Hit: Historical todos for ${monthKey} already loaded.`);
+      return;
+    }
+
+    console.log(`🌐 Fetching Historical todos for ${monthKey}...`);
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    try {
+      // Calculate Range
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0); // Last day of month
+
+      const historicalTodos = await firestoreService.getCompletedTodos(currentUser.uid, startDate, endDate);
+
+      if (historicalTodos.length > 0) {
+        console.log(`📥 Loaded ${historicalTodos.length} historical todos.`);
+        dispatch({ type: 'MERGE_TODOS', payload: historicalTodos });
+      } else {
+        console.log(`🤷‍♂️ No historical todos found for ${monthKey}.`);
+      }
+
+      dispatch({ type: 'MARK_MONTH_FETCHED', payload: monthKey });
+
+    } catch (error) {
+      console.error('Failed to load historical todos:', error);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [currentUser, state.fetchedMonths]);
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
 
@@ -3066,7 +3163,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     setFilterPriority,
     filterTags,
     setFilterTags,
-    allTags
+    allTags,
+    loadHistoricalTodos
   }
 
   return (
@@ -3075,6 +3173,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     </TodoContext.Provider>
   )
 }
+
 
 export const useTodos = () => {
   const context = useContext(TodoContext)

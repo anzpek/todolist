@@ -143,8 +143,32 @@ function AppContent() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const addTodoModalRef = useRef<{ open: () => void }>(null)
   const { i18n } = useTranslation()
-  const { todos, getRecurringTodos, toggleTodo } = useTodos()
-  const { vacations, employees } = useVacation()
+  const { todos, getRecurringTodos, toggleTodo, loadHistoricalTodos } = useTodos()
+  const { vacations, employees, loadMonthVacations } = useVacation()
+
+  // View Change Optimization: Load Historical Data on Demand
+  useEffect(() => {
+    const loadViewData = async () => {
+      const now = new Date();
+
+      // 1. Vacation Data: Load current month + next month (buffer)
+      // (Even in 'today' view, seeing upcoming vacations is good)
+      await loadMonthVacations(now.getFullYear(), now.getMonth() + 1);
+      await loadMonthVacations(now.getFullYear(), now.getMonth() + 2); // Next month buffer
+
+      // 2. Historical Todos: Only load if in Month/Week view
+      if (currentView === 'month') {
+        await loadHistoricalTodos(now.getFullYear(), now.getMonth() + 1);
+        // Optionally load previous month for smooth transition
+        await loadHistoricalTodos(now.getFullYear(), now.getMonth());
+      } else if (currentView === 'week') {
+        await loadHistoricalTodos(now.getFullYear(), now.getMonth() + 1);
+      }
+    };
+
+    // We only trigger this when currentView changes or initially
+    loadViewData();
+  }, [currentView, loadMonthVacations, loadHistoricalTodos]);
 
   // Auto-sync Widget when todos or vacations change
   useEffect(() => {

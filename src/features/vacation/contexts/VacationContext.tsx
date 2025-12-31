@@ -37,6 +37,7 @@ interface VacationContextType {
     toggleVacationDisplay: () => void;
     employees: { id: string; name: string; color: string }[];
     getVacationsForDate: (date: Date) => Vacation[];
+    loadMonthVacations: (year: number, month: number) => Promise<void>;
 }
 
 const VacationContext = createContext<VacationContextType | undefined>(undefined);
@@ -49,18 +50,22 @@ export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [error, setError] = useState<string | null>(null);
     const [showVacationsInTodos, setShowVacationsInTodos] = useState(true);
 
+    const [fetchedMonths, setFetchedMonths] = useState<Set<string>>(new Set());
+
+    // Toggle Vacation Display Helper
     const toggleVacationDisplay = useCallback(() => {
         setShowVacationsInTodos(prev => !prev);
     }, []);
 
+    // Derived Employees list
     const employees = useMemo(() => {
         const names = Array.from(new Set(vacations.map(v => v.employeeName)));
         return names.map((name, index) => ({
-            id: `emp_${index}`, // Mock ID since we don't have employee table
+            id: `emp_${index}`,
             name,
             color: getEmployeeColor(name),
-            team: '보상지원부', // Mock
-            position: '사원' // Mock
+            team: '보상지원부',
+            position: '사원'
         }));
     }, [vacations]);
 
@@ -68,6 +73,23 @@ export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const dateStr = format(date, 'yyyy-MM-dd');
         return vacations.filter(v => v.date === dateStr);
     }, [vacations]);
+
+    // Ensure Department exists (Helper)
+    const ensureDepartmentExists = async (name: string, password: string) => {
+        const q = query(collection(db, 'departments'), where('name', '==', name));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            const newDept: Department = {
+                id: 'dept_bosang',
+                code: name,
+                name: name,
+                password: password,
+                color: '#4285f4'
+            };
+            await setDoc(doc(db, 'departments', 'dept_bosang'), newDept);
+        }
+    };
 
     // Auto-login Logic
     useEffect(() => {
@@ -88,49 +110,68 @@ export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         checkAutoLogin();
     }, [currentUser]);
 
-    // Fetch Vacations when department is set
+    // Load Vacations for a specific month (On-Demand Fetching)
+    const loadMonthVacations = useCallback(async (year: number, month: number) => {
+        if (!currentDepartment) return;
+
+        const monthKey = `${year}-${month}`;
+        if (fetchedMonths.has(monthKey)) {
+            return; // Already fetched
+        }
+
+        setLoading(true);
+        try {
+            // Calculate start and end date for the month
+            const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            // Calculate end date (next month's 1st - 1 day, or specialized library)
+            // Simple string compare works well for YYYY-MM-DD
+            const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+
+            // Query Firestore
+            const q = query(
+                collection(db, 'departments', currentDepartment.id, 'vacations'),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+
+            const snapshot = await getDocs(q);
+            const newVacations = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as Vacation[];
+
+            setVacations(prev => {
+                // Merge unique vacations
+                const uniqueMap = new Map();
+                prev.forEach(v => uniqueMap.set(v.id, v));
+                newVacations.forEach(v => uniqueMap.set(v.id, v));
+                return Array.from(uniqueMap.values());
+            });
+
+            setFetchedMonths(prev => new Set(prev).add(monthKey));
+
+        } catch (err) {
+            console.error(`Failed to fetch vacations for ${monthKey}:`, err);
+            setError("해당 기간의 휴가 데이터를 불러오는데 실패했습니다.");
+        } finally {
+            setLoading(false);
+        }
+    }, [currentDepartment, fetchedMonths]);
+
+    // Reset vacations when department changes (but don't auto-fetch all)
     useEffect(() => {
         if (!currentDepartment) {
             setVacations([]);
+            setFetchedMonths(new Set());
             return;
         }
+        // Initial fetch for current month? 
+        // Or let the consumer trigger it. Let's let the consumer (Dashboard/App) trigger it.
+        // But for "Today" view in Todo list, we might need current month data.
+        const now = new Date();
+        loadMonthVacations(now.getFullYear(), now.getMonth() + 1);
 
-        const fetchVacations = async () => {
-            setLoading(true);
-            try {
-                const q = query(collection(db, 'departments', currentDepartment.id, 'vacations'));
-                const snapshot = await getDocs(q);
-                const loadedVacations = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                })) as Vacation[];
-                setVacations(loadedVacations);
-            } catch (err) {
-                console.error("Failed to fetch vacations:", err);
-                setError("휴가 데이터를 불러오는데 실패했습니다.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchVacations();
-    }, [currentDepartment]);
-
-    const ensureDepartmentExists = async (name: string, password: string) => {
-        const q = query(collection(db, 'departments'), where('name', '==', name));
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
-            const newDept: Department = {
-                id: 'dept_bosang', // Fixed ID for simplicity
-                code: name,
-                name: name,
-                password: password,
-                color: '#4285f4'
-            };
-            await setDoc(doc(db, 'departments', 'dept_bosang'), newDept);
-        }
-    };
+    }, [currentDepartment, loadMonthVacations]);
 
     const login = useCallback(async (deptName: string, password: string): Promise<boolean> => {
         setLoading(true);
@@ -211,7 +252,8 @@ export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             showVacationsInTodos,
             toggleVacationDisplay,
             employees,
-            getVacationsForDate
+            getVacationsForDate,
+            loadMonthVacations
         }}>
             {children}
         </VacationContext.Provider>
