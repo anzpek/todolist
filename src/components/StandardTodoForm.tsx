@@ -232,9 +232,8 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
 
     const parseNaturalLanguage = (input: string) => {
         const today = new Date()
-        let date = today
-        let time = ''
-        let priority: Priority = 'medium'
+        let date: Date | null = null
+        let priority: Priority | null = null
         let tags: string[] = []
 
         // 날짜 파싱
@@ -253,12 +252,12 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
             tags = tagMatch.map(t => t.slice(1))
         }
 
-        return {
-            startDate: format(date, 'yyyy-MM-dd'),
-            startTime: time,
-            priority,
-            tags
-        }
+        const result: any = {}
+        if (date) result.startDate = format(date, 'yyyy-MM-dd')
+        if (priority) result.priority = priority
+        if (tags.length > 0) result.tags = tags
+
+        return result
     }
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -333,7 +332,15 @@ const StandardTodoForm = ({ onCancel, onSuccess, initialDate, preselectedTemplat
                                 setText(e.target.value)
                                 if (isNaturalLanguageMode && formData.type === 'simple') {
                                     const parsed = parseNaturalLanguage(e.target.value)
-                                    setFormData(prev => ({ ...prev, ...parsed }))
+                                    // Only merge parsed values if they exist, preserving manual overrides otherwise
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        ...parsed,
+                                        // Special case: if tags parsed, we might want to append or replace. 
+                                        // Current logic replaces. If we want to append: tags: [...new Set([...prev.tags, ...(parsed.tags || [])])]
+                                        // For now, simple replacement for detected fields is consistent with previous behavior, 
+                                        // but now we don't overwrite if NOT detected.
+                                    }))
                                 }
                             }}
                             placeholder={isNaturalLanguageMode && formData.type === 'simple' ? t('modal.addTodo.naturalLanguageHint') : t('modal.addTodo.placeholder')}

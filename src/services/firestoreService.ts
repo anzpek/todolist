@@ -427,8 +427,9 @@ export const firestoreService = {
         }
 
         // 공유 할일인 경우 lastModifiedBy 추가
+        const cleanedUpdates = removeUndefinedValues(u);
         const updateData: any = {
-          ...u,
+          ...cleanedUpdates,
           updatedAt: serverTimestamp()
         };
         if (isShared) {
@@ -1544,6 +1545,23 @@ export const firestoreService = {
         debug.log(`User ${uid} language updated to ${language}`);
       } catch (error) {
         debug.error('Firestore updateUserLanguage 실패:', error);
+        throw error;
+      }
+    });
+  },
+
+  updateGoogleTasksSettings: async (uid: string, settings: { linked?: boolean; autoSync?: boolean }): Promise<void> => {
+    return withRetry(async () => {
+      try {
+        const userRef = doc(db, 'users', uid);
+        const updateData: any = { updatedAt: serverTimestamp() };
+        if (settings.linked !== undefined) updateData.googleTasksLinked = settings.linked;
+        if (settings.autoSync !== undefined) updateData.autoSyncGoogleTasks = settings.autoSync;
+
+        await setDoc(userRef, updateData, { merge: true });
+        debug.log(`User ${uid} Google Tasks settings updated:`, settings);
+      } catch (error) {
+        debug.error('Firestore updateGoogleTasksSettings 실패:', error);
         throw error;
       }
     });

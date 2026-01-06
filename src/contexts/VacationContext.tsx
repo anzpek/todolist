@@ -29,6 +29,7 @@ interface VacationContextType {
   toggleVacationDisplay: () => void
   refreshVacationData: () => Promise<void>
   getVacationsForDate: (date: Date) => Vacation[]
+  loadMonthVacations: (year: number, month: number) => Promise<void>
 }
 
 const VacationContext = createContext<VacationContextType | undefined>(undefined)
@@ -98,6 +99,16 @@ export const VacationProvider = ({ children }: { children: ReactNode }) => {
     return vacationsMap.get(dateStr) || []
   }, [showVacationsInTodos, vacationsMap])
 
+  // Placeholder for loadMonthVacations to satisfy App.tsx interface
+  const loadMonthVacations = useCallback(async (year: number, month: number) => {
+    // Current legacy implementation loads all data via refreshVacationData
+    // So we don't need to do specific month loading here, but we must provide the function.
+    // Optionally trigger refresh if empty?
+    if (vacations.length === 0 && currentUser && isAdmin(currentUser.email || '')) {
+      await refreshVacationData();
+    }
+  }, [vacations.length, currentUser, refreshVacationData])
+
   // 사용자 로그인 시 데이터 로드
   useEffect(() => {
     if (currentUser && isAdmin(currentUser.email)) {
@@ -112,8 +123,9 @@ export const VacationProvider = ({ children }: { children: ReactNode }) => {
     showVacationsInTodos,
     toggleVacationDisplay,
     refreshVacationData,
-    getVacationsForDate
-  }), [employees, vacations, loading, showVacationsInTodos, toggleVacationDisplay, refreshVacationData, getVacationsForDate])
+    getVacationsForDate,
+    loadMonthVacations
+  }), [employees, vacations, loading, showVacationsInTodos, toggleVacationDisplay, refreshVacationData, getVacationsForDate, loadMonthVacations])
 
   return (
     <VacationContext.Provider value={value}>

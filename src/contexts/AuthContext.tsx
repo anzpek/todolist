@@ -36,12 +36,15 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName?: string) => Promise<void>
   signInWithGoogle: () => Promise<any>
   signInAsGuest: () => Promise<void>
+  getGoogleAccessToken: (options?: { silent?: boolean }) => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null)
+  const [tokenExpiration, setTokenExpiration] = useState<number | null>(null) // 토큰 만료 시간 (timestamp)
   const [loading, setLoading] = useState(true)
   const [isAnonymous, setIsAnonymous] = useState(false)
 
@@ -75,6 +78,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setCurrentUser(null)
         setIsAnonymous(false)
+        setGoogleAccessToken(null)
+        setTokenExpiration(null)
+        sessionStorage.removeItem('google_access_token')
+        sessionStorage.removeItem('google_token_expiration')
       }
       setLoading(false)
     })
@@ -104,6 +111,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log('GoogleAuth signOut failed (maybe not signed in)', e)
         }
       }
+      setGoogleAccessToken(null)
+      setTokenExpiration(null)
+      sessionStorage.removeItem('google_access_token')
+      sessionStorage.removeItem('google_token_expiration')
     } else {
       setCurrentUser(null)
     }
@@ -165,6 +176,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!googleProvider) throw new Error('Google Provider missing')
         const result = await signInWithPopup(auth, googleProvider)
         console.log('구글 로그인 성공:', result.user)
+        // 로그인 성공 시 토큰 여기서도 세팅 가능하지만 getGoogleAccessToken에서도 처리함
+        // credential에서 바로 액세스 토큰을 가져올 수 있음
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const token = credential?.accessToken;
+        if (token) {
+          setGoogleAccessToken(token);
+          // 만료 시간도 저장 (대략 1시간으로 가정하거나, credential에 있다면 사용)
+          // 보통 구글 액세스 토큰은 1시간(3600초) 유효
+          const expiresIn = 3500 * 1000; // 58분 정도 여유 있게
+          const expirationTime = Date.now() + expiresIn;
+          setTokenExpiration(expirationTime);
+          sessionStorage.setItem('google_access_token', token);
+          sessionStorage.setItem('google_token_expiration', expirationTime.toString());
+        }
         return result.user
       }
     } catch (error: any) {
@@ -189,6 +214,98 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await loginAnonymously()
   }
 
+  const getGoogleAccessToken = async (options?: { silent?: boolean }): Promise<string | null> => {
+    if (!auth) throw new Error('Firebase Auth not initialized');
+
+    // 1. 메모리상 유효 토큰 확인
+    const now = Date.now();
+    if (googleAccessToken && tokenExpiration && now < tokenExpiration) {
+      return googleAccessToken;
+    }
+
+    // 2. 세션 스토리지 확인 (새로고침 직후 등)
+    const cachedToken = sessionStorage.getItem('google_access_token');
+    const cachedExpiration = sessionStorage.getItem('google_token_expiration');
+
+    if (cachedToken && cachedExpiration) {
+      const expTime = parseInt(cachedExpiration, 10);
+      if (now < expTime) {
+        // 아직 유효함 -> 메모리 복구
+        setGoogleAccessToken(cachedToken);
+        setTokenExpiration(expTime);
+        return cachedToken;
+      } else {
+        console.log('⚠️ Cached token expired. Clearing...');
+        sessionStorage.removeItem('google_access_token');
+        sessionStorage.removeItem('google_token_expiration');
+      }
+    }
+
+    // If silent mode is requested and no valid token exists, return null immediately without popup
+    if (options?.silent) {
+      return null;
+    }
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Native platform handling (simplified for now)
+        // ideally we might need to resign-in or ask for scopes upfront
+        console.warn('Native Google Token not fully implemented for incremental auth');
+
+        // Attempt to get token if already signed in or via plugin
+        const result = await FirebaseAuthentication.getIdToken();
+        // For Google API we need Access Token. @capacitor-firebase/authentication returns idToken.
+        // We might need to look into specific scopes during initial sign in for native.
+        // For now, returning idToken as a placeholder, but this might not be the correct "access token" for Google APIs.
+        if (result.token) {
+          // Native platforms might not have a direct "access token" for Google APIs
+          // without requesting specific scopes during initial sign-in.
+          // Storing idToken for consistency, but it's not the same as an access token.
+          setGoogleAccessToken(result.token);
+          // Native token expiry is different, usually managed by plugin
+          // sessionStorage.setItem('google_access_token', result.token); 
+        }
+        return result.token;
+      } else {
+        // Web handling
+        const provider = new GoogleAuthProvider();
+        // Use full tasks scope for read/write access (to sync completion status back)
+        provider.addScope('https://www.googleapis.com/auth/tasks');
+        provider.setCustomParameters({ prompt: 'consent' });
+
+        // Request re-auth or new auth with scopes
+        // We use signInWithPopup which handles linking or updating credentials
+        // If user is already signed in, this will prompt for consent for new scopes
+        const result = await signInWithPopup(auth, provider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const token = credential?.accessToken || null;
+
+        if (token) {
+          const expiresIn = 3500 * 1000; // 58 minutes safety
+          const expirationTime = Date.now() + expiresIn;
+
+          setGoogleAccessToken(token);
+          setTokenExpiration(expirationTime);
+
+          sessionStorage.setItem('google_access_token', token);
+          sessionStorage.setItem('google_token_expiration', expirationTime.toString());
+        }
+
+        console.log('🔑 Google Auth Result:', {
+          user: result.user.email,
+          providerId: result.providerId,
+          credentialScopes: (credential as any)?.scope, // Sometimes scope is here
+          accessToken: token ? 'Present (Hidden)' : 'Missing'
+        });
+
+        return token;
+      }
+    } catch (error) {
+      console.error('Error getting Google Access Token:', error);
+      throw error;
+    }
+  }
+
   const value: AuthContextType = {
     currentUser,
     loading,
@@ -199,7 +316,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signIn,
     signUp,
     signInWithGoogle,
-    signInAsGuest
+    signInAsGuest,
+    getGoogleAccessToken
   }
 
   return (

@@ -11,12 +11,13 @@ import { firestoreService } from '../services/firestoreService'
 import {
   Type, Check, Plus, User, Palette, Calendar, BarChart2, HardDrive, Bell,
   LogOut, RefreshCw, Moon, Sun, Monitor, Download, Upload, AlertCircle,
-  ChevronRight, Info, Globe, Settings, Trash2, Layout
+  ChevronRight, Info, Globe, Settings, Trash2, Layout, HelpCircle
 } from 'lucide-react'
 import { THEMES } from '../constants/themes'
 import { Capacitor } from '@capacitor/core'
 import TodoListWidget from '../plugins/TodoListWidget'
 import { syncWidget } from '../utils/widgetSync'
+import GoogleTasksGuideModal from './GoogleTasksGuideModal'
 
 const SettingsView: React.FC = () => {
   const { t, i18n } = useTranslation()
@@ -38,12 +39,21 @@ const SettingsView: React.FC = () => {
   const [widgetTransparency, setWidgetTransparency] = useState(() => {
     return parseInt(localStorage.getItem('widgetTransparency') || '80');
   });
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [isGoogleLinked, setIsGoogleLinked] = useState(false);
+  const [showGoogleTasksGuide, setShowGoogleTasksGuide] = useState(false);
 
   React.useEffect(() => {
     if (user) {
       firestoreService.getUserSettings(user.uid).then(settings => {
         if (settings?.startScreen) {
           setStartScreen(settings.startScreen)
+        }
+        if (settings?.googleTasksLinked) {
+          setIsGoogleLinked(true)
+        }
+        if (settings?.autoSyncGoogleTasks) {
+          setAutoSyncEnabled(true)
         }
       })
     }
@@ -59,6 +69,20 @@ const SettingsView: React.FC = () => {
       }
     }
   }
+
+  const handleToggleAutoSync = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.checked;
+    setAutoSyncEnabled(newValue);
+    if (user) {
+      try {
+        await firestoreService.updateGoogleTasksSettings(user.uid, { autoSync: newValue });
+      } catch (error) {
+        console.error('Failed to update auto-sync setting:', error);
+        // Revert on error
+        setAutoSyncEnabled(!newValue);
+      }
+    }
+  };
 
   const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -241,6 +265,7 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
 
+
         {/* Start Screen Settings */}
         <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.15s' }}>
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
@@ -249,7 +274,7 @@ const SettingsView: React.FC = () => {
             </div>
             {t('settings.general.startScreen')}
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
               { key: 'last', label: t('settings.general.lastView') },
               { key: 'today', label: t('settings.general.today') },
@@ -267,6 +292,50 @@ const SettingsView: React.FC = () => {
                 {option.label}
               </button>
             ))}
+          </div>
+
+          <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                  <span>Google Tasks {t('settings.sync', 'Auto-Sync')}</span>
+                  {isGoogleLinked && (
+                    <span className="px-2 py-0.5 text-[10px] bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full font-bold">
+                      LINKED
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setShowGoogleTasksGuide(true)}
+                    className="p-1 text-gray-400 hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    title="연동 가이드 보기"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  앱 실행 시 자동으로 Google Tasks를 가져옵니다.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSyncEnabled}
+                  onChange={handleToggleAutoSync}
+                  disabled={!isGoogleLinked}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
+              </label>
+            </div>
+            {!isGoogleLinked && (
+              <p className="text-xs text-orange-500 mt-2 bg-orange-50 dark:bg-orange-900/10 p-2 rounded-lg">
+                ⚠️ 먼저 사이드바의 <b>Google Tasks</b> 버튼을 눌러 연동해주세요.
+              </p>
+            )}
+            <GoogleTasksGuideModal
+              isOpen={showGoogleTasksGuide}
+              onClose={() => setShowGoogleTasksGuide(false)}
+            />
           </div>
         </div>
 
@@ -850,11 +919,13 @@ const SettingsView: React.FC = () => {
         </div>
 
         {/* Notification Settings Modal */}
-        {showNotificationSettings && (
-          <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
-        )}
-      </div>
-    </div>
+        {
+          showNotificationSettings && (
+            <NotificationSettings onClose={() => setShowNotificationSettings(false)} />
+          )
+        }
+      </div >
+    </div >
   )
 }
 

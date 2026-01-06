@@ -11,6 +11,8 @@ import StatsCard from './StatsCard'
 import ProjectAnalysis from './ProjectAnalysis'
 import { useTranslation } from 'react-i18next'
 import { firestoreService } from '../services/firestoreService'
+import { useGoogleTasksSync } from '../hooks/useGoogleTasksSync'
+import GoogleTasksSyncButton from './GoogleTasksSyncButton'
 
 interface SidebarProps {
   currentView: ViewType | 'recurring' | 'history' | 'analytics' | 'vacation' | 'settings' | 'guide'
@@ -44,6 +46,48 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
   const [pendingRequestCount, setPendingRequestCount] = useState(0)
   // 권한 변경 알림 수
   const [permissionNotificationCount, setPermissionNotificationCount] = useState(0)
+
+  // Google Tasks Auto Sync
+  const { syncGoogleTasks } = useGoogleTasksSync()
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const checkAndSync = async () => {
+      if (currentUser?.uid) {
+        const settings = await firestoreService.getUserSettings(currentUser.uid)
+        if (settings?.autoSyncGoogleTasks) {
+          console.log('🔄 Auto-syncing Google Tasks...')
+          await syncGoogleTasks({ silent: true }).catch(err => console.warn('Auto-sync blocked/failed', err))
+        }
+        return settings?.autoSyncGoogleTasks;
+      }
+      return false;
+    }
+
+    // 화면이 다시 포커스될 때 동기화 (예: 다른 탭 갔다가 왔을 때)
+    const handleFocus = () => {
+      console.log('✨ Window focused: Triggering auto-sync');
+      checkAndSync();
+    };
+
+    // Run once on mount
+    checkAndSync().then((shouldPoll) => {
+      if (shouldPoll) {
+        // Poll every 30 seconds (30000ms) for better sync
+        intervalId = setInterval(async () => {
+          console.log('⏱️ Polling Google Tasks ...');
+          await syncGoogleTasks({ silent: true }).catch(console.warn);
+        }, 30 * 1000);
+
+        window.addEventListener('focus', handleFocus);
+      }
+    });
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    }
+  }, [currentUser?.uid, syncGoogleTasks])
 
   useEffect(() => {
     if (!currentUser?.email) return
@@ -213,6 +257,9 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
             </div>
           </div>
         </nav>
+
+        {/* Google Sync Button */}
+        <GoogleTasksSyncButton />
 
         {/* 하단 영역 - 정리됨 */}
         <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm shrink-0 space-y-4">

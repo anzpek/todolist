@@ -9,6 +9,7 @@ import { firestoreService } from '../services/firestoreService'
 import { cleanupService } from '../services/cleanupService'
 import { deleteField } from '../config/firebase'
 import { useCustomHolidays } from './CustomHolidayContext'
+import { googleTasksService } from '../services/googleTasksService'
 
 interface TodoState {
   todos: Todo[]
@@ -439,7 +440,7 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
 
 export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(todoReducer, initialState)
-  const { currentUser, loading: authLoading } = useAuth()
+  const { currentUser, loading: authLoading, getGoogleAccessToken } = useAuth()
   const { customHolidays } = useCustomHolidays()
 
   // Filter State
@@ -452,6 +453,263 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   const templateUnsubscribeRef = useRef<(() => void) | null>(null)
   const instanceUnsubscribeRef = useRef<(() => void) | null>(null)
   const sharingGroupUnsubscribeRef = useRef<(() => void) | null>(null)
+
+  // 반복 인스턴스를 일반 할일로 변환하여 반환 (중복 키 방지)
+  const getRecurringTodos = useCallback((): Todo[] => {
+    if (state.recurringTemplates.length === 0 || state.recurringInstances.length === 0) {
+      return [];
+    }
+    const activeInstances = state.recurringInstances.filter(instance => !instance.skipped);
+    const recurringTodos = activeInstances.map(instance => {
+      const template = state.recurringTemplates.find(t => t.id === instance.templateId);
+      if (!template) return null;
+      return simpleRecurringSystem.convertToTodo(instance, template);
+    }).filter((todo): todo is Todo => todo !== null);
+    const seenIds = new Set<string>();
+    return recurringTodos.filter(todo => {
+      if (seenIds.has(todo.id)) return false;
+      seenIds.add(todo.id);
+      return true;
+    });
+  }, [state.recurringTemplates, state.recurringInstances]);
+
+  // 구글 태스크 동기화 헬퍼 함수 (제목, 설명, 마감일 포함)
+  const syncTodoToGoogleTask = useCallback(async (todo: Todo, updates?: Partial<Todo>) => {
+    if (!currentUser) return;
+    if (!todo.googleTaskId || !todo.googleTaskListId) {
+      // 대부분의 일반 할일은 구글 태스크가 아니므로 로그 생략이 원칙이나, 디버깅을 위해 추가 가능
+      // 하지만 너무 시끄러울 수 있으므로, updates가 있는데 ID가 없는 경우만 경고장
+      if (updates && (todo as any).googleTaskId) { // googleTaskId가 있는데 listId가 없는 경우 등
+        console.warn('⚠️ Google Sync Skip - Missing IDs:', { id: todo.id, gId: todo.googleTaskId, listId: todo.googleTaskListId });
+      }
+      return;
+    }
+
+    try {
+      const token = await getGoogleAccessToken({ silent: true });
+      if (!token) return;
+
+      const merged = { ...todo, ...updates };
+
+      const googleUpdates: any = {
+        title: merged.title,
+        notes: merged.description || ""
+      };
+
+      // 상태 업데이트
+      if (merged.completed !== undefined) {
+        googleUpdates.status = merged.completed ? 'completed' : 'needsAction';
+        googleUpdates.completed = merged.completed ? (merged.completedAt || new Date()).toISOString() : null;
+      }
+
+      // 마감일 업데이트 (구글 태스크는 시간 없이 YYYY-MM-DDTHH:mm:ssZ 형식을 권장)
+      if (merged.dueDate) {
+        // 날짜 객체 처리 (T00:00:00Z로 맞춤)
+        const d = new Date(merged.dueDate);
+        googleUpdates.due = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString();
+      } else {
+        googleUpdates.due = null;
+      }
+
+      console.log(`🔄 Google Tasks 전방향 동기화: [${merged.title}]`);
+      await googleTasksService.updateTask(token, todo.googleTaskListId, todo.googleTaskId, googleUpdates);
+    } catch (error) {
+      console.error('❌ Google Tasks 동기화 중 에러 발생:', error);
+    }
+  }, [currentUser, getGoogleAccessToken]);
+
+  // 구글 태스크 삭제 헬퍼 함수
+  const deleteTodoFromGoogleTask = useCallback(async (todo: Todo) => {
+    if (!todo.googleTaskId || !todo.googleTaskListId || !currentUser) return;
+    try {
+      const token = await getGoogleAccessToken({ silent: true });
+      if (!token) return;
+      await googleTasksService.deleteTask(token, todo.googleTaskListId, todo.googleTaskId);
+      console.log(`🗑️ Google Tasks에서 삭제 완료: [${todo.title}]`);
+    } catch (error) {
+      console.error('❌ Google Tasks 삭제 중 에러 발생:', error);
+    }
+  }, [currentUser, getGoogleAccessToken]);
+
+  // 할일 추가
+  const addTodo = useCallback(async (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const getNewTodoOrder = (priority: string): number => {
+      const samePriorityTodos = state.todos.filter(todo => todo.priority === priority && !todo.completed);
+      if (samePriorityTodos.length === 0) {
+        const priorityOrder = { urgent: 0, high: 1000, medium: 2000, low: 3000 };
+        return priorityOrder[priority as keyof typeof priorityOrder] || 2000;
+      }
+      const minOrder = Math.min(...samePriorityTodos.map(todo => todo.order || 999));
+      return Math.max(0, minOrder - 1);
+    };
+
+    const newTodo: Todo = {
+      ...todoData,
+      id: generateId(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      order: getNewTodoOrder(todoData.priority)
+    };
+
+    try {
+      if (currentUser) {
+        const firestoreId = await firestoreService.addTodo(newTodo, currentUser.uid);
+        dispatch({ type: 'ADD_TODO', payload: { ...newTodo, id: firestoreId } });
+      } else {
+        dispatch({ type: 'ADD_TODO', payload: newTodo });
+      }
+    } catch (error) {
+      console.error('할일 추가 실패:', error);
+    }
+  }, [currentUser, state.todos]);
+
+  // 할일 업데이트
+  const updateTodo = useCallback(async (id: string, updates: Partial<Todo>) => {
+    try {
+      const todo = state.todos.find(t => t.id === id);
+      if (currentUser) {
+        await firestoreService.updateTodo(id, updates, currentUser.uid);
+        if (todo) {
+          syncTodoToGoogleTask(todo, updates);
+        }
+      } else {
+        dispatch({ type: 'UPDATE_TODO', payload: { id, updates } });
+      }
+    } catch (error) {
+      console.error('할일 업데이트 실패:', error);
+    }
+  }, [currentUser, state.todos, syncTodoToGoogleTask]);
+
+  // 할일 삭제
+  const deleteTodo = useCallback(async (id: string) => {
+    try {
+      const allTodos = [...state.todos, ...getRecurringTodos()];
+      const todoInState = allTodos.find(t => t.id === id);
+      const isRecurringTodo = id.startsWith('recurring_') || (todoInState as any)?._isRecurringInstance;
+
+      if (isRecurringTodo) {
+        let instanceId = (todoInState as any)?._instanceId || (id.startsWith('recurring_') ? id.replace('recurring_', '') : null);
+        if (!instanceId) return;
+        const updates = { skipped: true, skippedReason: 'manual_deletion' };
+        dispatch({ type: 'SET_RECURRING_INSTANCES', payload: state.recurringInstances.map(i => i.id === instanceId ? { ...i, ...updates } : i) });
+        if (currentUser) {
+          await firestoreService.updateRecurringInstance(instanceId, updates, currentUser.uid);
+        }
+        return;
+      }
+      if (currentUser) {
+        if (todoInState) {
+          deleteTodoFromGoogleTask(todoInState);
+        }
+        await firestoreService.deleteTodo(id, currentUser.uid).catch(() => { });
+      }
+      dispatch({ type: 'DELETE_TODO', payload: id });
+    } catch (error) {
+      console.error('할일 삭제 실패:', error);
+    }
+  }, [currentUser, state.todos, state.recurringInstances, getRecurringTodos, dispatch]);
+
+  // 할일 토글
+  const toggleTodo = useCallback(async (id: string) => {
+    const allTodos = [...state.todos, ...getRecurringTodos()];
+    const targetTodo = allTodos.find(t => t.id === id);
+
+    // 1. 기간 할일 특별 처리
+    const periodTodo = state.todos.find(t => t.id === id);
+    if (periodTodo && periodTodo.startDate && periodTodo.dueDate && !(periodTodo as any)._isRecurringInstance) {
+      const updates = {
+        completed: !periodTodo.completed,
+        completedAt: !periodTodo.completed ? new Date() : null
+      };
+      try {
+        dispatch({ type: 'TOGGLE_TODO', payload: id });
+        if (currentUser) {
+          await firestoreService.updateTodo(id, updates, currentUser.uid);
+          syncTodoToGoogleTask(periodTodo, updates);
+        }
+        return;
+      } catch (error) {
+        console.error('❌ 기간 할일 토글 실패:', error);
+        dispatch({ type: 'TOGGLE_TODO', payload: id });
+        return;
+      }
+    }
+
+    // 2. 반복 할일 인스턴스 처리
+    if (targetTodo && (targetTodo as any)._isRecurringInstance) {
+      let instanceId = (targetTodo as any)._instanceId || (id.startsWith('recurring_') ? id.replace('recurring_', '') : null);
+      if (!instanceId) return;
+
+      const instance = state.recurringInstances.find(i => i.id === instanceId);
+      if (instance) {
+        const updatedInstance = {
+          ...instance,
+          completed: !instance.completed,
+          completedAt: !instance.completed ? new Date() : null,
+          updatedAt: new Date()
+        };
+        try {
+          dispatch({ type: 'SET_RECURRING_INSTANCES', payload: state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i) });
+          if (currentUser) {
+            await firestoreService.updateRecurringInstance(instanceId, { completed: updatedInstance.completed, completedAt: updatedInstance.completedAt }, currentUser.uid);
+          }
+          return;
+        } catch (error) {
+          console.error('❌ 반복 할일 토글 실패:', error);
+          dispatch({ type: 'SET_RECURRING_INSTANCES', payload: state.recurringInstances });
+          return;
+        }
+      }
+    }
+
+    // 3. 일반 할일 처리
+    const basicTodo = state.todos.find(t => t.id === id);
+    if (!basicTodo) return;
+
+    try {
+      dispatch({ type: 'TOGGLE_TODO', payload: id });
+      if (currentUser) {
+        const updates = { completed: !basicTodo.completed, completedAt: !basicTodo.completed ? new Date() : null };
+        await firestoreService.updateTodo(id, updates, currentUser.uid);
+        syncTodoToGoogleTask(basicTodo, updates);
+      }
+    } catch (error) {
+      console.error('❌ 일반 할일 토글 실패:', error);
+      dispatch({ type: 'TOGGLE_TODO', payload: id });
+    }
+  }, [currentUser, state.todos, state.recurringInstances, getRecurringTodos, syncTodoToGoogleTask, dispatch]);
+
+  const initializeOrderValues = useCallback(() => {
+    const todosNeedingOrder = state.todos.filter(todo => !todo.completed && (todo.order === undefined || todo.order === null));
+    const recurringTodos = getRecurringTodos().filter(todo => !todo.completed && (todo.order === undefined || todo.order === null));
+    const allTodosNeedingOrder = [...todosNeedingOrder, ...recurringTodos];
+    if (allTodosNeedingOrder.length === 0) return;
+
+    const priorityGroups = {
+      urgent: allTodosNeedingOrder.filter(t => t.priority === 'urgent'),
+      high: allTodosNeedingOrder.filter(t => t.priority === 'high'),
+      medium: allTodosNeedingOrder.filter(t => t.priority === 'medium'),
+      low: allTodosNeedingOrder.filter(t => t.priority === 'low')
+    };
+
+    Object.entries(priorityGroups).forEach(([priority, todos], priorityIndex) => {
+      if (todos.length === 0) return;
+      const sortedTodos = todos.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const baseOrder = priorityIndex * 1000;
+      sortedTodos.forEach((todo, index) => {
+        const orderValue = baseOrder + index * 10;
+        if ((todo as any)._isRecurringInstance) {
+          const instanceId = (todo as any)._instanceId;
+          dispatch({ type: 'UPDATE_RECURRING_INSTANCE', payload: { id: instanceId, updates: { order: orderValue } } });
+        } else {
+          if (currentUser) {
+            firestoreService.updateTodo(todo.id, { order: orderValue }, currentUser.uid).catch(() => { });
+          }
+          dispatch({ type: 'UPDATE_TODO', payload: { id: todo.id, updates: { order: orderValue } } });
+        }
+      });
+    });
+  }, [state.todos, getRecurringTodos, currentUser]);
 
   // Firebase 실시간 구독 설정
   useEffect(() => {
@@ -1168,457 +1426,42 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
   // localStorage 사용 중단 - Firestore 전용
 
-  // 할일 추가
-  const addTodo = async (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => {
-    console.log('addTodo 호출됨:', todoData, '사용자:', currentUser?.uid)
-
-    // 새로 추가되는 할일이 같은 우선순위 그룹의 맨 위에 오도록 order 계산
-    const getNewTodoOrder = (priority: string): number => {
-      const samePriorityTodos = state.todos.filter(todo =>
-        todo.priority === priority && !todo.completed
-      )
-
-      if (samePriorityTodos.length === 0) {
-        // 해당 우선순위의 첫 번째 할일인 경우
-        const priorityOrder = { urgent: 0, high: 1000, medium: 2000, low: 3000 }
-        return priorityOrder[priority as keyof typeof priorityOrder] || 2000
-      }
-
-      // 같은 우선순위 할일들의 최소 order 값을 찾아서 그보다 작게 설정
-      const minOrder = Math.min(...samePriorityTodos.map(todo => todo.order || 999))
-      return Math.max(0, minOrder - 1)
-    }
-
-    const newTodo: Todo = {
-      ...todoData,
-      id: generateId(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      order: getNewTodoOrder(todoData.priority)
-    }
-
-    try {
-      if (currentUser) {
-        console.log('Firestore에 할일 추가 중:', newTodo.title)
-
-        // Firestore에 저장 (ID는 Firestore가 생성)
-        try {
-          const firestoreId = await firestoreService.addTodo(newTodo, currentUser.uid)
-          console.log('Firestore 할일 추가 성공, ID:', firestoreId)
-
-          // Firestore ID로 로컬 상태 업데이트
-          const firestoreTodo = { ...newTodo, id: firestoreId }
-          dispatch({ type: 'ADD_TODO', payload: firestoreTodo })
-          console.log('✅ 로컬 상태 업데이트 완료 - Firestore ID 사용:', firestoreId)
-        } catch (firestoreError) {
-          console.error('Firestore 저장 실패:', firestoreError)
-          throw firestoreError
-        }
-      } else {
-        // 비로그인 사용자: 메모리에 저장 후 localStorage에 즉시 저장
-        console.log('비로그인 모드: 메모리에 할일 추가')
-        dispatch({ type: 'ADD_TODO', payload: newTodo })
-
-        // 비로그인 사용자만 localStorage 사용
-        console.log('🚫 로그인된 사용자 - localStorage 저장 완전 비활성화')
-      }
-    } catch (error) {
-      console.error('할일 추가 실패:', error)
-      dispatch({ type: 'SET_ERROR', payload: '할일 추가 중 오류가 발생했습니다.' })
-    }
-  }
-
-  // 할일 업데이트
-  const updateTodo = async (id: string, updates: Partial<Todo>) => {
-    try {
-      if (currentUser) {
-        await firestoreService.updateTodo(id, updates, currentUser.uid)
-      } else {
-        // 비로그인 사용자: 메모리에서 업데이트 후 localStorage에 자동 저장
-        console.log('비로그인 모드: 메모리에서 할일 업데이트')
-        dispatch({ type: 'UPDATE_TODO', payload: { id, updates } })
-        // localStorage 저장은 useEffect에서 자동으로 처리됨
-      }
-    } catch (error) {
-      console.error('할일 업데이트 실패:', error)
-      dispatch({ type: 'SET_ERROR', payload: '할일 업데이트 중 오류가 발생했습니다.' })
-    }
-  }
-
-  // 할일 삭제 (반복 할일 처리 개선)
-  const deleteTodo = async (id: string) => {
-    try {
-      const allTodos = [...state.todos, ...getRecurringTodos()];
-      const todoInState = allTodos.find(t => t.id === id);
-
-      const isRecurringTodo = id.startsWith('recurring_') || (todoInState as any)?._isRecurringInstance;
-
-      if (isRecurringTodo) {
-        console.log('🔄 반복 할일 "건너뛰기" 처리:', id);
-
-        let instanceId = (todoInState as any)?._instanceId;
-        if (!instanceId && id.startsWith('recurring_')) {
-          instanceId = id.replace('recurring_', '');
-        }
-
-        if (!instanceId) {
-          console.error('❌ 인스턴스 ID를 찾을 수 없어 삭제 처리 불가:', id);
-          return;
-        }
-
-        const updates = {
-          skipped: true,
-          skippedReason: 'manual_deletion'
-        };
-
-        // Optimistic UI update
-        const updatedInstances = state.recurringInstances.map(i =>
-          i.id === instanceId ? { ...i, ...updates } : i
-        );
-        dispatch({ type: 'SET_RECURRING_INSTANCES', payload: updatedInstances });
-
-        // Persist change to Firestore
-        if (currentUser) {
-          try {
-            await firestoreService.updateRecurringInstance(instanceId, updates, currentUser.uid);
-            console.log('✅ Firestore 반복 인스턴스 "skipped"로 업데이트 완료:', instanceId);
-          } catch (error) {
-            console.error('❌ Firestore 반복 인스턴스 업데이트 실패:', error);
-            dispatch({ type: 'SET_RECURRING_INSTANCES', payload: state.recurringInstances });
-            dispatch({ type: 'SET_ERROR', payload: '반복 할일 삭제에 실패했습니다.' });
-          }
-        }
-        return;
-      }
-
-      // 일반 할일 삭제 처리
-      if (currentUser) {
-        try {
-          await firestoreService.deleteTodo(id, currentUser.uid);
-        } catch (err) {
-          console.warn('Firestore 삭제 시도 실패 (로컬 ID일 수 있음):', err);
-        }
-      }
-      // 항상 로컬 상태에서도 삭제 (로컬 ID 할일 또는 Firestore 삭제 후)
-      dispatch({ type: 'DELETE_TODO', payload: id });
-      console.log('✅ 일반 할일 삭제 완료:', id);
-
-    } catch (error) {
-      console.error('할일 삭제 실패:', error);
-      dispatch({ type: 'SET_ERROR', payload: '할일 삭제 중 오류가 발생했습니다.' });
-    }
-  }
-
-  // 할일 토글
-  const toggleTodo = async (id: string) => {
-    console.log('📝 할일 토글 시작:', id)
-
-    // 🔥 월간업무보고 토글 특별 추적
-    if (id.includes('월간업무보고') || id.includes('vCyWLYn3LuDq1nVUPSyE')) {
-      console.log('🔥🔥🔥 월간업무보고 토글 시작!')
-      console.log('  토글 대상 ID:', id)
-    }
-
-    // 반복 인스턴스인지 확인 (_isRecurringInstance 메타데이터 사용)
-    const allTodos = [...state.todos, ...getRecurringTodos()]
-    const targetTodo = allTodos.find(t => t.id === id)
-
-    // 기간 할일 특별 처리: 시작일과 마감일이 모두 있는 일반 할일
-    const periodTodo = state.todos.find(t => t.id === id)
-    if (periodTodo && periodTodo.startDate && periodTodo.dueDate && !(periodTodo as any)._isRecurringInstance) {
-      console.log('📅 기간 할일 토글:', id, '시작일:', periodTodo.startDate, '마감일:', periodTodo.dueDate)
-
-      const updates: Partial<Todo> & { completedAt?: Date | ReturnType<typeof deleteField> } = {
-        completed: !periodTodo.completed,
-        ...(
-          !periodTodo.completed
-            ? { completedAt: new Date() }
-            : { completedAt: deleteField() as unknown as Date }
-        )
-      }
-
-      try {
-        // 먼저 로컬 상태를 즉시 업데이트
-        dispatch({ type: 'TOGGLE_TODO', payload: id })
-
-        // Firestore 업데이트
-        if (currentUser) {
-          await firestoreService.updateTodo(id, updates, currentUser.uid)
-          console.log('✅ 기간 할일 Firestore 업데이트 성공:', id)
-        } else {
-          console.log('✅ 비로그인 모드: 기간 할일 메모리에서 토글')
-        }
-
-        console.log(`✅ 기간 할일 토글 완료: ${id}`)
-        return
-      } catch (error: unknown) {
-        console.error('❌ 기간 할일 토글 실패:', error)
-        // 에러 발생시 이전 상태로 되돌림
-        dispatch({ type: 'TOGGLE_TODO', payload: id })
-        dispatch({ type: 'SET_ERROR', payload: '할일 상태 변경 중 오류가 발생했습니다.' })
-        return
-      }
-    }
-
-    if (targetTodo && (targetTodo as any)._isRecurringInstance) {
-      console.log('🔄 반복 할일 토글:', id)
-
-      // 인스턴스 ID 추출: recurring_ 접두사 제거
-      let instanceId = (targetTodo as any)._instanceId
-
-      // 메타데이터에서 인스턴스 ID를 가져올 수 없는 경우 ID에서 직접 추출
-      if (!instanceId && id.startsWith('recurring_')) {
-        instanceId = id.replace('recurring_', '')
-        console.log('📍 ID에서 인스턴스 ID 추출:', instanceId)
-      } else {
-        // console.log('📍 메타데이터에서 인스턴스 ID:', instanceId)
-      }
-
-      const instance = state.recurringInstances.find(i => i.id === instanceId)
-
-      if (instance) {
-        // console.log('✅ 기존 인스턴스 발견:', instance)
-        const updatedInstance = {
-          ...instance,
-          completed: !instance.completed,
-          completedAt: !instance.completed ? new Date() : undefined,
-          updatedAt: new Date()
-        }
-
-        // Firebase에 저장 후 실시간 구독으로 상태 업데이트 (동기화 문제 해결)
-        if (currentUser) {
-          try {
-            console.log(`🔄 Firebase에 기존 반복 인스턴스 업데이트 중: ${instanceId}`)
-            console.log(`📋 업데이트 데이터:`, {
-              completed: updatedInstance.completed,
-              completedAt: updatedInstance.completedAt
-            })
-
-            const updateData: any = {
-              completed: updatedInstance.completed
-            }
-
-            // completedAt 처리: undefined면 null, 아니면 Date 객체 저장
-            if (updatedInstance.completedAt === undefined) {
-              console.log('🗑️ completedAt이 undefined -> null 사용')
-              updateData.completedAt = null
-            } else {
-              console.log('📅 completedAt 설정:', updatedInstance.completedAt)
-              updateData.completedAt = updatedInstance.completedAt
-            }
-
-            console.log('📋 최종 업데이트 데이터:', updateData)
-
-            // 🔧 즉시 UI 반응을 위한 임시 로컬 업데이트 (Firebase 구독이 곧 덮어씀)
-            console.log('⚡ 즉시 UI 반응을 위한 임시 로컬 업데이트')
-            const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
-            dispatch({
-              type: 'SET_RECURRING_INSTANCES',
-              payload: updatedInstances
-            })
-            console.log('✅ 임시 로컬 상태 업데이트 완료 (Firebase 구독이 최종 확인)')
-
-            // Firebase 업데이트 실행
-            console.log(`🔄 Firestore 업데이트 실행 - instanceId: ${instanceId}`)
-            console.log(`📋 전송할 데이터:`, updateData)
-            console.log(`⏰ 업데이트 시작 시각: ${new Date().toISOString()}`)
-
-            await firestoreService.updateRecurringInstance(instanceId, updateData, currentUser.uid)
-
-            console.log('✅ 반복 할일 상태 Firebase에 저장 완료')
-            console.log(`⏰ 업데이트 완료 시각: ${new Date().toISOString()}`)
-
-            // 월간업무보고 완료 상태 간단 확인
-            if (targetTodo?.title.includes('월간업무보고')) {
-              console.log('✅ 월간업무보고 완료 변경:', updatedInstance.completed)
-            }
-
-            // 주간업무보고 특별 로깅
-            if (instanceId.includes('weekly_work_report')) {
-              console.log(`🔍 주간업무보고 Firestore 업데이트: completed=${updateData.completed}`)
-            }
-
-            // ✨ Firestore 동기화 대기 제거 - 실시간 구독으로만 동기화 (completion state 충돌 방지)
-            console.log('✅ Firestore 업데이트 완료 - 실시간 구독 의존')
-
-          } catch (error) {
-            console.error('❌ Firebase 저장 실패:', error)
-            // Firebase 저장 실패 시 로컬 상태를 원래대로 되돌리기
-            dispatch({
-              type: 'SET_RECURRING_INSTANCES',
-              payload: state.recurringInstances
-            })
-            dispatch({ type: 'SET_ERROR', payload: '반복 할일 상태 변경 중 오류가 발생했습니다.' })
-          }
-        } else {
-          // 비로그인 사용자: 메모리 상태만 업데이트 (localStorage 사용 안함)
-          const updatedInstances = state.recurringInstances.map(i => i.id === instanceId ? updatedInstance : i)
-          dispatch({
-            type: 'SET_RECURRING_INSTANCES',
-            payload: updatedInstances
-          })
-          console.log('🚫 비로그인 사용자 - localStorage 사용 비활성화, 메모리만 업데이트')
-        }
-
-        console.log('✅ 기존 반복 할일 토글 완료')
-        return
-      } else {
-        console.log('📝 로컬 인스턴스가 없음. 새 인스턴스 생성:', instanceId)
-
-        // 인스턴스 ID에서 템플릿 ID와 날짜 추출
-        const idParts = instanceId.split('_')
-        if (idParts.length >= 2) {
-          const templateId = idParts[0]
-          const dateStr = idParts.slice(1).join('_') // 날짜 부분 재조합
-
-          // 해당 템플릿 찾기
-          const template = state.recurringTemplates.find(t => t.id === templateId)
-
-          if (template) {
-            console.log('✅ 템플릿 발견:', template)
-
-            // 새 인스턴스 생성
-            const newInstance = {
-              id: instanceId,
-              templateId: templateId,
-              date: new Date(dateStr),
-              completed: true, // 처음 토글이므로 완료로 설정
-              completedAt: new Date(),
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-
-            // Firebase에 저장 후 실시간 구독으로 상태 업데이트
-            if (currentUser) {
-              try {
-                console.log(`🔄 Firebase에 새 반복 인스턴스 생성 중: ${instanceId}`)
-                console.log(`📋 새 인스턴스 데이터:`, newInstance)
-
-                // 먼저 낙관적 업데이트 (즉각적인 UI 반응성)
-                const updatedInstances = [...state.recurringInstances, newInstance]
-                dispatch({
-                  type: 'SET_RECURRING_INSTANCES',
-                  payload: updatedInstances
-                })
-                console.log('✅ 새 인스턴스 낙관적 로컬 상태 업데이트 완료')
-
-                // Firebase에 저장
-                await firestoreService.updateRecurringInstance(instanceId, {
-                  templateId: newInstance.templateId,
-                  date: newInstance.date,
-                  completed: newInstance.completed,
-                  completedAt: newInstance.completedAt
-                  // createdAt, updatedAt은 Firestore 서비스에서 serverTimestamp()로 자동 설정
-                }, currentUser.uid)
-                console.log('✅ 새 반복 할일 인스턴스 Firebase에 생성 완료')
-
-                // ✨ 수동 새로고침 비활성화 - 실시간 구독으로만 동기화 (completion state 충돌 방지)
-                console.log('🔄 새 인스턴스 수동 새로고침 비활성화 - 실시간 구독 의존')
-
-              } catch (error) {
-                console.error('❌ 새 인스턴스 Firebase 생성 실패:', error)
-                // Firebase 저장 실패 시 로컬 상태를 원래대로 되돌리기
-                dispatch({
-                  type: 'SET_RECURRING_INSTANCES',
-                  payload: state.recurringInstances
-                })
-                dispatch({ type: 'SET_ERROR', payload: '새 반복 할일 인스턴스 생성 중 오류가 발생했습니다.' })
-              }
-            } else {
-              // 비로그인 사용자: 메모리 상태만 업데이트 (localStorage 사용 안함)
-              const updatedInstances = [...state.recurringInstances, newInstance]
-              dispatch({
-                type: 'SET_RECURRING_INSTANCES',
-                payload: updatedInstances
-              })
-              console.log('🚫 비로그인 사용자 - localStorage 사용 비활성화, 메모리만 업데이트')
-            }
-
-            console.log('✅ 새 반복 할일 토글 완료')
-            return
-          } else {
-            console.error('❌ 템플릿을 찾을 수 없음:', templateId)
-          }
-        } else {
-          console.error('❌ 인스턴스 ID 형식이 잘못됨:', instanceId)
-        }
-
-        console.error('❌ 반복 인스턴스를 찾을 수 없음:', instanceId)
-        console.log('📋 현재 인스턴스 목록:', state.recurringInstances.map(i => i.id))
-        console.log('📋 현재 템플릿 목록:', state.recurringTemplates.map(t => t.id))
-        return
-      }
-    }
-
-    // 일반 할일 처리
-    const basicTodo = state.todos.find(t => t.id === id)
-    if (!basicTodo) {
-      console.error('Todo not found:', id)
-      return
-    }
-
-    const updates: Partial<Todo> & { completedAt?: Date | ReturnType<typeof deleteField> } = {
-      completed: !basicTodo.completed,
-      ...(
-        !basicTodo.completed
-          ? { completedAt: new Date() }
-          : { completedAt: deleteField() as unknown as Date }
-      )
-    }
-
-    try {
-      // 먼저 로컬 상태를 즉시 업데이트
-      dispatch({ type: 'TOGGLE_TODO', payload: id })
-
-      // 반복 할일인지 확인 (recurring_ 또는 _isRecurringInstance 체크)
-      const allTodosForCheck = [...state.todos, ...getRecurringTodos()]
-      const todoForCheck = allTodosForCheck.find(t => t.id === id)
-      const isRecurringTodo = id.startsWith('recurring_') || (todoForCheck as any)?._isRecurringInstance
-
-      // Firestore 전용 처리 (localStorage 사용 중단)
-      if (currentUser && !isRecurringTodo) {
-        await firestoreService.updateTodo(id, updates, currentUser.uid)
-        console.log('Firestore 업데이트 성공:', id)
-      } else if (isRecurringTodo) {
-        // 반복 할일은 로컬 상태에서만 관리
-        console.log('반복 할일 상태 업데이트:', id)
-
-        // 반복 할일의 order 값 업데이트도 지원
-        if (updates.order !== undefined) {
-          console.log('반복 할일 order 업데이트:', id, '새 order:', updates.order)
-
-          // 반복 인스턴스 업데이트
-          dispatch({
-            type: 'UPDATE_RECURRING_INSTANCE',
-            payload: {
-              id: id,
-              updates: { order: updates.order } // order를 인스턴스에 추가
-            }
-          })
-        }
-      } else {
-        // 비로그인 사용자: 메모리에서만 관리
-        console.log('비로그인 모드: 메모리에서 할일 토글')
-      }
-
-      console.log(`할일 토글 성공: ${id} (반복할일: ${isRecurringTodo})`)
-    } catch (error: unknown) {
-      console.error('할일 토글 실패:', error)
-      // 에러 발생시 이전 상태로 되돌림
-      dispatch({ type: 'TOGGLE_TODO', payload: id })
-      dispatch({ type: 'SET_ERROR', payload: '할일 상태 변경 중 오류가 발생했습니다.' })
-    }
-  }
-
   // 서브태스크 추가
   const addSubTask = async (todoId: string, title: string) => {
+    const todo = state.todos.find(t => t.id === todoId);
+
+    let googleTaskId: string | undefined = undefined;
+
+    // 부모 할일이 구글 태스크와 연동되어 있다면 하위 할일도 구글 태스크로 생성
+    if (todo?.googleTaskId && todo?.googleTaskListId && currentUser) {
+      try {
+        const token = await getGoogleAccessToken({ silent: true });
+        if (token) {
+          // Google Tasks API 특성상 insert 시 parent가 무시되므로, 생성 후 move를 호출해야 함
+          const inserted = await googleTasksService.insertTask(token, todo.googleTaskListId, {
+            title
+          });
+
+          if (inserted) {
+            // 생성된 태스크를 부모 태스크 밑으로 이동
+            await googleTasksService.moveTask(token, todo.googleTaskListId, inserted.id, todo.googleTaskId);
+            googleTaskId = inserted.id;
+            console.log(`✅ Google Tasks에 하위 할일 생성 및 이동 완료: [${title}]`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Google Tasks 하위 할일 생성 실패:', error);
+      }
+    }
+
     const newSubTask: SubTask = {
       id: generateId(),
       title,
       completed: false,
       priority: 'medium',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      googleTaskId
     }
 
     try {
@@ -1626,7 +1469,6 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         await firestoreService.addSubTask(newSubTask, currentUser.uid, todoId)
       } else {
         dispatch({ type: 'ADD_SUBTASK', payload: { todoId, subTask: newSubTask } })
-        // Firestore 전용 모드 - localStorage 사용 안함
       }
     } catch (error) {
       console.error('서브태스크 추가 실패:', error)
@@ -1637,11 +1479,36 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   // 서브태스크 업데이트
   const updateSubTask = async (todoId: string, subTaskId: string, updates: Partial<SubTask>) => {
     try {
+      const todo = state.todos.find(t => t.id === todoId);
+      const subTask = todo?.subTasks?.find(st => st.id === subTaskId);
+
       if (currentUser) {
         await firestoreService.updateSubTask(subTaskId, updates, currentUser.uid, todoId)
+
+        // 구글 태스크 동기화
+        if (todo?.googleTaskListId && subTask?.googleTaskId) {
+          try {
+            const token = await getGoogleAccessToken({ silent: true });
+            if (token) {
+              const googleUpdates: any = {};
+              if (updates.title !== undefined) googleUpdates.title = updates.title;
+              if (updates.completed !== undefined) {
+                googleUpdates.status = updates.completed ? 'completed' : 'needsAction';
+                googleUpdates.completed = updates.completed ? new Date().toISOString() : null;
+              }
+              if (updates.dueDate !== undefined) {
+                googleUpdates.due = updates.dueDate ? updates.dueDate.toISOString() : null;
+              }
+
+              await googleTasksService.updateTask(token, todo.googleTaskListId, subTask.googleTaskId, googleUpdates);
+              console.log(`✅ Google Tasks 하위 할일 업데이트 완료: [${updates.title || subTask.title}]`);
+            }
+          } catch (error) {
+            console.error('❌ Google Tasks 하위 할일 동기화 실패:', error);
+          }
+        }
       } else {
         dispatch({ type: 'UPDATE_SUBTASK', payload: { todoId, subTaskId, updates } })
-        // Firestore 전용 모드 - localStorage 사용 안함
       }
     } catch (error) {
       console.error('서브태스크 업데이트 실패:', error)
@@ -1652,11 +1519,26 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   // 서브태스크 삭제
   const deleteSubTask = async (todoId: string, subTaskId: string) => {
     try {
+      const todo = state.todos.find(t => t.id === todoId);
+      const subTask = todo?.subTasks?.find(st => st.id === subTaskId);
+
       if (currentUser) {
         await firestoreService.deleteSubTask(subTaskId, currentUser.uid, todoId)
+
+        // 구글 태스크 삭제 연동
+        if (todo?.googleTaskListId && subTask?.googleTaskId) {
+          try {
+            const token = await getGoogleAccessToken({ silent: true });
+            if (token) {
+              await googleTasksService.deleteTask(token, todo.googleTaskListId, subTask.googleTaskId);
+              console.log(`🗑️ Google Tasks 하위 할일 삭제 완료: [${subTask.title}]`);
+            }
+          } catch (error) {
+            console.error('❌ Google Tasks 하위 할일 삭제 실패:', error);
+          }
+        }
       } else {
         dispatch({ type: 'DELETE_SUBTASK', payload: { todoId, subTaskId } })
-        // Firestore 전용 모드 - localStorage 사용 안함
       }
     } catch (error) {
       console.error('서브태스크 삭제 실패:', error)
@@ -2652,114 +2534,6 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     // Firestore 전용 모드 - localStorage 사용 안함
   }
 
-  // 반복 인스턴스를 일반 할일로 변환하여 반환 (중복 키 방지)
-  const getRecurringTodos = (): Todo[] => {
-    if (state.recurringTemplates.length === 0 || state.recurringInstances.length === 0) {
-      return [];
-    }
-
-    // "skipped"가 true가 아닌 인스턴스만 필터링
-    const activeInstances = state.recurringInstances.filter(instance => !instance.skipped);
-
-    const recurringTodos = activeInstances.map(instance => {
-      const template = state.recurringTemplates.find(t => t.id === instance.templateId);
-      if (!template) {
-        return null; // 템플릿이 없으면 변환 불가
-      }
-      return simpleRecurringSystem.convertToTodo(instance, template);
-    }).filter((todo): todo is Todo => todo !== null); // null이 아닌 Todo 객체만 필터링
-
-    // 중복 ID 제거
-    const seenIds = new Set<string>();
-    return recurringTodos.filter(todo => {
-      if (seenIds.has(todo.id)) {
-        return false;
-      }
-      seenIds.add(todo.id);
-      return true;
-    });
-  }
-
-  // 기존 할일들에 order 값을 초기화하는 함수
-  const initializeOrderValues = () => {
-    // 일반 할일들
-    const todosNeedingOrder = state.todos.filter(todo =>
-      !todo.completed && (todo.order === undefined || todo.order === null)
-    )
-
-    // 반복할일들도 포함
-    const recurringTodos = getRecurringTodos().filter(todo =>
-      !todo.completed && (todo.order === undefined || todo.order === null)
-    )
-
-    const allTodosNeedingOrder = [...todosNeedingOrder, ...recurringTodos]
-
-    if (allTodosNeedingOrder.length === 0) return
-
-    console.log('🔧 Order 값 초기화 대상:', allTodosNeedingOrder.length, '개')
-
-    // 우선순위별로 그룹화
-    const priorityGroups = {
-      urgent: allTodosNeedingOrder.filter(t => t.priority === 'urgent'),
-      high: allTodosNeedingOrder.filter(t => t.priority === 'high'),
-      medium: allTodosNeedingOrder.filter(t => t.priority === 'medium'),
-      low: allTodosNeedingOrder.filter(t => t.priority === 'low')
-    }
-
-    // 각 그룹별로 생성일 순으로 정렬한 후 order 값 할당
-    const updatedTodos: Todo[] = []
-    const updatedRecurringInstances: string[] = []
-
-    Object.entries(priorityGroups).forEach(([priority, todos], priorityIndex) => {
-      if (todos.length === 0) return
-
-      // 생성일 순으로 정렬 (오래된 것부터)
-      const sortedTodos = todos.sort((a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      )
-
-      // order 값 할당 (우선순위별 베이스 값 + 인덱스)
-      const baseOrder = priorityIndex * 1000
-      sortedTodos.forEach((todo, index) => {
-        const orderValue = baseOrder + index * 10
-
-        if ((todo as any)._isRecurringInstance) {
-          // 반복할일인 경우
-          console.log('🔄 반복할일 order 초기화:', todo.title, '→', orderValue)
-          const instanceId = (todo as any)._instanceId
-          updatedRecurringInstances.push(instanceId)
-          dispatch({
-            type: 'UPDATE_RECURRING_INSTANCE',
-            payload: {
-              id: instanceId,
-              updates: { order: orderValue }
-            }
-          })
-        } else {
-          // 일반 할일인 경우
-          updatedTodos.push({
-            ...todo,
-            order: orderValue
-          })
-        }
-      })
-    })
-
-    // 일반 할일들을 Firestore와 로컬 상태에 반영
-    updatedTodos.forEach(async (todo) => {
-      try {
-        if (currentUser) {
-          await firestoreService.updateTodo(todo.id, { order: todo.order }, currentUser.uid)
-        }
-        dispatch({ type: 'UPDATE_TODO', payload: { id: todo.id, updates: { order: todo.order } } })
-      } catch (error) {
-        console.error('Order 값 초기화 실패:', todo.id, error)
-      }
-    })
-
-    console.log('✅ Order 초기화 완료:', updatedTodos.length, '개 일반 할일,', updatedRecurringInstances.length, '개 반복할일')
-  }
-
   // 강제 새로고침 함수 추가
   const forceRefresh = async () => {
     if (!currentUser) {
@@ -3115,8 +2889,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     return Array.from(tags).sort()
   }, [state.todos])
 
-  // 모든 함수가 정의된 후 완전한 value 객체 생성
-  const value: TodoContextType = {
+  // 모든 함수가 정의된 후 완전한 value 객체 생성 (useMemo 최적화)
+  const value = useMemo(() => ({
     ...state,
     addTodo,
     updateTodo,
@@ -3165,7 +2939,52 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     setFilterTags,
     allTags,
     loadHistoricalTodos
-  }
+  }), [
+    state,
+    addTodo,
+    updateTodo,
+    deleteTodo,
+    toggleTodo,
+    addSubTask,
+    updateSubTask,
+    deleteSubTask,
+    toggleSubTask,
+    syncWithFirestore,
+    getTodayTodos,
+    getWeekTodos,
+    getMonthTodos,
+    getOverdueTodos,
+    getTomorrowTodos,
+    getYesterdayIncompleteTodos,
+    isYesterdayIncompleteTodo,
+    updateTodoOrder,
+    reorderTodos,
+    getFilteredTodos,
+    addRecurringTemplate,
+    updateRecurringTemplate,
+    deleteRecurringTemplate,
+    generateRecurringInstances,
+    getRecurringTodos,
+    cleanupDuplicateTemplates,
+    forceRefresh,
+    manualRefresh,
+    initializeOrderValues,
+    fixRecurringInstances,
+    cleanupOrphanedData,
+    validateDataConsistency,
+    smartCleanupInstances,
+    exportData,
+    importData,
+    clearCompleted,
+    syncWithCloud,
+    stats,
+    searchQuery,
+    filterStatus,
+    filterPriority,
+    filterTags,
+    allTags,
+    loadHistoricalTodos
+  ])
 
   return (
     <TodoContext.Provider value={value}>

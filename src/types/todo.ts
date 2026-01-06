@@ -85,6 +85,7 @@ export interface SubTask {
   completedAt?: Date // 완료 시간
   createdAt: Date
   updatedAt: Date
+  googleTaskId?: string
 }
 
 export interface ProjectTemplate {
@@ -166,6 +167,10 @@ export interface Todo {
   lastModifiedBy?: string // 마지막 수정자 UID (NEW/최근 수정 배지용)
   // 프론트엔드 편의용 (DB 저장 X)
   myPermission?: SharePermission // 현재 사용자의 권한
+
+  // External Integration
+  googleTaskId?: string
+  googleTaskListId?: string
 }
 
 // 공유 알림 (권한 변경, 새 할일 추가 등)
