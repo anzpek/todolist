@@ -75,8 +75,9 @@ const EditTodoModal = ({ isOpen, onClose, todo, isMobile = false }: EditTodoModa
   }, [currentUser?.uid])
 
   // 권한 체크
-  const canEdit = !todo || (todo.myPermission === 'edit' || todo.myPermission === 'admin');
-  const canDelete = !todo || (todo.myPermission === 'admin'); // or owner check (admin includes owner)
+  const isOwner = !todo?.ownerId || todo?.ownerId === currentUser?.uid;
+  const canEdit = !todo || isOwner || (todo.myPermission === 'edit' || todo.myPermission === 'admin');
+  const canDelete = !todo || (todo.myPermission === 'admin') || isOwner;
 
   // 할일 데이터가 변경되면 폼 초기화
   useEffect(() => {
