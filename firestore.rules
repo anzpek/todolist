@@ -160,5 +160,12 @@ service cloud.firestore {
       // Delete: Sender can cancel/delete
       allow delete: if request.auth != null && resource.data.fromUid == request.auth.uid;
     }
+    // 휴가 관리 접근 권한 설정 (Global Settings)
+    match /settings/vacation_access {
+      // 읽기: 로그인한 사용자는 누구나 가능 (사이드바 노출 여부 판단 위해)
+      allow read: if request.auth != null;
+      // 쓰기: 오직 슈퍼 관리자만 가능
+      allow write: if request.auth != null && request.auth.token.email == 'lkd0115lkd@gmail.com';
+    }
   }
 }
