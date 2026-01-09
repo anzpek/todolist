@@ -258,10 +258,15 @@ export const generateSecurityReport = (): {
   const browserSec = checkBrowserSecurity()
 
   // HTTPS 검사
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const httpsStatus = browserSec.https || isLocalhost ? 'pass' : 'fail';
+
   checks.push({
     name: 'HTTPS',
-    status: browserSec.https ? 'pass' : 'fail',
-    details: browserSec.https ? 'Site served over HTTPS' : 'Site not served over HTTPS'
+    status: httpsStatus,
+    details: browserSec.https
+      ? 'Site served over HTTPS'
+      : (isLocalhost ? 'Localhost allowed without HTTPS' : 'Site not served over HTTPS')
   })
 
   // 보안 컨텍스트 검사

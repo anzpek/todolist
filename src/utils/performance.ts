@@ -126,11 +126,11 @@ class PerformanceMonitor {
   measureMemoryUsage(): void {
     if ('memory' in performance) {
       const memory = (performance as any).memory
-      debug.log('Memory usage:', {
+      /* debug.log('Memory usage:', {
         used: `${(memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB`,
         total: `${(memory.totalJSHeapSize / 1024 / 1024).toFixed(2)}MB`,
         limit: `${(memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2)}MB`
-      })
+      }) */
     }
   }
 
@@ -142,14 +142,14 @@ class PerformanceMonitor {
   // 메트릭 요약 정보
   getSummary(): Record<string, { value: number; rating: string }> {
     const summary: Record<string, { value: number; rating: string }> = {}
-    
+
     // 각 메트릭의 최신 값
     const metricNames = [...new Set(this.metrics.map(m => m.name))]
     metricNames.forEach(name => {
       const latestMetric = this.metrics
         .filter(m => m.name === name)
         .sort((a, b) => b.timestamp - a.timestamp)[0]
-      
+
       if (latestMetric) {
         summary[name] = {
           value: latestMetric.value,
@@ -175,12 +175,12 @@ export const performanceMonitor = new PerformanceMonitor()
 // React 컴포넌트 렌더링 성능 측정 훅
 export const measureRenderTime = (componentName: string) => {
   const startTime = performance.now()
-  
+
   return () => {
     const endTime = performance.now()
     const renderTime = endTime - startTime
     debug.log(`Render time for ${componentName}: ${renderTime.toFixed(2)}ms`)
-    
+
     if (renderTime > 16.67) { // 60fps 기준
       debug.warn(`Slow render detected: ${componentName} took ${renderTime.toFixed(2)}ms`)
     }
@@ -189,7 +189,7 @@ export const measureRenderTime = (componentName: string) => {
 
 // 비동기 작업 성능 측정
 export const measureAsyncOperation = async <T>(
-  operationName: string, 
+  operationName: string,
   operation: () => Promise<T>
 ): Promise<T> => {
   const startTime = performance.now()

@@ -10,6 +10,7 @@ import { cleanupService } from '../services/cleanupService'
 import { deleteField } from '../config/firebase'
 import { useCustomHolidays } from './CustomHolidayContext'
 import { googleTasksService } from '../services/googleTasksService'
+import { syncRegistry } from '../utils/syncRegistry'
 
 interface TodoState {
   todos: Todo[]
@@ -476,14 +477,19 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   // 구글 태스크 동기화 헬퍼 함수 (제목, 설명, 마감일 포함)
   const syncTodoToGoogleTask = useCallback(async (todo: Todo, updates?: Partial<Todo>) => {
     if (!currentUser) return;
+
+    // 디버깅: 어떤 업데이트가 요청되었는지 로깅
+    console.log(`🔄 Syncing changes to Google Task [${todo.title}]`, { updates, gId: todo.googleTaskId });
+
     if (!todo.googleTaskId || !todo.googleTaskListId) {
-      // 대부분의 일반 할일은 구글 태스크가 아니므로 로그 생략이 원칙이나, 디버깅을 위해 추가 가능
-      // 하지만 너무 시끄러울 수 있으므로, updates가 있는데 ID가 없는 경우만 경고장
-      if (updates && (todo as any).googleTaskId) { // googleTaskId가 있는데 listId가 없는 경우 등
+      if (updates && (todo as any).googleTaskId) {
         console.warn('⚠️ Google Sync Skip - Missing IDs:', { id: todo.id, gId: todo.googleTaskId, listId: todo.googleTaskListId });
       }
       return;
     }
+
+    // [Sync Registry] 업데이트 직전에 ID 등록 (Sync가 덮어쓰기 방지)
+    syncRegistry.register(todo.googleTaskId);
 
     try {
       const token = await getGoogleAccessToken({ silent: true });
@@ -553,6 +559,37 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       if (currentUser) {
+        // 1. Google Tasks 연동 확인 및 전송 (Push)
+        // [수정] 이미 구글 ID가 있는 경우(Importing)에는 Push 하지 않음!
+        if (!newTodo.googleTaskId) {
+          try {
+            const settings = await firestoreService.getUserSettings(currentUser.uid);
+            if (settings?.autoSyncGoogleTasks) {
+              const token = await getGoogleAccessToken({ silent: true });
+              if (token) {
+                const googleTask = await googleTasksService.insertTask(token, settings.defaultGoogleTaskListId || '@default', {
+                  title: newTodo.title,
+                  notes: newTodo.description,
+                  due: newTodo.dueDate ? new Date(Date.UTC(newTodo.dueDate.getFullYear(), newTodo.dueDate.getMonth(), newTodo.dueDate.getDate())).toISOString() : undefined
+                });
+
+                if (googleTask) {
+                  console.log(`✅ Google Tasks에 추가됨: [${newTodo.title}]`);
+                  newTodo.googleTaskId = googleTask.id;
+                  newTodo.googleTaskListId = settings.defaultGoogleTaskListId || '@default';
+                  // [Sync Registry] 방금 생성한 태스크 등록 (중복 Import 방지)
+                  syncRegistry.register(googleTask.id);
+                }
+              }
+            }
+          } catch (syncError) {
+            console.error('⚠️ Google Tasks 추가 실패 (로컬 저장은 진행):', syncError);
+          }
+        } else {
+          console.log(`📥 Google Tasks Import 감지: Push 건너뜀 [${newTodo.title}]`);
+        }
+
+        // 2. Firestore 저장
         const firestoreId = await firestoreService.addTodo(newTodo, currentUser.uid);
         dispatch({ type: 'ADD_TODO', payload: { ...newTodo, id: firestoreId } });
       } else {
@@ -561,7 +598,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('할일 추가 실패:', error);
     }
-  }, [currentUser, state.todos]);
+  }, [currentUser, state.todos, getGoogleAccessToken]);
 
   // 할일 업데이트
   const updateTodo = useCallback(async (id: string, updates: Partial<Todo>) => {
@@ -1461,7 +1498,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       priority: 'medium',
       createdAt: new Date(),
       updatedAt: new Date(),
-      googleTaskId
+      googleTaskId: googleTaskId || null
     }
 
     try {

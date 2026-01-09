@@ -68,8 +68,12 @@ function AppInner({
 
   // 컴포넌트가 언마운트될 때 렌더링 시간 측정 완료
   useEffect(() => {
+    // [Debug] 버전 확인용 - 앱 업데이트 여부 검증
+    if (isMobile) {
+      // alert('App Version: 1.3.7 (Release Ready)');
+    }
     return measureRender
-  }, [])
+  }, [isMobile])
 
   return (
     <Suspense fallback={<LoadingSpinner />}>

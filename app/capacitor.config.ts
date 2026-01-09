@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.anzpek.todolist',
   appName: 'TodoList',
-  webDir: '../dist',
+  webDir: 'www',
   // plugins: { ... } removed
   plugins: {
     FirebaseAuthentication: {
@@ -11,10 +11,10 @@ const config: CapacitorConfig = {
       providers: ["google.com"]
     }
   },
-  server: {
-    url: 'https://anzpek.github.io/todolist/',
-    cleartext: true
-  },
+  // server: {
+  //   url: 'https://anzpek.github.io/todolist/',
+  //   cleartext: true
+  // },
   android: {
     allowMixedContent: true
   }

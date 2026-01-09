@@ -18,6 +18,7 @@ import { Capacitor } from '@capacitor/core'
 import TodoListWidget from '../plugins/TodoListWidget'
 import { syncWidget } from '../utils/widgetSync'
 import GoogleTasksGuideModal from './GoogleTasksGuideModal'
+import VacationAccessSettings from './VacationAccessSettings'
 
 const SettingsView: React.FC = () => {
   const { t, i18n } = useTranslation()
@@ -265,6 +266,13 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
 
+
+        {/* Vacation Access Settings (Super Admin Only) */}
+        {user?.email === 'lkd0115lkd@gmail.com' && (
+          <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.12s' }}>
+            <VacationAccessSettings />
+          </div>
+        )}
 
         {/* Start Screen Settings */}
         <div className="glass-card rounded-3xl p-8 animate-slide-in" style={{ animationDelay: '0.15s' }}>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { debug } from '../utils/debug'
 import { Calendar, Clock, CalendarDays, X, AlertTriangle, ChevronRight, ChevronLeft, Repeat, History, Users, Eye, EyeOff, Settings, Book, Layout } from 'lucide-react'
 import type { ViewType } from '../types/views'
 import { useTodos } from '../contexts/TodoContext'
@@ -56,8 +57,8 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
       if (currentUser?.uid) {
         const settings = await firestoreService.getUserSettings(currentUser.uid)
         if (settings?.autoSyncGoogleTasks) {
-          console.log('🔄 Auto-syncing Google Tasks...')
-          await syncGoogleTasks({ silent: true }).catch(err => console.warn('Auto-sync blocked/failed', err))
+          // debug.log('🔄 Auto-syncing Google Tasks...') // console.log -> debug.log
+          await syncGoogleTasks({ silent: true }).catch(err => debug.warn('Auto-sync blocked/failed', err))
         }
         return settings?.autoSyncGoogleTasks;
       }
@@ -66,7 +67,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
 
     // 화면이 다시 포커스될 때 동기화 (예: 다른 탭 갔다가 왔을 때)
     const handleFocus = () => {
-      console.log('✨ Window focused: Triggering auto-sync');
+      // debug.log('✨ Window focused: Triggering auto-sync');
       checkAndSync();
     };
 
@@ -75,8 +76,8 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
       if (shouldPoll) {
         // Poll every 30 seconds (30000ms) for better sync
         intervalId = setInterval(async () => {
-          console.log('⏱️ Polling Google Tasks ...');
-          await syncGoogleTasks({ silent: true }).catch(console.warn);
+          // debug.log('⏱️ Polling Google Tasks ...');
+          await syncGoogleTasks({ silent: true }).catch(() => { });
         }, 30 * 1000);
 
         window.addEventListener('focus', handleFocus);
@@ -114,6 +115,16 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
 
   // 총 공유 관련 알림 수
   const totalSharingNotifications = pendingRequestCount + permissionNotificationCount
+
+  // 휴가 관리 접근 권한 목록
+  const [vacationAccessList, setVacationAccessList] = useState<string[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = firestoreService.subscribeToVacationAccessList((emails) => {
+      setVacationAccessList(emails);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const menuItems = [
     { id: 'today', label: t('nav.today'), icon: Calendar, count: todayTodos.filter(t => !t.completed).length },
@@ -174,6 +185,18 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
         <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
           {menuItems.map((item) => {
             if (item.id === 'analytics' && !isAdmin(currentUser?.email)) return null
+
+            // Restrict Vacation Management visibility (Dynamic Check)
+            if (item.id === 'vacation') {
+              const SUPER_ADMIN = 'lkd0115lkd@gmail.com';
+              const hasAccess =
+                currentUser?.email === SUPER_ADMIN ||
+                (currentUser?.email && vacationAccessList.includes(currentUser.email));
+
+              if (!hasAccess) {
+                return null;
+              }
+            }
 
             const isActive = currentView === item.id
             const Icon = item.icon

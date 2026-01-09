@@ -30,14 +30,15 @@ const ProjectTemplateManager = ({ isOpen, onClose, onSelectTemplate, mode = 'mod
   })
 
   // Firestore에서 템플릿 로드 및 실시간 구독
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     if (!currentUser?.uid) return
 
-    debug.log('프로젝트 템플릿 구독 시작', { uid: currentUser.uid })
     const unsubscribe = firestoreService.subscribeProjectTemplates(
       currentUser.uid,
       (templates) => {
-        debug.log('프로젝트 템플릿 업데이트 수신', { count: templates.length })
         setTemplates(templates)
       }
     )

@@ -208,7 +208,7 @@ const SubTaskManager = forwardRef<SubTaskManagerHandle, SubTaskManagerProps>(({ 
         ))}
 
         {isAddingSubTask && (
-          <form onSubmit={handleAddSubTask} className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <input
               type="text"
               value={newSubTaskTitle}
@@ -220,8 +220,12 @@ const SubTaskManager = forwardRef<SubTaskManagerHandle, SubTaskManagerProps>(({ 
               autoFocus
             />
             <button
-              type="submit"
-              onClick={(e) => e.stopPropagation()}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleAddSubTask()
+              }}
               className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20 rounded"
               title="추가"
             >
@@ -239,7 +243,7 @@ const SubTaskManager = forwardRef<SubTaskManagerHandle, SubTaskManagerProps>(({ 
             >
               <X className="w-3 h-3" />
             </button>
-          </form>
+          </div>
         )}
 
         {subTasks.length === 0 && !isAddingSubTask && (

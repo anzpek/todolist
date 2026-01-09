@@ -44,6 +44,7 @@ import type { Priority, TaskType, Todo } from '../types/todo'
 import { App } from '@capacitor/app'
 import { useTheme } from '../contexts/ThemeContext'
 import { firestoreService } from '../services/firestoreService'
+import { PullToRefresh } from './PullToRefresh'
 
 interface MainContentProps {
   currentView: 'today' | 'week' | 'month' | 'board' | 'settings' | 'analytics' | 'recurring' | 'history' | 'vacation' | 'guide' | 'sharing'
@@ -464,43 +465,25 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
       </header>
 
       {/* Main Content Area */}
-      <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto">
-        {currentView === 'today' ? (
-          <TodoList
-            currentView="today"
-            searchTerm={searchQuery}
-            priorityFilter={filterPriority}
-            typeFilter={typeFilter}
-            projectFilter={projectFilter}
-            tagFilter={filterTags}
-            completionDateFilter={completionDateFilter}
-            sharingFilter={sharingFilter}
-            sharingFilterState={sharingFilterState}
-            selectedDate={selectedDate}
-            onDateChange={handleDateChange}
-            onEdit={handleEditTodo}
-          />
-        ) : currentView === 'week' ? (
-          <WeeklyCalendarView
-            currentDate={selectedDate}
-            onDateChange={handleDateChange}
-            searchTerm={searchQuery}
-            priorityFilter={filterPriority}
-            typeFilter={typeFilter}
-            projectFilter={projectFilter}
-            tagFilter={filterTags}
-            completionDateFilter={completionDateFilter}
-            sharingFilter={sharingFilter}
-            sharingFilterState={sharingFilterState}
-            onAddTodo={(date) => {
-              setInitialDateForAdd(date)
-              setIsAddModalOpen(true)
-            }}
-            isMobile={isMobile}
-          />
-        ) : currentView === 'month' ? (
-          <div className="space-y-8">
-            <MonthlyCalendarView
+      <PullToRefresh>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto min-h-[calc(100vh-80px)]">
+          {currentView === 'today' ? (
+            <TodoList
+              currentView="today"
+              searchTerm={searchQuery}
+              priorityFilter={filterPriority}
+              typeFilter={typeFilter}
+              projectFilter={projectFilter}
+              tagFilter={filterTags}
+              completionDateFilter={completionDateFilter}
+              sharingFilter={sharingFilter}
+              sharingFilterState={sharingFilterState}
+              selectedDate={selectedDate}
+              onDateChange={handleDateChange}
+              onEdit={handleEditTodo}
+            />
+          ) : currentView === 'week' ? (
+            <WeeklyCalendarView
               currentDate={selectedDate}
               onDateChange={handleDateChange}
               searchTerm={searchQuery}
@@ -517,63 +500,80 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               }}
               isMobile={isMobile}
             />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <TodoList currentView="month" onEdit={handleEditTodo} sharingFilter={sharingFilter} sharingFilterState={sharingFilterState} />
-              <div className="hidden lg:block">
-                <ProjectAnalysis />
+          ) : currentView === 'month' ? (
+            <div className="space-y-8">
+              <MonthlyCalendarView
+                currentDate={selectedDate}
+                onDateChange={handleDateChange}
+                searchTerm={searchQuery}
+                priorityFilter={filterPriority}
+                typeFilter={typeFilter}
+                projectFilter={projectFilter}
+                tagFilter={filterTags}
+                completionDateFilter={completionDateFilter}
+                sharingFilter={sharingFilter}
+                sharingFilterState={sharingFilterState}
+                onAddTodo={(date) => {
+                  setInitialDateForAdd(date)
+                  setIsAddModalOpen(true)
+                }}
+                isMobile={isMobile}
+              />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <TodoList currentView="month" onEdit={handleEditTodo} sharingFilter={sharingFilter} sharingFilterState={sharingFilterState} />
+                <div className="hidden lg:block">
+                  <ProjectAnalysis />
+                </div>
               </div>
             </div>
-          </div>
-        ) : currentView === 'board' ? (
-          <BoardView
-            searchTerm={searchQuery}
-            priorityFilter={filterPriority}
-            typeFilter={typeFilter}
-            projectFilter={projectFilter}
-            tagFilter={filterTags}
-            completionDateFilter={completionDateFilter}
-            onAddTodo={(priority) => {
-              // We can pre-select priority!
-              // But AddTodoModal doesn't accept priority prop yet?
-              // Let's check AddTodoModal props or just open standard logic
-              setInitialDateForAdd(undefined)
-              setIsAddModalOpen(true)
-            }}
-            onEdit={handleEditTodo}
-            isMobile={isMobile}
-          />
-        ) : currentView === 'analytics' ? (
-          <div className="w-full space-y-8">
-            <StatsCard />
-            <ProjectAnalysis />
-          </div>
-        ) : currentView === 'recurring' ? (
-          <RecurringManagement />
-        ) : currentView === 'history' ? (
-          <CompletedHistoryView
-            searchTerm={searchQuery}
-            priorityFilter={filterPriority}
-            typeFilter={typeFilter}
-            projectFilter={projectFilter}
-            tagFilter={filterTags}
-          />
-        ) : currentView === 'vacation' ? (
-          <div className="w-full h-[calc(100vh-100px)] rounded-xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-800">
-            <iframe
-              src="https://anzpek.github.io/vacation-manager-react/"
-              className="w-full h-full border-0"
-              title="Vacation Management System"
-              allow="clipboard-write"
+          ) : currentView === 'board' ? (
+            <BoardView
+              searchTerm={searchQuery}
+              priorityFilter={filterPriority}
+              typeFilter={typeFilter}
+              projectFilter={projectFilter}
+              tagFilter={filterTags}
+              completionDateFilter={completionDateFilter}
+              onAddTodo={(priority) => {
+                setInitialDateForAdd(undefined)
+                setIsAddModalOpen(true)
+              }}
+              onEdit={handleEditTodo}
+              isMobile={isMobile}
             />
-          </div>
-        ) : currentView === 'settings' ? (
-          <SettingsView />
-        ) : currentView === 'guide' ? (
-          <HelpGuide />
-        ) : currentView === 'sharing' ? (
-          <SharingSettingsView />
-        ) : null}
-      </div>
+          ) : currentView === 'analytics' ? (
+            <div className="w-full space-y-8">
+              <StatsCard />
+              <ProjectAnalysis />
+            </div>
+          ) : currentView === 'recurring' ? (
+            <RecurringManagement />
+          ) : currentView === 'history' ? (
+            <CompletedHistoryView
+              searchTerm={searchQuery}
+              priorityFilter={filterPriority}
+              typeFilter={typeFilter}
+              projectFilter={projectFilter}
+              tagFilter={filterTags}
+            />
+          ) : currentView === 'vacation' ? (
+            <div className="w-full h-[calc(100vh-100px)] rounded-xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-800">
+              <iframe
+                src="https://anzpek.github.io/vacation-manager-react/"
+                className="w-full h-full border-0"
+                title="Vacation Management System"
+                allow="clipboard-write"
+              />
+            </div>
+          ) : currentView === 'settings' ? (
+            <SettingsView />
+          ) : currentView === 'guide' ? (
+            <HelpGuide />
+          ) : currentView === 'sharing' ? (
+            <SharingSettingsView />
+          ) : null}
+        </div>
+      </PullToRefresh>
 
       {/* Mobile Floating Action Button */}
       <div className="md:hidden">

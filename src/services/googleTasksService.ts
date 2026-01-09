@@ -31,6 +31,8 @@ export const googleTasksService = {
     async getTaskLists(accessToken: string): Promise<GoogleTaskList[]> {
         try {
             const response = await fetch(`${GOOGLE_TASKS_API_BASE}/users/@me/lists`, {
+                method: 'GET',
+                referrerPolicy: 'no-referrer', // [Mobile Fix] Origin 헤더 문제 방지
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
@@ -43,7 +45,19 @@ export const googleTasksService = {
                     const errorData = await response.json();
                     errorDetails = JSON.stringify(errorData);
                     console.error('Google Tasks API Error Details:', errorData);
-                } catch (e) {
+
+                    // 403 error detection for re-auth trigger
+                    if (response.status === 403) {
+                        const message = errorData.error?.message || '';
+                        const reason = errorData.error?.errors?.[0]?.reason || '';
+
+                        // Check specifically for insufficient permissions/scopes
+                        if (reason === 'insufficientPermissions' || message.includes('insufficient authentication scopes')) {
+                            throw new Error('INSUFFICIENT_SCOPE'); // Special keyword for client handling
+                        }
+                    }
+                } catch (e: any) {
+                    if (e.message === 'INSUFFICIENT_SCOPE') throw e; // Re-throw our special error
                     errorDetails = 'Could not parse error response';
                 }
                 throw new Error(`Failed to fetch task lists: ${response.status} ${response.statusText} - ${errorDetails}`);
@@ -51,7 +65,7 @@ export const googleTasksService = {
 
             const data = await response.json();
             return data.items || [];
-        } catch (error) {
+        } catch (error: any) {
             debug.error('Error fetching Google Task lists:', error);
             throw error;
         }
@@ -69,6 +83,8 @@ export const googleTasksService = {
 
             // showHidden=true to get completed tasks as well for status sync
             const response = await fetch(`${GOOGLE_TASKS_API_BASE}/lists/${taskListId}/tasks?showHidden=true&showDeleted=true&updatedMin=${updatedMin}`, {
+                method: 'GET',
+                referrerPolicy: 'no-referrer', // [Mobile Fix]
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
@@ -136,6 +152,7 @@ export const googleTasksService = {
                 `${GOOGLE_TASKS_API_BASE}/lists/${taskListId}/tasks/${taskId}`,
                 {
                     method: 'PATCH',
+                    referrerPolicy: 'no-referrer', // [Mobile Fix]
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
@@ -151,8 +168,11 @@ export const googleTasksService = {
             }
 
             return await response.json();
-        } catch (error) {
+        } catch (error: any) {
             debug.error('Error updating Google Task:', error);
+            if (window.location.protocol.includes('http') === false || window.location.hostname === 'localhost') {
+                // alert(`Update Sync Error: ${error.message}`); // 너무 조잡할 수 있어 일단 주석, 필요시 해제
+            }
             return null;
         }
     },
@@ -189,6 +209,7 @@ export const googleTasksService = {
                 `${GOOGLE_TASKS_API_BASE}/lists/${taskListId}/tasks/${taskId}`,
                 {
                     method: 'DELETE',
+                    referrerPolicy: 'no-referrer', // [Mobile Fix]
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
@@ -235,6 +256,7 @@ export const googleTasksService = {
                 `${GOOGLE_TASKS_API_BASE}/lists/${taskListId}/tasks`,
                 {
                     method: 'POST',
+                    referrerPolicy: 'no-referrer', // [Mobile Fix]
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
@@ -276,6 +298,7 @@ export const googleTasksService = {
                 `${GOOGLE_TASKS_API_BASE}/lists/${taskListId}/tasks/${taskId}/move?${params.toString()}`,
                 {
                     method: 'POST', // move uses POST
+                    referrerPolicy: 'no-referrer', // [Mobile Fix]
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'

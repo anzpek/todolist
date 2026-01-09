@@ -17,6 +17,7 @@ import {
   where,
   limit,
   deleteField,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { Todo, SubTask } from '../types/todo';
@@ -867,7 +868,6 @@ export const firestoreService = {
 
   subscribeProjectTemplates: (uid: string, callback: (templates: any[]) => void) => {
     try {
-      debug.log('프로젝트 템플릿 구독 시작', { uid });
       const templatesRef = collection(db, `users/${uid}/projectTemplates`);
       const q = query(templatesRef, orderBy('createdAt', 'desc'));
 
@@ -882,16 +882,15 @@ export const firestoreService = {
           };
         });
 
-        debug.log('프로젝트 템플릿 구독 업데이트', { count: templates.length });
         callback(templates);
       }, (error) => {
-        debug.error('프로젝트 템플릿 구독 오류:', error);
+        console.error('프로젝트 템플릿 구독 오류:', error);
         callback([]);
       });
 
       return unsubscribe;
     } catch (error) {
-      debug.error('프로젝트 템플릿 구독 초기화 실패:', error);
+      console.error('프로젝트 템플릿 구독 초기화 실패:', error);
       callback([]);
       return () => { };
     }
@@ -2040,6 +2039,57 @@ export const firestoreService = {
       console.error('❌ 알림 읽음 처리 실패:', error);
       throw error;
     }
+  },
+
+  // 휴가 관리 접근 권한 관리
+  getVacationAccessList: async (): Promise<string[]> => {
+    try {
+      const docRef = doc(db, 'settings', 'vacation_access');
+      const snapshot = await getDoc(docRef);
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        return data.allowedEmails || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching vacation access list:', error);
+      return [];
+    }
+  },
+
+  addVacationAccessEmail: async (email: string): Promise<void> => {
+    try {
+      const docRef = doc(db, 'settings', 'vacation_access');
+      await setDoc(docRef, {
+        allowedEmails: arrayUnion(email)
+      }, { merge: true });
+    } catch (error) {
+      console.error('Error adding vacation access email:', error);
+      throw error;
+    }
+  },
+
+  removeVacationAccessEmail: async (email: string): Promise<void> => {
+    try {
+      const docRef = doc(db, 'settings', 'vacation_access');
+      await updateDoc(docRef, {
+        allowedEmails: arrayRemove(email)
+      });
+    } catch (error) {
+      console.error('Error removing vacation access email:', error);
+      throw error;
+    }
+  },
+
+  subscribeToVacationAccessList: (callback: (emails: string[]) => void) => {
+    const docRef = doc(db, 'settings', 'vacation_access');
+    return onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.data().allowedEmails || []);
+      } else {
+        callback([]);
+      }
+    });
   },
 
   // 알림 삭제

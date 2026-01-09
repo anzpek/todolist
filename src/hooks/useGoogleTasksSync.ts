@@ -5,9 +5,10 @@ import { googleTasksService } from '../services/googleTasksService';
 import { firestoreService } from '../services/firestoreService';
 import { generateId } from '../utils/helpers';
 import type { Todo, SubTask } from '../types/todo';
+import { syncRegistry } from '../utils/syncRegistry';
 
 export const useGoogleTasksSync = () => {
-    const { getGoogleAccessToken, currentUser, loading: authLoading } = useAuth();
+    const { getGoogleAccessToken, currentUser, loading: authLoading, disconnectGoogleTasks } = useAuth();
     const { addTodo, updateTodo, deleteTodo, todos, loading: todosLoading } = useTodos();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export const useGoogleTasksSync = () => {
 
         // Prevent concurrent syncs
         if (isSyncing.current) {
-            console.log('🔄 이미 동기화가 진행 중입니다.');
+            // console.log('🔄 이미 동기화가 진행 중입니다.');
             return false;
         }
         isSyncing.current = true;
@@ -51,7 +52,8 @@ export const useGoogleTasksSync = () => {
                 return false;
             }
 
-            console.log('📡 구글 태스크 목록 가져오는 중...');
+            // console.log('📡 구글 태스크 목록 가져오는 중...');
+            // Logging silenced verified
             const listsWithTasks = await googleTasksService.getAllTasks(token);
             let importedCount = 0;
             let updatedCount = 0;
@@ -137,6 +139,12 @@ export const useGoogleTasksSync = () => {
                         continue;
                     }
 
+                    // [Sync Registry] 방금 로컬에서 수정된 태스크면 업데이트 건너뜀 (Revert 방지)
+                    if (existingTodo.googleTaskId && syncRegistry.has(existingTodo.googleTaskId)) {
+                        // console.log(`🛡️ 방금 수정된 태스크 Revert 방지 (Registry): [${existingTodo.title}]`);
+                        continue;
+                    }
+
                     // 변경 사항 감지
                     const isTitleChanged = task.title && task.title !== existingTodo.title;
                     const isNotesChanged = task.notes !== undefined && task.notes !== existingTodo.description;
@@ -206,6 +214,19 @@ export const useGoogleTasksSync = () => {
 
                 // 2-2. 새로운 할 일 추가
                 if (task.deleted || importedInThisSession.has(task.id)) {
+                    continue;
+                }
+
+                // [Mobile Fix] SubTask가 Root Task로 잘못 Import 되는 것 방지
+                if (task.parent) {
+                    console.log(`🛡️ Parent가 있는 태스크는 Root Todo로 생성하지 않음: [${task.title}]`);
+                    continue;
+                }
+
+                // [Sync Registry] 방금 로컬에서 생성된 태스크면 Import 건너뜀 (중복 방지)
+                if (syncRegistry.has(task.id)) {
+                    console.log(`🛡️ 방금 생성된 태스크 Import 건너뜀 (Registry): [${task.title}]`);
+                    importedInThisSession.add(task.id);
                     continue;
                 }
 
@@ -291,18 +312,40 @@ export const useGoogleTasksSync = () => {
                 console.log(`✅ Google Tasks 동기화: 가져오기 ${importedCount}, 업데이트 ${updatedCount}, 삭제 ${deletedCount}`);
             }
 
-            // Update user settings to mark Google Tasks as linked
+            // Update user settings to mark Google Tasks as linked (only if not already linked)
             if (currentUserRef.current) {
                 try {
-                    await firestoreService.updateGoogleTasksSettings(currentUserRef.current.uid, { linked: true });
+                    const currentSettings = await firestoreService.getUserSettings(currentUserRef.current.uid);
+                    if (!currentSettings?.googleTasks?.linked) {
+                        await firestoreService.updateGoogleTasksSettings(currentUserRef.current.uid, { linked: true });
+                    }
                 } catch (e) {
-                    console.error('Failed to update linked status', e);
+                    // Ignore quota errors or read errors here to prevent crash
+                    console.warn('Failed to update linked status (likely quota)', e);
                 }
             }
             return true;
 
         } catch (error: any) {
             console.error('Google Tasks Sync failed', error);
+
+            // Handle Insufficient Scope (403) by triggering re-auth
+            if (error.message === 'INSUFFICIENT_SCOPE') {
+                if (!options?.silent) {
+                    // Interactive sync failed with scope error
+                    // DO NOT try to re-auth here automatically because it's async and popup will be blocked.
+                    // Instead, disconnect and let user click the button again.
+                    console.error('INSUFFICIENT_SCOPE during interactive sync. Disconnecting to force re-login.');
+                    setMessage('권한 갱신 필요 - 다시 연결해주세요');
+                    disconnectGoogleTasks();
+                } else {
+                    // Silent sync failed with scope error -> Disconnect to stop loop and show UI state
+                    console.log('Silent sync failed with INSUFFICIENT_SCOPE. Disconnecting.');
+                    disconnectGoogleTasks();
+                }
+                return false;
+            }
+
             if (!options?.silent) {
                 const errorMessage = error.message || 'Unknown error';
                 if (errorMessage.includes('popup')) {
@@ -314,12 +357,19 @@ export const useGoogleTasksSync = () => {
                 }
                 setTimeout(() => setMessage(null), 5000);
             }
+
+            // If it's a token/auth error that wasn't caught by INSUFFICIENT_SCOPE above (e.g. 401)
+            // consider disconnecting to be safe, but 403 is the main one.
+            if (error.code === 401 || error.message.includes('401')) {
+                disconnectGoogleTasks();
+            }
+
             return false;
         } finally {
             setLoading(false);
             isSyncing.current = false;
         }
-    }, [getGoogleAccessToken, addTodo, updateTodo, deleteTodo, todosLoading]); // Add updateTodo, deleteTodo dep
+    }, [getGoogleAccessToken, addTodo, updateTodo, deleteTodo, todosLoading, disconnectGoogleTasks]); // Add updateTodo, deleteTodo dep
 
     return {
         syncGoogleTasks,
