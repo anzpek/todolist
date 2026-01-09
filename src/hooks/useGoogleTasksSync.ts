@@ -340,8 +340,8 @@ export const useGoogleTasksSync = () => {
                     disconnectGoogleTasks();
                 } else {
                     // Silent sync failed with scope error -> Disconnect to stop loop and show UI state
-                    console.log('Silent sync failed with INSUFFICIENT_SCOPE. Disconnecting.');
-                    disconnectGoogleTasks();
+                    console.log('Silent sync failed with INSUFFICIENT_SCOPE. Pausing without disconnect.');
+                    // disconnectGoogleTasks(); // Removed to maintain "Connected" state
                 }
                 return false;
             }
