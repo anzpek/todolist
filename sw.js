@@ -1,14 +1,16 @@
 // 서비스 워커 - TodoList 오프라인 지원
-const CACHE_NAME = 'todolist-v1'
+const CACHE_NAME = 'todolist-v4-force-update' // Version bump again
 const urlsToCache = [
-  '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/manifest.json'
+  '/todolist/',
+  '/todolist/index.html',
+  '/todolist/manifest.json'
 ]
 
 // 설치 이벤트
 self.addEventListener('install', (event) => {
+  // 대기 중인 서비스 워커를 강제로 활성화 (즉시 교체)
+  self.skipWaiting()
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -28,6 +30,9 @@ self.addEventListener('activate', (event) => {
           }
         })
       )
+    }).then(() => {
+      // 활성화 즉시 클라이언트 제어권 가져오기 (새로고침 없이 반영)
+      return self.clients.claim()
     })
   )
 })
@@ -41,7 +46,7 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response
         }
-        
+
         // 없으면 네트워크에서 가져오기
         return fetch(event.request)
       })
