@@ -98,14 +98,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const cachedToken = localStorage.getItem('google_access_token')
     const cachedExpiration = localStorage.getItem('google_token_expiration')
     if (cachedToken && cachedExpiration) {
-      if (Date.now() < parseInt(cachedExpiration, 10)) {
-        setIsGoogleTasksConnected(true)
+      // 만료 여부와 상관없이 연결 상태를 유지 (사용자가 의도한 연결)
+      // 실제 유효성 검사는 getGoogleAccessToken에서 수행하며, 필요시 갱신함
+      setIsGoogleTasksConnected(true)
+
+      const expTime = parseInt(cachedExpiration, 10)
+      if (Date.now() < expTime) {
         setGoogleAccessToken(cachedToken)
-        setTokenExpiration(parseInt(cachedExpiration, 10))
-      } else {
-        localStorage.removeItem('google_access_token')
-        localStorage.removeItem('google_token_expiration')
+        setTokenExpiration(expTime)
       }
+      // 만료되었어도 isGoogleTasksConnected는 true로 유지 -> "연결됨" 표시
     }
   }, [])
 
@@ -273,10 +275,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsGoogleTasksConnected(true);
         return cachedToken;
       } else {
-        console.log('⚠️ Cached token expired. Clearing...');
-        localStorage.removeItem('google_access_token');
-        localStorage.removeItem('google_token_expiration');
-        setIsGoogleTasksConnected(false);
+        // 만료되었지만, 연결 상태를 해제하지 않음 (자동 재연결 기회 제공)
+        console.log('⚠️ Cached token expired. Access renewal required.');
+        // 메모리만 정리하고, preference는 유지
+        setGoogleAccessToken(null);
+        setTokenExpiration(null);
+        // setIsGoogleTasksConnected(false); // <--- DO NOT DISCONNECT
       }
     }
 
