@@ -39,6 +39,7 @@ interface AuthContextType {
   getGoogleAccessToken: (options?: { silent?: boolean }) => Promise<string | null>
   isGoogleTasksConnected: boolean
   disconnectGoogleTasks: () => void
+  tokenExpiration: number | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -376,7 +377,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signInAsGuest,
     getGoogleAccessToken,
     isGoogleTasksConnected,
-    disconnectGoogleTasks
+    disconnectGoogleTasks,
+    tokenExpiration
   }
 
   return (
