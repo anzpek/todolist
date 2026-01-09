@@ -1,5 +1,5 @@
 // 서비스 워커 - TodoList 오프라인 지원
-const CACHE_NAME = 'todolist-v3-force-update' // Version bump again
+const CACHE_NAME = 'todolist-v4-force-update' // Version bump again
 const urlsToCache = [
   '/todolist/',
   '/todolist/index.html',
