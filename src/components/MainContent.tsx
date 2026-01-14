@@ -501,31 +501,23 @@ const MainContent = ({ currentView, isSidebarOpen, onToggleSidebar, searchInputR
               isMobile={isMobile}
             />
           ) : currentView === 'month' ? (
-            <div className="space-y-8">
-              <MonthlyCalendarView
-                currentDate={selectedDate}
-                onDateChange={handleDateChange}
-                searchTerm={searchQuery}
-                priorityFilter={filterPriority}
-                typeFilter={typeFilter}
-                projectFilter={projectFilter}
-                tagFilter={filterTags}
-                completionDateFilter={completionDateFilter}
-                sharingFilter={sharingFilter}
-                sharingFilterState={sharingFilterState}
-                onAddTodo={(date) => {
-                  setInitialDateForAdd(date)
-                  setIsAddModalOpen(true)
-                }}
-                isMobile={isMobile}
-              />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <TodoList currentView="month" onEdit={handleEditTodo} sharingFilter={sharingFilter} sharingFilterState={sharingFilterState} />
-                <div className="hidden lg:block">
-                  <ProjectAnalysis />
-                </div>
-              </div>
-            </div>
+            <MonthlyCalendarView
+              currentDate={selectedDate}
+              onDateChange={handleDateChange}
+              searchTerm={searchQuery}
+              priorityFilter={filterPriority}
+              typeFilter={typeFilter}
+              projectFilter={projectFilter}
+              tagFilter={filterTags}
+              completionDateFilter={completionDateFilter}
+              sharingFilter={sharingFilter}
+              sharingFilterState={sharingFilterState}
+              onAddTodo={(date) => {
+                setInitialDateForAdd(date)
+                setIsAddModalOpen(true)
+              }}
+              isMobile={isMobile}
+            />
           ) : currentView === 'board' ? (
             <BoardView
               searchTerm={searchQuery}

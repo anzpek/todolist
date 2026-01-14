@@ -67,39 +67,42 @@ const MonthlyCalendarView = ({
   const { showVacationsInTodos, getVacationsForDate, employees } = useVacation()
   const { getCustomHoliday } = useCustomHolidays()
 
-  const monthStart = startOfMonth(currentDate)
-  const monthEnd = endOfMonth(monthStart)
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 })
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
-
+  // 🔧 Fix: Memoize date calculations to prevent infinite re-renders
   const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentDate)
+    const monthEnd = endOfMonth(monthStart)
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 })
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd })
-  }, [calendarStart, calendarEnd])
+  }, [currentDate.getMonth(), currentDate.getFullYear()])
+
+  // 🔧 Fix: Stabilize holiday info loading with proper memoization key
+  const calendarKey = useMemo(() =>
+    `${currentDate.getMonth()}-${currentDate.getFullYear()}`,
+    [currentDate.getMonth(), currentDate.getFullYear()]
+  )
 
   // 공휴일 정보 로드
   useEffect(() => {
-    const loadHolidayInfos = () => {
-      const newHolidayInfos: Record<string, HolidayInfo> = {}
-      calendarDays.forEach(day => {
-        const holidayInfo = getHolidayInfoSync(day)
-        const customHoliday = getCustomHoliday(day)
+    const newHolidayInfos: Record<string, HolidayInfo> = {}
+    calendarDays.forEach(day => {
+      const holidayInfo = getHolidayInfoSync(day)
+      const customHoliday = getCustomHoliday(day)
+      const dateKey = format(day, 'yyyy-MM-dd')
 
-        if (customHoliday) {
-          newHolidayInfos[day.toISOString().split('T')[0]] = {
-            date: day.toISOString().split('T')[0],
-            name: customHoliday.name,
-            isHoliday: true,
-            type: 'custom'
-          }
-        } else if (holidayInfo) {
-          newHolidayInfos[day.toISOString().split('T')[0]] = holidayInfo
+      if (customHoliday) {
+        newHolidayInfos[dateKey] = {
+          date: dateKey,
+          name: customHoliday.name,
+          isHoliday: true,
+          type: 'custom'
         }
-      })
-      setHolidayInfos(newHolidayInfos)
-    }
-
-    loadHolidayInfos()
-  }, [calendarDays])
+      } else if (holidayInfo) {
+        newHolidayInfos[dateKey] = holidayInfo
+      }
+    })
+    setHolidayInfos(newHolidayInfos)
+  }, [calendarKey, getCustomHoliday]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredTodos = useMemo(() => {
     return getFilteredTodos({
@@ -282,7 +285,7 @@ const MonthlyCalendarView = ({
         <div className="grid grid-cols-7">
           {calendarDays.map((day, index) => {
             const dayTodos = getTodosForDate(day)
-            const dateStr = day.toISOString().split('T')[0]
+            const dateStr = format(day, 'yyyy-MM-dd')
             const holidayInfo = holidayInfos[dateStr]
             const isWeekendDay = isWeekend(day)
             const isTodayDay = isToday(day)
@@ -399,9 +402,9 @@ const MonthlyCalendarView = ({
 
       {/* 날짜 클릭 모달 */}
       {isDateModalOpen && selectedDate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsDateModalOpen(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[999]" onClick={() => setIsDateModalOpen(false)}>
           <div
-            className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${isMobile ? 'w-[90vw] max-h-[80vh]' : 'w-[500px] max-h-[600px]'} overflow-hidden`}
+            className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${isMobile ? 'w-[90vw] max-h-[80vh]' : 'w-[500px] max-h-[600px]'} overflow-hidden flex flex-col`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 모달 헤더 */}

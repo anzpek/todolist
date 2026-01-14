@@ -693,13 +693,13 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[999] overflow-y-auto">
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
       <div className="flex min-h-full items-center justify-center p-4">
         <form
           onSubmit={handleSubmit}
-          className={`relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 transform transition-all ${isVisualTheme
+          className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl p-6 transform transition-all ${isVisualTheme
             ? 'glass-card backdrop-blur-xl border border-white/20'
             : 'bg-white dark:bg-gray-800'
             }`}

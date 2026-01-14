@@ -290,7 +290,7 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-200/30 dark:border-gray-700/30">
             <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-              v1.2.1 • Premium
+              v1.3.8 • Premium
             </p>
             {onToggleForceMobile && (
               <button

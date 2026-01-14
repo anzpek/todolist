@@ -11,10 +11,10 @@ const config: CapacitorConfig = {
       providers: ["google.com"]
     }
   },
-  // server: {
-  //   url: 'https://anzpek.github.io/todolist/',
-  //   cleartext: true
-  // },
+  server: {
+    url: 'https://anzpek.github.io/todolist/',
+    cleartext: true
+  },
   android: {
     allowMixedContent: true
   }
