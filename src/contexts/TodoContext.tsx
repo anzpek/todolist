@@ -21,6 +21,8 @@ interface TodoState {
   error: string | null
   syncing: boolean
   fetchedMonths: Set<string> // 캐시된 월 추적 (YYYY-MM)
+  historicalTodos: Todo[] // 연도별 조회용 별도 상태
+  historicalYear: number | null // 현재 로드된 연도
 }
 
 type TodoAction =
@@ -29,6 +31,7 @@ type TodoAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_TODOS'; payload: Todo[] }
   | { type: 'MERGE_TODOS'; payload: Todo[] } // 새로운 액션: 기존 데이터 유지하며 병합
+  | { type: 'SET_HISTORICAL_TODOS'; payload: { year: number, todos: Todo[] } } // 연도별 히스토리 설정
   | { type: 'MARK_MONTH_FETCHED'; payload: string }
   | { type: 'ADD_TODO'; payload: Todo }
   | { type: 'UPDATE_TODO'; payload: { id: string; updates: Partial<Todo> } }
@@ -123,6 +126,7 @@ interface TodoContextType extends TodoState {
 
   // Optimization
   loadHistoricalTodos: (year: number, month: number) => Promise<void>
+  loadYearlyTodos: (year: number) => Promise<void>
 }
 
 const TodoContext = createContext<TodoContextType | undefined>(undefined)
@@ -135,7 +139,9 @@ const initialState: TodoState = {
   loading: false,
   error: null,
   syncing: false,
-  fetchedMonths: new Set()
+  fetchedMonths: new Set(),
+  historicalTodos: [],
+  historicalYear: null
 }
 
 function todoReducer(state: TodoState, action: TodoAction): TodoState {
@@ -207,6 +213,13 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
 
     case 'MARK_MONTH_FETCHED':
       return { ...state, fetchedMonths: new Set(state.fetchedMonths).add(action.payload) };
+
+    case 'SET_HISTORICAL_TODOS':
+      return {
+        ...state,
+        historicalYear: action.payload.year,
+        historicalTodos: action.payload.todos
+      };
 
     case 'ADD_TODO':
       // 기존 할일과 중복 방지
@@ -932,6 +945,32 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, [currentUser, state.fetchedMonths]);
+
+  // Load Yearly Todos (For History View)
+  const loadYearlyTodos = useCallback(async (year: number) => {
+    if (!currentUser) return;
+
+    // 이미 로드된 연도라면 스킵 (하지만 새로고침 버튼 등 필요할 수 있음 -> 일단은 단순 캐싱)
+    if (state.historicalYear === year && state.historicalTodos.length > 0) {
+      console.log(`🧠 Cache Hit: Yearly todos for ${year} already loaded.`);
+      return;
+    }
+
+    console.log(`🌐 Fetching Yearly todos for ${year}...`);
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    try {
+      const yearlyTodos = await firestoreService.getCompletedTodosByYear(currentUser.uid, year);
+
+      console.log(`📥 Loaded ${yearlyTodos.length} yearly todos for ${year}.`);
+      dispatch({ type: 'SET_HISTORICAL_TODOS', payload: { year, todos: yearlyTodos } });
+
+    } catch (error) {
+      console.error('Failed to load yearly todos:', error);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [currentUser, state.historicalYear, state.historicalTodos.length]);
 
   // localStorage에서 데이터 로드 (비로그인 상태용)
 
@@ -2891,7 +2930,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     filterTags,
     setFilterTags,
     allTags,
-    loadHistoricalTodos
+    loadHistoricalTodos,
+    loadYearlyTodos
   }), [
     state,
     addTodo,
@@ -2937,7 +2977,8 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     filterPriority,
     filterTags,
     allTags,
-    loadHistoricalTodos
+    loadHistoricalTodos,
+    loadYearlyTodos
   ])
 
   return (

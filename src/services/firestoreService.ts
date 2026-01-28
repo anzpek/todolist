@@ -779,6 +779,91 @@ export const firestoreService = {
     }
   },
 
+  // 연도별 완료된 할 일 조회
+  getCompletedTodosByYear: async (uid: string, year: number): Promise<Todo[]> => {
+    return withRetry(async () => {
+      try {
+        const todosRef = collection(db, `users/${uid}/todos`);
+
+        // 해당 연도의 시작과 끝
+        const startOfYear = new Date(year, 0, 1, 0, 0, 0, 0);
+        const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+
+        const instancesRef = collection(db, `users/${uid}/recurringInstances`);
+
+        // 1. 일반 할일 쿼리
+        const qTodos = query(
+          todosRef,
+          where('completed', '==', true),
+          where('completedAt', '>=', startOfYear),
+          where('completedAt', '<=', endOfYear)
+        );
+
+        // 2. 반복 할일 인스턴스 쿼리
+        const qInstances = query(
+          instancesRef,
+          where('completed', '==', true),
+          where('completedAt', '>=', startOfYear),
+          where('completedAt', '<=', endOfYear)
+        );
+
+        const [todosSnapshot, instancesSnapshot] = await Promise.all([
+          getDocs(qTodos),
+          getDocs(qInstances)
+        ]);
+
+        const todos = todosSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            id: doc.id,
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date(),
+            dueDate: safeToDate(data.dueDate),
+            startDate: safeToDate(data.startDate),
+            completedAt: safeToDate(data.completedAt),
+            subTasks: data.subTasks ? data.subTasks.map((subTask: any) => ({
+              ...subTask,
+              createdAt: safeToDate(subTask.createdAt) || new Date(),
+              updatedAt: safeToDate(subTask.updatedAt) || new Date(),
+              completedAt: subTask.completedAt ? safeToDate(subTask.completedAt) : null
+            })) : [],
+            myPermission: 'admin'
+          } as Todo;
+        });
+
+        const instances = instancesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            id: doc.id,
+            title: data.title || '반복 할일',
+            completed: true,
+            completedAt: safeToDate(data.completedAt),
+            _isRecurringInstance: true,
+            _templateId: data.templateId,
+            createdAt: safeToDate(data.createdAt) || new Date(),
+            updatedAt: safeToDate(data.updatedAt) || new Date(),
+            priority: 'medium',
+            type: 'simple',
+            recurrence: 'none',
+          } as unknown as Todo;
+        });
+
+        const allCompleted = [...todos, ...instances].sort((a, b) => {
+          return (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0);
+        });
+
+        debug.log(`Firestore getCompletedTodosByYear(${year}) 성공: ${allCompleted.length}개 (일반: ${todos.length}, 반복: ${instances.length})`);
+        return allCompleted;
+
+      } catch (error) {
+        debug.error(`Firestore getCompletedTodosByYear(${year}) 실패:`, error);
+        throw handleFirestoreError(error, 'getCompletedTodosByYear');
+      }
+    });
+  },
+
   // 서브태스크 관련
   addSubTask: async (subTask: SubTask, uid: string, todoId: string): Promise<void> => {
     const todoRef = doc(db, `users/${uid}/todos`, todoId)
