@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Calendar, Plus, Settings, Pause, Play, Trash2, Edit, Minus, X, Flag, Repeat, AlertCircle, Check, Briefcase, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTodos } from '../contexts/TodoContext'
 import { useTheme } from '../contexts/ThemeContext' // Added
@@ -8,7 +9,7 @@ import { getWeekLabel } from '../utils/helpers'
 import { useTranslation } from 'react-i18next'
 
 const RecurringManagement = () => {
-  const { recurringTemplates, recurringInstances, updateRecurringTemplate, deleteRecurringTemplate, cleanupDuplicateTemplates } = useTodos()
+  const { recurringTemplates, recurringInstances, updateRecurringTemplate, deleteRecurringTemplate, cleanupDuplicateTemplates, cleanupAllDuplicateInstances } = useTodos()
   const { t } = useTranslation()
   const { currentTheme, isDark } = useTheme() // Added
   const isVisualTheme = !!currentTheme.bg // Added
@@ -57,6 +58,23 @@ const RecurringManagement = () => {
     }
 
     saveGlobalExceptions(newExceptions)
+  }
+
+  // 중복 정리 핸들러
+  const handleCleanup = async () => {
+    if (window.confirm('모든 중복 인스턴스를 정리하시겠습니까? (이 작업은 취소할 수 없습니다)\n\n데이터가 많을 경우 시간이 걸릴 수 있습니다.')) {
+      try {
+        const count = await cleanupAllDuplicateInstances()
+        if (count === 0) {
+          alert('중복된 인스턴스가 발견되지 않았습니다. 이미 깨끗한 상태입니다! ✨')
+        } else {
+          alert(`${count}개의 중복 인스턴스가 정리되었습니다. 앱이 훨씬 가벼워졌을 것입니다! 🚀`)
+        }
+      } catch (e: any) {
+        console.error('정리 실패 상세:', e)
+        alert(`정리 실패: ${e.message || '알 수 없는 오류'}\n\n콘솔 로그를 확인해주세요.`)
+      }
+    }
   }
 
   // 활성 템플릿과 비활성 템플릿 분리
@@ -123,13 +141,23 @@ const RecurringManagement = () => {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('recurring.title')}</h2>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 transform hover:-translate-y-0.5 font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          {t('recurring.addTemplate')}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleCleanup}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl hover:shadow-lg hover:shadow-red-500/30 transition-all duration-300 transform hover:-translate-y-0.5 font-medium"
+            title="중복된 반복 할일 정리"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span className="hidden sm:inline">중복 정리</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 transform hover:-translate-y-0.5 font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            {t('recurring.addTemplate')}
+          </button>
+        </div>
       </div>
 
       {/* 탭 네비게이션 */}
@@ -692,8 +720,8 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[999] overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
       <div className="flex min-h-full items-center justify-center p-4">
@@ -1144,7 +1172,8 @@ const EditRecurringModal = ({ template, onClose, onSave }: EditRecurringModalPro
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

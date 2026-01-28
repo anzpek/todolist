@@ -854,16 +854,39 @@ export const firestoreService = {
   },
 
   deleteRecurringTemplate: async (id: string, uid: string): Promise<void> => {
-    const batch = writeBatch(db)
-    const templateRef = doc(db, `users/${uid}/recurringTemplates`, id)
-    batch.delete(templateRef)
+    console.log('🔥 firestoreService.deleteRecurringTemplate 시작:', { id, uid })
 
+    // 1. 템플릿 삭제
+    const templateRef = doc(db, `users/${uid}/recurringTemplates`, id)
+    await deleteDoc(templateRef) // 템플릿 먼저 즉시 삭제
+    console.log('🔥 템플릿 문서 삭제 완료')
+
+    // 2. 관련 인스턴스 조회
     const instancesRef = collection(db, `users/${uid}/recurringInstances`)
     const q = query(instancesRef, where('templateId', '==', id))
     const snapshot = await getDocs(q)
-    snapshot.forEach(doc => batch.delete(doc.ref))
+    console.log('🔥 삭제할 인스턴스 수:', snapshot.docs.length)
 
-    await batch.commit()
+    // 3. 500개 제한을 피하기 위한 배치 분할 처리 (안전을 위해 400개씩)
+    const BATCH_SIZE = 400
+    const chunks = []
+
+    for (let i = 0; i < snapshot.docs.length; i += BATCH_SIZE) {
+      chunks.push(snapshot.docs.slice(i, i + BATCH_SIZE))
+    }
+
+    console.log(`🔥 총 ${chunks.length}개의 배치로 나누어 삭제 시작`)
+
+    let deletedCount = 0
+    for (const [index, chunk] of chunks.entries()) {
+      const batch = writeBatch(db)
+      chunk.forEach(doc => batch.delete(doc.ref))
+      await batch.commit()
+      deletedCount += chunk.length
+      console.log(`🔥 배치 ${index + 1}/${chunks.length} 완료 (${deletedCount}/${snapshot.docs.length})`)
+    }
+
+    console.log('🔥✅ 모든 인스턴스 삭제 완료!')
   },
 
   subscribeProjectTemplates: (uid: string, callback: (templates: any[]) => void) => {
@@ -1026,28 +1049,42 @@ export const firestoreService = {
   },
 
   async _isExceptionDate(date: Date, template: SimpleRecurringTemplate, uid: string, isRecursiveCall: boolean): Promise<boolean> {
-    if (isRecursiveCall || !template.exceptions) return false;
+    if (isRecursiveCall || !template.exceptions) {
+      return false;
+    }
 
     for (const exception of template.exceptions) {
       switch (exception.type) {
         case 'date':
-          if ((exception.values as number[]).includes(date.getDate())) return true;
+          if ((exception.values as number[]).includes(date.getDate())) {
+            return true;
+          }
           break;
         case 'weekday':
-          if ((exception.values as number[]).includes(date.getDay())) return true;
+          if ((exception.values as number[]).includes(date.getDay())) {
+            return true;
+          }
           break;
         case 'week':
           const weekOfMonth = _calculateWeekOfMonth(date);
-          if ((exception.values as number[]).includes(weekOfMonth)) return true;
-          if ((exception.values as number[]).includes(-1) && _isLastOccurrenceOfWeekdayInMonth(date)) return true;
+          if ((exception.values as number[]).includes(weekOfMonth)) {
+            return true;
+          }
+          if ((exception.values as number[]).includes(-1) && _isLastOccurrenceOfWeekdayInMonth(date)) {
+            return true;
+          }
           break;
         case 'month':
-          if ((exception.values as number[]).includes(date.getMonth() + 1)) return true;
+          if ((exception.values as number[]).includes(date.getMonth() + 1)) {
+            return true;
+          }
           break;
         case 'conflict':
           const conflictExceptions = exception.values as ConflictException[];
           for (const conflict of conflictExceptions) {
-            if (await this._hasConflictingInstance(date, template.id, conflict, uid)) {
+            const hasConflict = await this._hasConflictingInstance(date, template.id, conflict, uid);
+            if (hasConflict) {
+              console.log(`[Conflict] ${date.toDateString()} on ${template.title} conflicts with ${conflict.targetTemplateTitle}`);
               return true;
             }
           }
@@ -2079,6 +2116,75 @@ export const firestoreService = {
       console.error('Error removing vacation access email:', error);
       throw error;
     }
+  },
+
+  // 중복 인스턴스 일괄 정리
+  cleanupDuplicateInstances: async (uid: string): Promise<number> => {
+    console.log('🧹 중복 인스턴스 정리 시작...')
+    const instancesRef = collection(db, `users/${uid}/recurringInstances`)
+    const snapshot = await getDocs(instancesRef)
+
+    // 그룹화: templateId_date -> [doc1, doc2, ...]
+    const groups = new Map<string, any[]>()
+    snapshot.docs.forEach(doc => {
+      const data = doc.data()
+      if (!data.date || !data.templateId) return
+
+      // 날짜를 YYYY-MM-DD 문자열로 변환 (Timestamp 처리)
+      const dateVal = data.date?.toDate ? data.date.toDate() : new Date(data.date)
+      const dateStr = `${dateVal.getFullYear()}-${dateVal.getMonth()}-${dateVal.getDate()}`
+      const key = `${data.templateId}_${dateStr}`
+
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(doc)
+    })
+
+    const deleteTargets: any[] = []
+    let duplicateGroupCount = 0
+
+    // 각 그룹별로 중복 확인
+    groups.forEach((docs, key) => {
+      if (docs.length > 1) {
+        duplicateGroupCount++
+        // 생성일(createdAt) 기준 정렬 (최신순)
+        docs.sort((a, b) => {
+          const timeA = a.data().createdAt?.toMillis ? a.data().createdAt.toMillis() : 0
+          const timeB = b.data().createdAt?.toMillis ? b.data().createdAt.toMillis() : 0
+          return timeB - timeA // 내림차순 (최신이 먼저)
+        })
+
+        // 첫 번째(최신)만 남기고 나머지 삭제 대상에 추가
+        for (let i = 1; i < docs.length; i++) {
+          deleteTargets.push(docs[i])
+        }
+      }
+    })
+
+    console.log(`🧹 중복 정리 분석 결과:`)
+    console.log(`- 전체 인스턴스: ${snapshot.size}개`)
+    console.log(`- 중복된 날짜 그룹: ${duplicateGroupCount}개`)
+    console.log(`- 삭제 대상(중복본): ${deleteTargets.length}개`)
+
+    if (deleteTargets.length === 0) return 0
+
+    // 배치 삭제 실행 (안정성을 위해 100개씩)
+    const BATCH_SIZE = 100
+    const chunks = []
+    for (let i = 0; i < deleteTargets.length; i += BATCH_SIZE) {
+      chunks.push(deleteTargets.slice(i, i + BATCH_SIZE))
+    }
+
+    let deletedCount = 0
+    for (const chunk of chunks) {
+      const batch = writeBatch(db)
+      chunk.forEach(doc => batch.delete(doc.ref))
+      await batch.commit()
+      deletedCount += chunk.length
+      console.log(`🧹 삭제 진행 중: ${deletedCount}/${deleteTargets.length}`)
+    }
+
+    console.log('🧹✨ 중복 인스턴스 정리 완료!')
+    return deletedCount
   },
 
   subscribeToVacationAccessList: (callback: (emails: string[]) => void) => {

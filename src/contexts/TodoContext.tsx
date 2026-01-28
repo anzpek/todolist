@@ -89,6 +89,7 @@ interface TodoContextType extends TodoState {
   generateRecurringInstances: () => void
   getRecurringTodos: () => Todo[]
   cleanupDuplicateTemplates: () => void
+  cleanupAllDuplicateInstances: () => Promise<number>
   forceRefresh: () => Promise<void>
   manualRefresh: () => Promise<void>
   initializeOrderValues: () => void
@@ -828,57 +829,16 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         )
 
         // 4. Firestore 반복 인스턴스 실시간 구독
-        console.log('🚀 반복 인스턴스 실시간 구독 설정 시작...')
-
-        // 먼저 직접 데이터 조회로 확인
-        console.log('🔍 실시간 구독 전에 직접 데이터 조회로 확인...')
-        console.log('👤 현재 사용자 정보:')
-        console.log('  UID:', currentUser.uid)
-        console.log('  Email:', currentUser.email)
-        console.log('  DisplayName:', currentUser.displayName)
-        console.log('📍 Firestore 경로: users/' + currentUser.uid + '/recurringInstances')
-
-        const directInstances = await firestoreService.getRecurringInstances(currentUser.uid)
-        const directWeeklyReport = directInstances.find(i => i.id === 'PUH4xT3lVY5aK2vuQyUe_2025-08-21')
-        if (directWeeklyReport) {
-          console.log('🎯🎯🎯 직접 조회한 주간업무보고 데이터:')
-          console.log('  completed:', directWeeklyReport.completed, typeof directWeeklyReport.completed)
-          console.log('  completedAt:', directWeeklyReport.completedAt)
-          console.log('  전체 객체:', JSON.stringify(directWeeklyReport, null, 2))
-          console.log('📍 해당 문서의 전체 경로: users/' + currentUser.uid + '/recurringInstances/PUH4xT3lVY5aK2vuQyUe_2025-08-21')
-        }
-
-        // 🔥 월간업무보고 직접 조회 추가
-
-
+        // 🔧 최적화: 실시간 구독만 사용 (중복 조회 제거로 Firebase 읽기 최소화)
         const instanceUnsubscribe = firestoreService.subscribeRecurringInstances(
           currentUser.uid,
           (instances) => {
-
-
-            // 🔍 월간업무보고 완료 상태 확인 (간소화)
-
-
             dispatch({ type: 'SET_RECURRING_INSTANCES', payload: instances })
-
           }
         )
 
         if (instanceUnsubscribe) {
-
           instanceUnsubscribeRef.current = instanceUnsubscribe
-
-          // 🔧 간소화된 Firebase 강제 동기화
-          setTimeout(async () => {
-            try {
-              const freshInstances = await firestoreService.getRecurringInstances(currentUser.uid)
-              // 강제 동기화 (Firebase 데이터를 최종 진실로 사용)
-              dispatch({ type: 'SET_RECURRING_INSTANCES', payload: freshInstances })
-
-            } catch (error) {
-              console.error('❌ Firebase 강제 동기화 실패:', error)
-            }
-          }, 3000) // 3초 후 실행
         } else {
           console.error('❌ 반복 인스턴스 실시간 구독 설정 실패')
         }
@@ -902,101 +862,37 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
   }, [currentUser, authLoading])
 
   // 반복 템플릿이 변경될 때마다 인스턴스 재생성
+  // 🔧 최적화: Firebase 사용자는 실시간 구독(subscribeRecurringInstances)으로 이미 동기화됨
+  // 템플릿 추가/수정/삭제는 firestoreService에서 regenerateRecurringInstances를 개별 호출
   useEffect(() => {
     if (state.recurringTemplates.length === 0) return
 
+    // 비로그인 사용자만 로컬에서 인스턴스 생성
+    if (!currentUser) {
+      const generateLocalInstances = () => {
+        const allInstances: SimpleRecurringInstance[] = []
 
-
-    const generateRecurringInstances = async () => {
-      try {
-        // 비로그인 사용자: 로컬 생성
-        if (!currentUser) {
-          const allInstances: SimpleRecurringInstance[] = []
-
-          for (const template of state.recurringTemplates) {
-            try {
-
-              const instances = simpleRecurringSystem.generateInstances(template, customHolidays)
-              allInstances.push(...instances)
-
-            } catch (error) {
-              console.error(`❌ 템플릿 ${template.title} 인스턴스 생성 실패:`, error)
-            }
-          }
-
-
-          dispatch({ type: 'SET_RECURRING_INSTANCES', payload: allInstances })
-          return
-        }
-
-        // Firebase 사용자: 각 템플릿별로 재생성
         for (const template of state.recurringTemplates) {
           try {
-
-            await firestoreService.regenerateRecurringInstances(template.id, currentUser.uid)
+            const instances = simpleRecurringSystem.generateInstances(template, customHolidays)
+            allInstances.push(...instances)
           } catch (error) {
-            console.error(`❌ Firebase 템플릿 ${template.title} 재생성 실패:`, error)
+            console.error(`❌ 템플릿 ${template.title} 인스턴스 생성 실패:`, error)
           }
         }
 
-
-      } catch (error) {
-        console.error('❌ 반복 인스턴스 재생성 실패:', error)
+        dispatch({ type: 'SET_RECURRING_INSTANCES', payload: allInstances })
       }
-    }
 
-    generateRecurringInstances()
+      generateLocalInstances()
+    }
+    // 🔧 Firebase 사용자: 실시간 구독이 인스턴스를 자동으로 동기화하므로 여기서는 아무것도 안 함
+    // 템플릿 추가/수정 시에만 해당 템플릿에 대해 regenerateRecurringInstances 호출됨
   }, [state.recurringTemplates, currentUser, customHolidays])
 
-  // 새로운 반복 인스턴스를 Firebase에 동기화
-  useEffect(() => {
-    if (!currentUser || state.recurringInstances.length === 0) return
-
-    const syncInstancesToFirebase = async () => {
-      try {
-
-
-        // Firebase에서 기존 인스턴스 조회
-        const existingInstances = await firestoreService.getRecurringInstances(currentUser.uid)
-        const existingIds = new Set(existingInstances.map(i => i.id))
-
-
-
-        // 새로운 인스턴스만 Firebase에 추가 (실제로 없는 것들만)
-        const newInstances = state.recurringInstances.filter(instance => {
-          const isNew = !existingIds.has(instance.id)
-          if (isNew) {
-
-          }
-          return isNew
-        })
-
-        if (newInstances.length > 0) {
-
-
-          for (const instance of newInstances) {
-            try {
-              // 인스턴스를 Firebase에 동일한 ID로 저장
-              const firestoreId = await firestoreService.addRecurringInstance({
-                ...instance,
-                // ID 유지를 위해 직접 설정 (일반적으로는 Firestore가 생성하지만)
-                id: instance.id
-              }, currentUser.uid)
-
-            } catch (error) {
-              console.error(`❌ 반복 인스턴스 Firebase 추가 실패: ${instance.id}`, error)
-            }
-          }
-
-
-        }
-      } catch (error) {
-        console.error('❌ 반복 인스턴스 Firebase 동기화 실패:', error)
-      }
-    }
-
-    syncInstancesToFirebase()
-  }, [currentUser, state.recurringInstances.length, state.recurringInstances]) // dependencies mostly handled by internal logic, but best to include needed ones
+  // 🔧 최적화: 무한 루프 방지를 위해 제거됨
+  // 반복 인스턴스 동기화는 regenerateRecurringInstances에서 처리되고,
+  // 실시간 구독(subscribeRecurringInstances)으로 상태가 업데이트됨
 
 
 
@@ -2457,6 +2353,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
 
 
   const deleteRecurringTemplate = async (id: string) => {
+    console.log('🗑️ deleteRecurringTemplate 호출됨:', { id, userId: currentUser?.uid })
     try {
       if (currentUser) {
         // 즉시 UI에서 제거 (낙관적 업데이트)
@@ -2464,8 +2361,9 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         console.log('✅ 즉시 UI에서 반복 템플릿 제거:', id)
 
         // Firestore에서 실제 삭제
+        console.log('🔥 Firestore 삭제 요청 시작:', { templateId: id, uid: currentUser.uid })
         await firestoreService.deleteRecurringTemplate(id, currentUser.uid)
-        console.log('✅ 반복 템플릿 Firestore 삭제 성공:', id)
+        console.log('🔥✅ Firestore에서 반복 템플릿 삭제 완료:', id)
       } else {
         // 비로그인 사용자: 메모리에서 삭제 후 localStorage 저장
         console.log('비로그인 모드: 메모리에서 반복 템플릿 삭제')
@@ -2475,8 +2373,25 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
         console.log('🚫 비로그인 사용자 - localStorage 사용 비활성화, 메모리만 업데이트')
       }
     } catch (error) {
-      console.error('반복 템플릿 삭제 실패:', error)
+      console.error('❌ 반복 템플릿 삭제 실패:', error)
+      console.error('❌ 삭제 실패 상세:', { id, userId: currentUser?.uid, error })
       dispatch({ type: 'SET_ERROR', payload: '반복 할일 삭제 중 오류가 발생했습니다.' })
+    }
+  }
+
+  // 모든 반복 인스턴스 중복 정리 (Zombie 데이터 제거)
+  const cleanupAllDuplicateInstances = async () => {
+    if (!currentUser) return 0
+    try {
+      console.log('🧹 모든 중복 인스턴스 정리 시작...')
+
+      const deletedCount = await firestoreService.cleanupDuplicateInstances(currentUser.uid)
+
+      console.log(`🧹 총 ${deletedCount}개의 중복 인스턴스가 정리되었습니다.`)
+      return deletedCount
+    } catch (error) {
+      console.error('중복 정리 실패:', error)
+      throw error
     }
   }
 
@@ -2954,6 +2869,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     generateRecurringInstances,
     getRecurringTodos,
     cleanupDuplicateTemplates,
+    cleanupAllDuplicateInstances,
     forceRefresh,
     manualRefresh,
     initializeOrderValues,
@@ -3003,6 +2919,7 @@ export const TodoProvider = ({ children }: { children: ReactNode }) => {
     generateRecurringInstances,
     getRecurringTodos,
     cleanupDuplicateTemplates,
+    cleanupAllDuplicateInstances,
     forceRefresh,
     manualRefresh,
     initializeOrderValues,

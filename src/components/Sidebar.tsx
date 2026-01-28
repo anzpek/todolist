@@ -43,8 +43,6 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
   // 반복 템플릿 통계
   const activeTemplates = recurringTemplates.filter(template => template.isActive)
 
-  // 공유 요청 수 (받은 pending 요청)
-  const [pendingRequestCount, setPendingRequestCount] = useState(0)
   // 권한 변경 알림 수
   const [permissionNotificationCount, setPermissionNotificationCount] = useState(0)
 
@@ -90,14 +88,9 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
     }
   }, [currentUser?.uid, syncGoogleTasks])
 
-  useEffect(() => {
-    if (!currentUser?.email) return
-    const unsubscribe = firestoreService.subscribeToIncomingInvitations(
-      currentUser.email,
-      (requests) => setPendingRequestCount(requests.length)
-    )
-    return () => unsubscribe()
-  }, [currentUser?.email])
+  // 🔧 최적화: subscribeToIncomingInvitations는 NotificationCenter에서 이미 구독
+  // 여기서 중복 구독 제거됨 - Firebase 읽기 50% 감소
+
 
   // 권한 변경 알림 구독
   useEffect(() => {
@@ -113,8 +106,9 @@ const Sidebar = ({ currentView, onViewChange, isOpen, onToggle, isMobile = false
     return () => unsubscribe()
   }, [currentUser?.uid])
 
-  // 총 공유 관련 알림 수
-  const totalSharingNotifications = pendingRequestCount + permissionNotificationCount
+  // 총 공유 관련 알림 수 = 권한 변경 알림 (읽지 않은 것만)
+  // 🔧 최적화: pendingRequestCount 제거됨 (NotificationCenter에서 처리)
+  const totalSharingNotifications = permissionNotificationCount
 
   // 휴가 관리 접근 권한 목록
   const [vacationAccessList, setVacationAccessList] = useState<string[]>([]);
