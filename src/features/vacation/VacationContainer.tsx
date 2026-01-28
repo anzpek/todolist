@@ -1,7 +1,7 @@
 import React from 'react';
 import { useVacation } from './contexts/VacationContext';
 import { DepartmentLogin } from './components/DepartmentLogin';
-import { VacationDashboard } from './VacationDashboard';
+import { VacationDashboard } from '../../components/features/recurring/VacationManagement/VacationDashboard';
 
 export const VacationContainer: React.FC = () => {
     const { currentDepartment, loading } = useVacation();

@@ -16,18 +16,18 @@ import './i18n' // I18n initialization
 import { useTranslation } from 'react-i18next'
 import { firestoreService } from './services/firestoreService'
 import type { ViewType } from './types/views'
-import { NotificationController } from './components/NotificationController'
+import { NotificationController } from './components/features/notification/NotificationController'
 
 // 레이지 로딩 컴포넌트들
-const LoginScreen = lazy(() => import('./components/LoginScreen'))
-const Sidebar = lazy(() => import('./components/Sidebar'))
-const PWAInstallPrompt = lazy(() => import('./components/PWAInstallPrompt'))
-import MainContent from './components/MainContent';
-const FloatingActionButton = lazy(() => import('./components/FloatingActionButton'))
-const ErrorBoundary = lazy(() => import('./components/ErrorBoundary'))
-const OfflineNotification = lazy(() => import('./components/OfflineNotification'))
-const BottomNavigation = lazy(() => import('./components/BottomNavigation'))
-import UpdateNotificationModal from './components/UpdateNotificationModal'
+const LoginScreen = lazy(() => import('./components/auth/LoginScreen'))
+const Sidebar = lazy(() => import('./components/layout/Sidebar'))
+const PWAInstallPrompt = lazy(() => import('./components/common/PWAInstallPrompt'))
+import MainContent from './components/layout/MainContent';
+const FloatingActionButton = lazy(() => import('./components/common/FloatingActionButton'))
+const ErrorBoundary = lazy(() => import('./components/common/ErrorBoundary'))
+const OfflineNotification = lazy(() => import('./components/features/notification/OfflineNotification'))
+const BottomNavigation = lazy(() => import('./components/layout/BottomNavigation'))
+import UpdateNotificationModal from './components/features/notification/UpdateNotificationModal'
 import { AppUpdateProvider } from './contexts/AppUpdateContext'
 
 // 로딩 스피너 컴포넌트
